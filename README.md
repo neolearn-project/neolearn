@@ -1,0 +1,1 @@
+NeoLearn server-only full build. Put env in .env.local, run npm install, npm run dev.

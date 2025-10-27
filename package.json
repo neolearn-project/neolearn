@@ -1,0 +1,23 @@
+{
+  "name": "neolearn-serveronly",
+  "private": true,
+  "version": "0.3.0",
+  "scripts": {
+    "dev": "next dev -p 3004",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.45.3",
+    "next": "14.2.4",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "autoprefixer": "10.4.20",
+    "postcss": "8.4.41",
+    "tailwindcss": "3.4.9",
+    "typescript": "5.5.4"
+  }
+}
