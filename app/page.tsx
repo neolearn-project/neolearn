@@ -57,13 +57,3 @@ export default function Page(){
     <ChatWidget/>
   </div>);
 }
-import DemoRequestForm from "./components/DemoRequestForm";
-
-export default function HomePage() {
-  return (
-    <main className="max-w-xl mx-auto p-6">
-      <h1 className="text-2xl font-semibold mb-4">Book a Free Demo</h1>
-      <DemoRequestForm />
-    </main>
-  );
-}
