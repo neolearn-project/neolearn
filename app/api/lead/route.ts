@@ -1,46 +1,64 @@
 ﻿import { NextResponse } from "next/server";
-import { supabaseServerAdmin } from "@/lib/supabaseClient";
+import { createClient } from "@supabase/supabase-js";
 
-function normalizePhone(v:string){
-  const d = (v||"").replace(/\D/g,"");
-  if(d.length===10) return "91"+d;     // default to India code if 10-digit
-  return d;
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE!
+);
+
+async function sendWhatsApp(to: string, text: string) {
+  const url = `https://graph.facebook.com/v20.0/${process.env.WA_PHONE_NUMBER_ID}/messages`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.WA_ACCESS_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to,
+      type: "text",
+      text: { body: text },
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    console.error("WA send error:", err);
+  }
 }
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    if (!body?.student_name || !body?.student_class || !body?.parent_phone) {
-      return NextResponse.json({ error: "missing fields" }, { status: 400 });
-    }
-    const phone = normalizePhone(body.parent_phone);
-    const supa = supabaseServerAdmin();
+    const { student_name, klass, parent_phone, source = "website" } = await req.json();
 
-    // 1) Duplicate check
-    const { data:existing, error:selErr } = await supa
-      .from("leads").select("id").eq("parent_phone", phone).limit(1);
-    if (selErr) return NextResponse.json({ error: selErr.message }, { status: 500 });
-
-    // WhatsApp deeplink
-    const msg = `Hi! This is NeoLearn. Thanks for requesting a free demo for ${body.student_name} (${body.student_class}). We will confirm your schedule soon.`;
-    const whatsapp = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
-
-    if (existing && existing.length>0){
-      // 2) Already have this lead — be friendly, still return WhatsApp link
-      return NextResponse.json({ ok:true, duplicate:true, whatsapp });
+    if (!student_name || !klass || !parent_phone) {
+      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
-    // 3) Insert new
-    const { error:insErr } = await supa.from("leads").insert([{
-      student_name: body.student_name,
-      student_class: body.student_class,
-      parent_phone: phone,
-      source: body.source || "form",
-    }]);
-    if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
+    const { data, error } = await supabase
+      .from("leads")
+      .insert({
+        student_name,
+        class: klass,
+        phone: parent_phone,
+        source,
+      })
+      .select()
+      .single();
 
-    return NextResponse.json({ ok: true, duplicate:false, whatsapp });
-  } catch (e:any) {
-    return NextResponse.json({ error: e.message || "bad request" }, { status: 400 });
+    if (error) {
+      console.error(error);
+      return NextResponse.json({ error: "DB insert failed" }, { status: 500 });
+    }
+
+    sendWhatsApp(
+      parent_phone,
+      `Thanks for requesting a NeoLearn demo for ${student_name} (Class ${klass}). We'll confirm your slot shortly on WhatsApp.`
+    ).catch(() => {});
+
+    return NextResponse.json({ ok: true, lead: data });
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json({ error: "Unexpected error" }, { status: 500 });
   }
 }
