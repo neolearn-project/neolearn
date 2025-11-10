@@ -1,33 +1,45 @@
-﻿// app/api/admin/export/route.ts
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+﻿import { NextResponse } from "next/server";
+import { supabaseServerAdmin } from "@/lib/supabase/server";
 
-function csvEscape(s: any) {
-  const t = (s ?? "").toString();
-  return `"${t.replace(/"/g, '""')}"`;
-}
-
+// GET /api/admin/export  → returns CSV of leads
 export async function GET() {
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const supa = supabaseServerAdmin();
+  const { data, error } = await supa
     .from("leads")
-    .select("created_at,name,klass,phone,source")
+    .select("created_at,student_name,class,phone,source")
     .order("created_at", { ascending: false });
 
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    console.error("Export error:", error.message);
+    return NextResponse.json({ error: "DB error" }, { status: 500 });
   }
 
-  const header = ["created_at", "name", "class", "phone", "source"].join(",");
-  const rows = (data ?? []).map(r =>
-    [r.created_at, r.name, r.klass, r.phone, r.source].map(csvEscape).join(",")
-  );
-  const csv = [header, ...rows].join("\n");
+  const rows = data ?? [];
+  const header = "created_at,student_name,class,phone,source";
+  const csv = [
+    header,
+    ...rows.map(
+      (r) =>
+        [
+          r.created_at,
+          quote(r.student_name),
+          quote(r.class),
+          quote(r.phone),
+          quote(r.source),
+        ].join(",")
+    ),
+  ].join("\n");
 
   return new NextResponse(csv, {
+    status: 200,
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="leads-${Date.now()}.csv"`,
+      "Content-Disposition": `attachment; filename="leads-export.csv"`,
     },
   });
+}
+
+function quote(v: unknown) {
+  const s = String(v ?? "");
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
