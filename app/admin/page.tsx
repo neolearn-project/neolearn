@@ -1,9 +1,5 @@
-﻿// app/admin/page.tsx
-export default function AdminHome() {
-  return (
-    <section>
-      <h1>Leads</h1>
-      <p>Use the navigation to manage Leads, Batches, and Dashboard.</p>
-    </section>
-  );
+﻿import { redirect } from "next/navigation";
+
+export default function AdminIndex() {
+  redirect("/admin/leads");
 }
