@@ -1,44 +1,63 @@
-"use server";
+// lib/whatsapp.ts
+
+const PAGE_URL = "https://graph.facebook.com/v20.0";
 
 /**
- * Minimal WhatsApp sending helper.
- * Keeps types explicit so Vercel's type-checker is happy.
+ * Normalize Indian WhatsApp numbers.
+ * - Removes non-digits
+ * - Ensures it starts with 91 (India)
  */
-export interface WaSendResult {
-  ok: boolean;
-  data?: unknown;
-  error?: string;
+function normalizePhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.startsWith("91")) return digits;
+  return "91" + digits; // default to India country code
 }
 
-export async function sendWhatsApp(to: string, text: string): Promise<WaSendResult> {
-  try {
-    const url = `https://graph.facebook.com/v20.0/${process.env.WA_PHONE_NUMBER_ID}/messages`;
+/**
+ * Check if WhatsApp API is configured via env vars.
+ */
+export function isWhatsAppConfigured(): boolean {
+  return !!(
+    process.env.WA_ACCESS_TOKEN &&
+    process.env.WA_PHONE_NUMBER_ID
+  );
+}
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.WA_ACCESS_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to,
-        type: "text",
-        text: { body: text },
-      }),
-    });
+/**
+ * Send a simple text WhatsApp message using Cloud API.
+ */
+export async function sendWhatsAppText(to: string, text: string): Promise<void> {
+  if (!isWhatsAppConfigured()) {
+    console.warn("WA not configured, skipping send");
+    return;
+  }
 
-    const data = await res.json().catch(() => undefined);
+  const phone = normalizePhone(to);
+  const token = process.env.WA_ACCESS_TOKEN!;
+  const phoneId = process.env.WA_PHONE_NUMBER_ID!;
 
-    if (!res.ok) {
-      // log the raw response for debugging but hide token values
-      console.error("WA send error status:", res.status, data ?? "(no body)");
-      return { ok: false, error: `WA ${res.status}`, data };
-    }
+  const url = `${PAGE_URL}/${phoneId}/messages`;
 
-    return { ok: true, data };
-  } catch (e: any) {
-    console.error("WA send exception:", e?.message ?? e);
-    return { ok: false, error: e?.message ?? "unknown" };
+  const payload = {
+    messaging_product: "whatsapp",
+    to: phone,
+    type: "text",
+    text: { body: text },
+  };
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    console.error("WhatsApp send error:", err);
+  } else {
+    console.log("WhatsApp sent OK to", phone);
   }
 }
