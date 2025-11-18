@@ -1,6 +1,7 @@
 ﻿import Image from "next/image";
 import LeadForm from "../components/LeadForm";
 import ChatWidget from "../components/ChatWidget";
+import TeacherBot from "./components/TeacherBot";
 
 const WP = process.env.NEXT_PUBLIC_WHATSAPP || "918000000000";
 
@@ -89,6 +90,18 @@ export default function Page() {
         </div>
       </section>
 
+{/* NEW: Teacher Bot section */}
+      <section className="container pb-16">
+        <div className="card">
+          <h3 className="text-2xl font-bold mb-2">Try NeoLearn Maths Teacher</h3>
+          <p className="text-gray-600 mb-4">
+            This is an early preview of our AI Teacher for Class 6 Mathematics.
+          </p>
+          <TeacherBot />
+        </div>
+      </section>
+
+
       <footer className="bg-white border-t">
         <div className="container py-6 text-sm text-gray-600 flex items-center justify-between">
           <div>© {new Date().getFullYear()} NeoLearn</div>
@@ -105,3 +118,4 @@ export default function Page() {
     </div>
   );
 }
+
