@@ -10,10 +10,11 @@ function pickModel(question: string): string {
   const q = question.toLowerCase();
   const length = question.length;
 
-  const heavyKeywords = /(prove|proof|derivative|integral|integration|trigonometry|physics|chemistry|why does|explain why)/;
+  const heavyKeywords =
+    /(prove|proof|derivative|integral|integration|trigonometry|physics|chemistry|why does|explain why)/;
 
   if (heavyKeywords.test(q) || length > 400) {
-    // Rare, complex questions → best brain
+    // Rare, complex questions → stronger model
     return "gpt-5.1";
   }
 
@@ -53,8 +54,9 @@ export async function POST(req: Request) {
     const model = pickModel(question);
 
     const systemPrompt = `
-You are a kind Indian school teacher for ${studentClass} Mathematics.
-Explain concepts in very simple English, step-by-step, like you are teaching a child.
+You are a kind Indian school Maths teacher for ${studentClass}.
+Explain concepts in very simple English, step-by-step, like you are teaching a Class 6 child in India.
+
 Always:
 - Restate the doubt in one simple line.
 - Explain the idea in small steps.
@@ -66,10 +68,10 @@ Use a friendly tone and short sentences.
     const userPrompt = `
 Student class: ${studentClass}
 Student question: ${question}
-Explain in a very simple way.
+Explain clearly for a Class 6 child.
     `.trim();
 
-    const response = await client.responses.create({
+    const rawResponse = await client.responses.create({
       model,
       input: [
         { role: "system", content: systemPrompt },
@@ -77,22 +79,28 @@ Explain in a very simple way.
       ],
     });
 
-    // Safe answer extraction
-let answer = "Sorry, I could not answer this question.";
+    // ---- SAFE ANSWER EXTRACTION (using any to avoid TS type error) ----
+    let answer = "Sorry, I could not answer this question.";
 
-try {
-  if (response.output_text) {
-    answer = response.output_text;
-  } else if (response.output?.[0]?.content) {
-    answer = response.output[0].content
-      .map((c: any) => c.text || c.value || "")
-      .join(" ");
-  }
-} catch (e) {
-  console.error("Error parsing answer:", e);
-}
+    try {
+      const response: any = rawResponse; // <- cast to any
 
-    return NextResponse.json({ answer, modelUsed: model }, { status: 200 });
+      if (response.output_text) {
+        answer = response.output_text;
+      } else if (response.output?.[0]?.content) {
+        answer = response.output[0].content
+          .map((c: any) => c.text || c.value || "")
+          .join(" ");
+      }
+    } catch (e) {
+      console.error("Error parsing answer:", e);
+    }
+    // -------------------------------------------------------------------
+
+    return NextResponse.json(
+      { answer, modelUsed: model },
+      { status: 200 }
+    );
   } catch (err: any) {
     console.error("teacher-math error:", err);
 
