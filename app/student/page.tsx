@@ -1036,7 +1036,7 @@ function ClassroomView({
   isAsking: boolean;
   audioUrl: string | null;
   audioError: string | null;
-  messagesEndRef: React.RefObject<HTMLDivElement>;
+   messagesEndRef: React.RefObject<HTMLDivElement | null>;
 }) {
   return (
     <div className="flex h-[430px] gap-4">
