@@ -156,7 +156,7 @@ Explain according to the syllabus of this class and board, focused on the given 
         model: "gpt-4o-mini-tts",
         voice: "alloy",
         input: answer,
-        format: "mp3",
+        response_format: "mp3",
       });
 
       const arrayBuffer = await tts.arrayBuffer();
