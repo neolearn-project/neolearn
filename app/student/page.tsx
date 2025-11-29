@@ -171,9 +171,9 @@ useEffect(() => {
       setSyllabusError(null);
       try {
         const params = new URLSearchParams({
-          class: student.classId,
-          board: "CBSE", // later we can store board per student
-        });
+  class: student?.classId ?? "6",
+  board: "CBSE", // later we can store board per student
+});
 
         const res = await fetch(`/api/syllabus?${params.toString()}`);
         const data = (await res.json()) as SyllabusResponse;
