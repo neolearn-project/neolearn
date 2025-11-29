@@ -27,13 +27,16 @@ export async function POST(req: Request) {
     // Options: "alloy", "verse", "emma", "coral"
     const voice = "coral";
 
+const instructions =
+  "You are a friendly NeoLearn maths teacher. Speak clearly in the requested language (en, hi, bn) for school students.";
+
    const speech = await openai.audio.speech.create({
   model: "gpt-4o-mini-tts",
-  voice: "alloy",               // voice family; instructions control tone + accent
-  response_format: "mp3",       // ✅ correct property name for the SDK
+  voice: "alloy",               
+  response_format: "mp3",       
   input: text,
   instructions,
-  // speed: numericSpeed,       // keep whatever you already had here
+  // speed: numericSpeed,       
 });
 
 
