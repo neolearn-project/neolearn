@@ -1,50 +1,16 @@
-// app/api/lesson-audio/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const client = new OpenAI({
-  apiKey: process.env.NEOLEARN_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
 });
 
-type LessonAudioBody = {
-  text?: string;
-  language?: "en" | "hi" | "bn";
-  speed?: number | string;
-};
-
-function buildTtsInstructions(
-  language: "en" | "hi" | "bn" | undefined
-): string {
-  if (language === "hi") {
-    return `
-You are a friendly **female Indian school teacher** speaking clear Hindi.
-Speak slowly and clearly, like a teacher in a CBSE school in India.
-Avoid mixing English words except common maths terms like "fraction", "numerator", etc.
-    `.trim();
-  }
-
-  if (language === "bn") {
-    return `
-You are a friendly **female Indian school teacher** speaking pure Bengali (Bangla).
-Speak in clear standard Bengali used in Tripura / West Bengal schools.
-Avoid mixing Hindi. Use English words only for necessary maths terms.
-    `.trim();
-  }
-
-  // default: English with Indian accent
-  return `
-You are a friendly **female Indian maths teacher** speaking English with a natural Indian accent.
-Speak slowly, clearly and warmly so Indian children can understand easily.
-Avoid American or British slang.
-  `.trim();
-}
-
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as LessonAudioBody;
-
-    const text = (body.text || "").trim();
-    const language = body.language || "en";
+    const body = await req.json();
+    const text: string = (body.text || "").trim();
+    const language: string = body.language || "English";
+    const speed: string = body.speed || "Normal";
 
     if (!text) {
       return NextResponse.json(
@@ -53,38 +19,37 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Playback speed for HTML audio is handled on the frontend.
-    // Here we keep speed fixed for natural voice.
-    const instructions = buildTtsInstructions(language);
+    // Convert UI speed to TTS speed values
+    const ttsSpeed =
+      speed === "Slow" ? 0.9 : speed === "Fast" ? 1.3 : 1.0;
 
-    const response = await client.audio.speech.create({
-      model: "gpt-4o-mini-tts",
-      voice: "alloy", // voice family; instructions control tone + accent
-      format: "mp3",
-      input: text,
-      instructions,
-      // speed param is ignored for gpt-4o-mini-tts, but harmless if set:
-      // speed: safeSpeed,
-    });
+    // Choose a pleasant female voice
+    // Options: "alloy", "verse", "emma", "coral"
+    const voice = "coral";
 
-    const audioBuffer = Buffer.from(await response.arrayBuffer());
+   const speech = await openai.audio.speech.create({
+  model: "gpt-4o-mini-tts",
+  voice: "alloy",               // voice family; instructions control tone + accent
+  response_format: "mp3",       // ✅ correct property name for the SDK
+  input: text,
+  instructions,
+  // speed: numericSpeed,       // keep whatever you already had here
+});
+
+
+    const audioBuffer = Buffer.from(await speech.arrayBuffer());
 
     return new NextResponse(audioBuffer, {
       status: 200,
       headers: {
         "Content-Type": "audio/mpeg",
-        "Content-Length": audioBuffer.length.toString(),
         "Cache-Control": "no-store",
       },
     });
   } catch (err: any) {
-    console.error("lesson-audio error:", err?.message || err);
+    console.error("TTS generation error:", err);
     return NextResponse.json(
-      {
-        error:
-          err?.message ||
-          "Failed to generate lesson audio. Please try again later.",
-      },
+      { error: "Audio generation failed", details: err.message },
       { status: 500 }
     );
   }
