@@ -1,7 +1,11 @@
-﻿import Image from "next/image";
+﻿"use client";
+
+
+import Image from "next/image";
 import LeadForm from "../components/LeadForm";
 import ChatWidget from "../components/ChatWidget";
 import TeacherBot from "./components/TeacherBot";
+import StudentLogin from "./components/StudentLogin";
 
 const WP = process.env.NEXT_PUBLIC_WHATSAPP || "918000000000";
 
@@ -12,17 +16,16 @@ export default function Page() {
         <div className="flex flex-col md:flex-row items-center gap-8">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-5">
-              <Image
-                src="/logo.svg"
-                width={220}
-                height={36}
-                alt="NeoLearn logo"
-              />
-              <span className="text-sm text-gray-600 ml-1">
-                The Future of Learning
-              </span>
-            </div>
-
+  <Image
+    src="/neolearn-logo.png"
+    width={350}      // tweak size if needed
+    height={50}
+    alt="NeoLearn – The Future of Learning"
+  />
+  <span className="text-sm text-gray-600 ml-1">
+    
+  </span>
+</div>
             <h1 className="text-4xl md:text-5xl font-extrabold leading-tight mb-4">
               AI Teachers for Every Child,{" "}
               <span className="text-blue-600">Anytime</span>.
@@ -97,6 +100,7 @@ export default function Page() {
           <p className="text-gray-600 mb-4">
             This is an early preview of our AI Teacher for Class 6 Mathematics.
           </p>
+	  <StudentLogin />
           <TeacherBot />
         </div>
       </section>
