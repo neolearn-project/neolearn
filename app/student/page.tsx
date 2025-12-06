@@ -1,7 +1,11 @@
 "use client";
 
+import Image from "next/image";
+import { getAvatarForSubject } from "../lib/teacherAvatar";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { RealtimeTeacherClient } from "./realtimeTeacherClient";
 
 type ClassId = "5" | "6" | "7" | "8" | "9";
 
@@ -68,6 +72,10 @@ const STORAGE_KEY = "neolearnStudent";
 
 export default function StudentDashboardPage() {
   const router = useRouter();
+
+const [teacherAvatar, setTeacherAvatar] = useState<string>(
+    "/avatars/niya-math.png"
+  );
 
   const [student, setStudent] = useState<StudentInfo | null>(null);
   const [loadingStudent, setLoadingStudent] = useState(true);
@@ -247,6 +255,19 @@ useEffect(() => {
     () => filteredTopics.find((t) => t.id === selectedTopicId) || null,
     [filteredTopics, selectedTopicId]
   );
+
+// Change teacher avatar when subject changes
+  useEffect(() => {
+    if (!currentSubject) {
+      // default avatar if nothing selected yet
+      setTeacherAvatar("/avatars/niya-math.png");
+      return;
+    }
+
+    // use helper to decide which avatar file to show
+    const avatarPath = getAvatarForSubject(currentSubject.subject_name);
+    setTeacherAvatar(avatarPath);
+  }, [currentSubject]);
 
   // Initial welcome message (once we have syllabus)
   useEffect(() => {
@@ -662,6 +683,7 @@ const handleStartLesson = useCallback(async () => {
               audioUrl={audioUrl}
               audioError={audioError}
               messagesEndRef={messagesEndRef}
+	      teacherAvatar={teacherAvatar} 
             />
           )}
 
@@ -1017,6 +1039,7 @@ function ClassroomView({
   audioUrl,
   audioError,
   messagesEndRef,
+  teacherAvatar,
 }: {
   syllabusLoading: boolean;
   syllabusError: string | null;
@@ -1036,8 +1059,147 @@ function ClassroomView({
   isAsking: boolean;
   audioUrl: string | null;
   audioError: string | null;
-   messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  teacherAvatar: string;
 }) {
+  // 🔹 Realtime voice state (local to ClassroomView)
+  const [realtimeClient, setRealtimeClient] =
+    useState<RealtimeTeacherClient | null>(null);
+  const [isRealtimeOn, setIsRealtimeOn] = useState(false);
+  const [realtimeStatus, setRealtimeStatus] = useState<string>("");
+
+  const [isListening, setIsListening] = useState(false);
+
+const [realtimeTranscript, setRealtimeTranscript] = useState("");
+
+// 🧠 Build a context-rich question for the realtime teacher
+  const buildRealtimeQuestion = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return "";
+
+    const parts: string[] = [];
+
+    if (currentSubject) {
+      parts.push(`Subject: ${currentSubject.subject_name}`);
+    }
+    if (currentChapter) {
+      parts.push(`Chapter: ${currentChapter.chapter_name}`);
+    }
+    if (currentTopic) {
+      parts.push(`Topic: ${currentTopic.topic_name}`);
+    }
+
+    if (!parts.length) {
+      // No syllabus selected → just ask normally
+      return trimmed;
+    }
+
+    const syllabusContext = parts.join(" | ");
+
+    return (
+      trimmed +
+      `\n\n[Context for you, teacher: ${syllabusContext}. ` +
+      `Answer in very simple ${language} for an Indian school student.]`
+    );
+  };
+
+
+  const handleToggleRealtime = async () => {
+  // Turn OFF if already on
+  if (isRealtimeOn && realtimeClient) {
+    realtimeClient.disconnect();
+    setRealtimeClient(null);
+    setIsRealtimeOn(false);
+    setRealtimeStatus("Realtime voice off");
+    return;
+  }
+
+  // Turn ON
+  const client = new RealtimeTeacherClient({
+    onStatus: (s) => setRealtimeStatus(s),
+    onError: (msg) => setRealtimeStatus(msg),
+    onTranscript: (delta) => {
+      // append streaming text as teacher speaks
+      setRealtimeTranscript((prev) => prev + delta);
+    },
+  });
+
+  setRealtimeClient(client);
+
+  // 🔹 Build a syllabus-aware system prompt for this session
+  const baseInstruction =
+  language === "Hindi"
+    ? "You are a female Indian school teacher. Speak in very simple Hindi, slowly and clearly. Do not use any religious greetings or phrases (like अस्सलामु अलैकुम, नमस्ते, जय …). Use only neutral classroom language."
+    : language === "Bengali"
+    ? "You are a female Indian school teacher. Speak in very simple Bengali (Bangla), slowly and clearly. Do not use any religious greetings or phrases (like আসসালামু আলাইকুম, নমস্কার, জয় …). Use only neutral classroom language."
+    : "You are a female Indian school teacher in India. Speak in very simple English, slowly and clearly. Do not use any religious greetings or phrases (like Assalamu Alaikum, Om …, Praise …). Use only neutral classroom language.";
+
+
+  const contextBits: string[] = [
+    "You are teaching in a coaching institute called NeoLearn.",
+  ];
+
+  if (currentSubject) {
+    contextBits.push(`Subject: ${currentSubject.subject_name}.`);
+  }
+  if (currentChapter) {
+    contextBits.push(`Chapter: ${currentChapter.chapter_name}.`);
+  }
+  if (currentTopic) {
+    contextBits.push(`Current topic: ${currentTopic.topic_name}.`);
+  }
+
+  const instructions = `${baseInstruction} ${contextBits.join(" ")}`;
+  // (Optional) You can later pass `instructions` into your RealtimeTeacherClient
+  // if you extend it to accept custom instructions.
+
+  await client.connect(language);
+  setIsRealtimeOn(true);
+  setRealtimeStatus("Realtime voice connected.");
+};
+
+const handleAskRealtime = () => {
+  const trimmed = question.trim();
+  if (!trimmed) return;
+
+  if (isRealtimeOn && realtimeClient) {
+    // New answer → reset the live subtitle
+    setRealtimeTranscript("");
+
+    const contextual = buildRealtimeQuestion(trimmed);
+    if (contextual) {
+      realtimeClient.sendText(contextual);
+    }
+
+    setQuestion("");
+    return;
+  }
+
+  // Otherwise fallback to your existing HTTP-based Q&A
+  if (!isAsking) {
+    onAskQuestion();
+  }
+};
+
+  
+  const handleMicToggle = async () => {
+    if (!isRealtimeOn || !realtimeClient) {
+      setRealtimeStatus("Turn ON Realtime Voice first.");
+      return;
+    }
+
+    if (!isListening) {
+      // New spoken question → clear previous subtitles
+      setRealtimeTranscript("");
+      await realtimeClient.startMic();
+      setIsListening(true);
+    } else {
+      // Stop listening + send to teacher
+      realtimeClient.stopMicAndSend();
+      setIsListening(false);
+    }
+  };
+
   return (
     <div className="flex h-[430px] gap-4">
       {/* Teacher avatar area */}
@@ -1045,39 +1207,48 @@ function ClassroomView({
         <div className="mb-2 text-xs font-semibold text-gray-500 uppercase">
           AI Teacher
         </div>
+
         <div className="flex-1 flex flex-col items-center justify-center">
-          <div className="mb-3 h-40 w-40 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 shadow-xl" />
-          <div className="text-sm font-semibold mt-1">
+          <div className="mb-3 h-90 w-60 overflow-hidden rounded-3xl bg-white shadow-xl flex items-end">
+            <img
+              src={teacherAvatar}
+              alt="AI Teacher"
+              className="w-full h-auto object-contain"
+            />
+          </div>
+
+          <div className="text-sm font-semibold mt-1 text-center">
             NeoLearn Maths Teacher
           </div>
-          <div className="text-xs text-gray-600 text-center max-w-md mt-1">
-            Select your subject, chapter and topic on the left side, then click{" "}
-            <span className="font-semibold">Start Lesson (beta)</span> to hear a
-            short explanation. Later we will replace this with a talking avatar
-            video.
-          </div>
-          <div className="mt-3 text-[11px] text-gray-500">
-            {syllabusLoading && "Loading syllabus…"}
-            {syllabusError && (
-              <span className="text-red-500">
-                {" "}
-                (Syllabus error: {syllabusError})
-              </span>
-            )}
-            {!syllabusLoading && !syllabusError && (!currentSubject ||
-              !currentChapter ||
-              !currentTopic) && (
+        </div>
+
+        <div className="text-xs text-gray-600 text-center max-w-md mt-1">
+          Select your subject, chapter and topic on the left side, then click{" "}
+          <span className="font-semibold">Start Lesson (beta)</span> to get a
+          short explanation. Later we will replace this with a talking avatar
+          video.
+        </div>
+
+        <div className="mt-3 text-[11px] text-gray-500">
+          {syllabusLoading && "Loading syllabus…"}
+          {syllabusError && (
+            <span className="text-red-500">
+              {" "}
+              (Syllabus error: {syllabusError})
+            </span>
+          )}
+          {!syllabusLoading &&
+            !syllabusError &&
+            (!currentSubject || !currentChapter || !currentTopic) && (
               <span>
-                Please pick Subject → Chapter → Topic using the left menu
-                (Subjects / Chapters / Topics).
+                Please pick Subject → Chapter → Topic using the left menu.
               </span>
             )}
-          </div>
         </div>
       </div>
 
       {/* Right: big conversation card */}
-      <div className="w-[360px] rounded-2xl bg-slate-50 p-3 flex flex-col">
+      <div className="w-[360px] rounded-2xl bg-slate-50 p-3 flex flex-col h-full">
         {/* Language + speed only (no subject / chapter here) */}
         <div className="mb-2 flex gap-2">
           <div className="flex-1">
@@ -1085,16 +1256,18 @@ function ClassroomView({
               Language
             </label>
             <select
-  className="w-full rounded-xl border border-slate-300 bg-white px-2 py-1 text-[11px] outline-none focus:ring-2 focus:ring-blue-500"
-  value={language}
-  onChange={(e) =>
-    setLanguage(e.target.value as "English" | "Hindi" | "Bengali")
-  }
->
-  <option value="English">English</option>
-  <option value="Hindi">Hindi</option>
-  <option value="Bengali">Bengali</option>
-</select>
+              className="w-full rounded-xl border border-slate-300 bg-white px-2 py-1 text-[11px] outline-none focus:ring-2 focus:ring-blue-500"
+              value={language}
+              onChange={(e) =>
+                setLanguage(
+                  e.target.value as "English" | "Hindi" | "Bengali"
+                )
+              }
+            >
+              <option value="English">English</option>
+              <option value="Hindi">Hindi</option>
+              <option value="Bengali">Bengali</option>
+            </select>
           </div>
           <div className="flex-1">
             <label className="block text-[11px] font-medium text-gray-600 mb-1">
@@ -1120,72 +1293,123 @@ function ClassroomView({
 
         {/* Chat box */}
         <div className="flex-1 rounded-xl bg-white border border-slate-200 p-2 text-xs text-gray-700 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto pr-1">
-            {messages.map((m) => (
-              <div
-                key={m.id}
-                className="mb-1 leading-snug whitespace-pre-wrap"
-              >
-                <span
-                  className={`font-semibold ${
-                    m.author === "Teacher"
-                      ? "text-blue-600"
-                      : "text-emerald-700"
-                  }`}
-                >
-                  {m.author}:
-                </span>{" "}
-                <span
-                  className={m.isError ? "text-red-600" : "text-gray-800"}
-                >
-                  {m.text}
-                </span>
-                <span className="ml-1 text-[10px] text-gray-400">
-                  {m.ts}
-                </span>
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
+          <div className="flex-1 overflow-y-auto pr-1 space-y-1">
+
+  {/* Existing chat messages */}
+  {messages.map((m) => (
+    <div
+      key={m.id}
+      className="leading-snug whitespace-pre-wrap"
+    >
+      <span
+        className={`font-semibold ${
+          m.author === "Teacher" ? "text-blue-600" : "text-emerald-700"
+        }`}
+      >
+        {m.author}:
+      </span>{" "}
+      <span className={m.isError ? "text-red-600" : "text-gray-800"}>
+        {m.text}
+      </span>
+      <span className="ml-1 text-[10px] text-gray-400">
+        {m.ts}
+      </span>
+    </div>
+  ))}
+
+  {/* 🔵 LIVE CAPTIONS (inside scroll area) */}
+  {realtimeTranscript && (
+    <div className="leading-snug whitespace-pre-wrap bg-blue-50 border border-blue-200 rounded-md px-2 py-1 text-[11px] text-gray-700">
+      <span className="font-semibold text-blue-600">
+        Teacher (live):
+      </span>{" "}
+      {realtimeTranscript}
+    </div>
+  )}
+
+  <div ref={messagesEndRef} />
+
+</div>
+
+
 
           {audioUrl && (
-  <div className="mt-2 border-t pt-1">
-    <audio id="lesson-audio" controls className="w-full">
-      <source src={audioUrl} />
-      Your browser does not support audio playback.
-    </audio>
-  </div>
-)}
+            <div className="mt-2 border-t pt-1">
+              <audio id="lesson-audio" controls className="w-full">
+                <source src={audioUrl} />
+                Your browser does not support audio playback.
+              </audio>
+            </div>
+          )}
 
-{audioError && (
-  <p className="mt-1 text-[11px] text-red-500">{audioError}</p>
-)}
+          {audioError && (
+            <p className="mt-1 text-[11px] text-red-500">{audioError}</p>
+          )}
         </div>
 
-        {/* Question input */}
+
+              {/* Question input (classic + realtime) */}
         <div className="mt-2 flex gap-2">
           <input
             type="text"
             className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Ask a doubt about this topic…"
+            placeholder={
+              isRealtimeOn
+                ? "Type a doubt or use mic for realtime teacher…"
+                : "Ask a doubt about this topic…"
+            }
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                if (!isAsking) onAskQuestion();
+                if (!isAsking) handleAskRealtime();
               }
             }}
           />
           <button
             type="button"
-            onClick={() => !isAsking && onAskQuestion()}
-            className="rounded-xl bg-slate-800 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-900 disabled:opacity-50"
+            onClick={() => handleAskRealtime()}
+            className="rounded-xl bg-slate-800 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-900 disabled:opacity-50"
             disabled={isAsking}
           >
-            {isAsking ? "Thinking…" : "Ask"}
+            {isRealtimeOn ? "Send (Realtime)" : isAsking ? "Thinking…" : "Ask"}
+          </button>
+          <button
+            type="button"
+            onClick={handleMicToggle}
+            className={`rounded-xl border px-3 py-2 text-xs font-semibold ${
+              isListening
+                ? "border-red-500 text-red-600 bg-red-50"
+                : "border-slate-300 text-slate-700 bg-white hover:bg-slate-100"
+            } disabled:opacity-50`}
+            disabled={!isRealtimeOn}
+          >
+            {isListening ? "⏹ Stop & Send" : "🎙 Speak"}
           </button>
         </div>
+
+        {/* Realtime toggle + status */}
+        <div className="mt-2 flex items-center justify-between text-[11px] text-gray-600">
+          <button
+            type="button"
+            onClick={handleToggleRealtime}
+            className={`rounded-full px-3 py-1 border text-[11px] ${
+              isRealtimeOn
+                ? "border-emerald-500 text-emerald-700 bg-emerald-50"
+                : "border-slate-300 text-slate-700 bg-white"
+            }`}
+          >
+            {isRealtimeOn ? "🟢 Realtime Voice ON" : "⚪ Realtime Voice OFF"}
+          </button>
+          <span className="truncate max-w-[220px] text-right">
+            {isListening
+              ? "Listening… speak now."
+              : realtimeStatus ||
+                (isRealtimeOn ? "Connected to voice teacher." : "")}
+          </span>
+        </div>
+
 
         {/* Start lesson */}
         <div className="mt-3">
