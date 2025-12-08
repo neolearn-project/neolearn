@@ -11,7 +11,12 @@ const openai = new OpenAI({
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
-const ADMIN_PASSWORD = process.env.NEOLEARN_ADMIN_PASSWORD || "";
+// Try the same env names that other admin routes may be using
+const ADMIN_PASSWORD =
+  process.env.NEOLEARN_ADMIN_PASSWORD ||
+  process.env.ADMIN_PASSWORD ||
+  process.env.NEXT_PUBLIC_ADMIN_PASSWORD ||
+  "";
 
 type AiTopic = { number: number; name: string };
 type AiChapter = { number: number; name: string; topics: AiTopic[] };
