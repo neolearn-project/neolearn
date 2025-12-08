@@ -39,7 +39,7 @@ export default function AdminSyllabusPage() {
         }),
       });
 
-      const data = await res.json();
+            const data = await res.json();
 
       if (!res.ok || !data.ok) {
         setStatus(
@@ -48,10 +48,21 @@ export default function AdminSyllabusPage() {
         return;
       }
 
+      // Optional: estimate chapter count from the AI JSON
+      const chaptersCount =
+        data.subject?.chapters?.length ?? 0;
+
       setStatus(
-        `✅ Done! subject_id=${data.subjectId}, chapters inserted=${data.chaptersInserted}. ` +
-          `Check “subjects / chapters / topics” tables in Supabase.`
+        `✅ Done! AI syllabus JSON generated successfully` +
+          (chaptersCount
+            ? ` with about ${chaptersCount} chapters.`
+            : ".") +
+          ` Open DevTools → Network → ai-syllabus-subject → Response to inspect the full structure.`
       );
+
+      // Helpful for you while developing
+      console.log("AI syllabus JSON:", data.subject);
+
     } catch (err: any) {
       console.error("AI syllabus admin error:", err);
       setStatus("Unexpected error. See console / server logs.");
