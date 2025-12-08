@@ -29,14 +29,26 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const adminPassword = String(body.adminPassword || "");
-    const boardRaw = String(body.board || "CBSE");
-    const classNumber = Number(body.classNumber || body.class || 6);
-    const subjectName = String(body.subjectName || "Mathematics").trim();
-    const subjectCode = (body.subjectCode as string | undefined)?.trim() || null;
-    const overwriteExisting = Boolean(body.overwriteExisting);
+    const {
+      adminPassword,
+      board: boardRaw,
+      classLevel,
+      subjectName,
+      subjectCode,
+      overwriteExisting,
+    } = body;
 
-    if (!ADMIN_PASSWORD || adminPassword !== ADMIN_PASSWORD) {
+    // ✅ USE THE SAME ENV VAR AS LEADS ADMIN ROUTES
+    const ADMIN_PASSWORD = process.env.NEOLEARN_ADMIN_PASSWORD;
+
+    if (!ADMIN_PASSWORD) {
+      return NextResponse.json(
+        { ok: false, error: "Admin password not configured on server." },
+        { status: 500 }
+      );
+    }
+
+    if (!adminPassword || adminPassword !== ADMIN_PASSWORD) {
       return NextResponse.json(
         { ok: false, error: "Invalid admin password." },
         { status: 401 }
