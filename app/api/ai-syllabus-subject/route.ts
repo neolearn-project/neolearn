@@ -7,11 +7,11 @@ const openai = new OpenAI({
   apiKey: process.env.NEOLEARN_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
 });
 
-// Read envs as plain strings; we'll validate + create client inside POST.
+// Supabase envs
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
-// Try the same env names that other admin routes may be using
+// ✅ Admin password – try all the names that might be used elsewhere
 const ADMIN_PASSWORD =
   process.env.NEOLEARN_ADMIN_PASSWORD ||
   process.env.ADMIN_PASSWORD ||
@@ -43,16 +43,10 @@ export async function POST(req: NextRequest) {
       overwriteExisting,
     } = body;
 
+    // 🔹 Convert classLevel to a number (fallback 6)
+    const classNumber = Number(classLevel) || 6;
 
-// Normalize classLevel into a numeric classNumber (e.g. "6" -> 6)
-    const classNumber =
-      typeof classLevel === "number"
-        ? classLevel
-        : parseInt(String(classLevel || "6"), 10) || 6;
-
-    // ✅ USE THE SAME ENV VAR AS LEADS ADMIN ROUTES
-    const ADMIN_PASSWORD = process.env.NEOLEARN_ADMIN_PASSWORD;
-
+    // ❗ DO NOT re-declare ADMIN_PASSWORD here – we use the top-level one
     if (!ADMIN_PASSWORD) {
       return NextResponse.json(
         { ok: false, error: "Admin password not configured on server." },
@@ -74,9 +68,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const board = boardRaw.toUpperCase();
+    const board = String(boardRaw || "").toUpperCase() || "CBSE";
 
     // --------------- 1) Ask OpenAI for JSON syllabus ---------------
     const systemPrompt = `
@@ -176,7 +170,6 @@ Return ONLY JSON as per the schema. No backticks, no markdown.
 
     // --------------- 2) Upsert into Supabase ---------------
 
-    // 2a) Find or create subject row
     const subjName = subjectName;
     const subjCode =
       subjectCode || syllabus.subject.code || subjName.toLowerCase().slice(0, 6);
@@ -201,7 +194,6 @@ Return ONLY JSON as per the schema. No backticks, no markdown.
 
     if (existingSubject?.id) {
       subjectId = existingSubject.id;
-      // Optionally update subject_code if empty
       await supabase
         .from("subjects")
         .update({ subject_code: subjCode })
@@ -228,7 +220,6 @@ Return ONLY JSON as per the schema. No backticks, no markdown.
       subjectId = newSubj.id;
     }
 
-    // 2b) Overwrite existing chapters/topics if checkbox is on
     if (overwriteExisting) {
       const { data: oldChapters, error: chErr } = await supabase
         .from("chapters")
@@ -260,7 +251,6 @@ Return ONLY JSON as per the schema. No backticks, no markdown.
       }
     }
 
-    // 2c) Insert new chapters & topics
     let chaptersInserted = 0;
 
     for (const ch of chapters) {
@@ -288,7 +278,7 @@ Return ONLY JSON as per the schema. No backticks, no markdown.
         chapter_id: chRow.id,
         topic_number: t.number,
         topic_name: t.name,
-        content: { level: "basic" }, // simple placeholder
+        content: { level: "basic" },
         is_active: true,
       }));
 
@@ -302,10 +292,8 @@ Return ONLY JSON as per the schema. No backticks, no markdown.
       ok: true,
       subjectId,
       chaptersInserted,
-      summary: {
-        chapterCount,
-      },
-      syllabus, // optional: full JSON for debugging
+      summary: { chapterCount },
+      syllabus,
     });
   } catch (err) {
     console.error("ai-syllabus-subject route error:", err);
