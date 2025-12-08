@@ -7,10 +7,9 @@ const openai = new OpenAI({
   apiKey: process.env.NEOLEARN_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
 });
 
-// Use service-role key on the server ONLY
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// Read envs as plain strings; we'll validate + create client inside POST.
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 const ADMIN_PASSWORD = process.env.NEOLEARN_ADMIN_PASSWORD || "";
 
@@ -50,6 +49,8 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const board = boardRaw.toUpperCase();
 
