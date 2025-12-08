@@ -38,6 +38,13 @@ export async function POST(req: NextRequest) {
       overwriteExisting,
     } = body;
 
+
+// Normalize classLevel into a numeric classNumber (e.g. "6" -> 6)
+    const classNumber =
+      typeof classLevel === "number"
+        ? classLevel
+        : parseInt(String(classLevel || "6"), 10) || 6;
+
     // ✅ USE THE SAME ENV VAR AS LEADS ADMIN ROUTES
     const ADMIN_PASSWORD = process.env.NEOLEARN_ADMIN_PASSWORD;
 
