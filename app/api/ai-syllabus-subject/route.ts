@@ -96,16 +96,38 @@ Remember: respond with JSON only.
     });
 
     const raw = (response.output_text || "").trim();
+    console.log("AI syllabus raw output (truncated):", raw.slice(0, 400));
 
     let parsed: any;
+
+    // 1) Try direct JSON.parse first
     try {
       parsed = JSON.parse(raw);
-    } catch (e) {
-      console.error("Failed to parse AI syllabus JSON:", e, raw);
-      return NextResponse.json(
-        { ok: false, error: "AI response was not valid JSON." },
-        { status: 500 }
-      );
+    } catch {
+      // 2) If that fails, try to extract the first {...} block
+      const match = raw.match(/\{[\s\S]*\}/);
+      if (!match) {
+        console.error("No JSON object found in AI response:", raw);
+        return NextResponse.json(
+          { ok: false, error: "AI response was not valid JSON." },
+          { status: 500 }
+        );
+      }
+
+      const jsonCandidate = match[0];
+      try {
+        parsed = JSON.parse(jsonCandidate);
+      } catch (e) {
+        console.error(
+          "Failed to parse extracted JSON from AI response:",
+          e,
+          jsonCandidate
+        );
+        return NextResponse.json(
+          { ok: false, error: "AI response was not valid JSON." },
+          { status: 500 }
+        );
+      }
     }
 
     return NextResponse.json({ ok: true, subject: parsed });
