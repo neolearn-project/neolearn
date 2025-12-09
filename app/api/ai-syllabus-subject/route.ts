@@ -243,13 +243,15 @@ Return ONLY JSON.
 
       chaptersInserted++;
 
-      const topicRows = (ch.topics || []).map((t) => ({
-        chapter_id: chRow.id,
-        topic_number: t.number,
-        topic_name: t.name,
-        content: { level: "basic" },
-        is_active: true,
-      }));
+     const topicRows = (ch.topics || []).map(
+  (t: { number: number; name: string }) => ({
+    chapter_id: chRow.id,
+    topic_number: t.number,
+    topic_name: t.name,
+    content: { level: "basic" },
+    is_active: true,
+  })
+);
 
       await supabase.from("topics").insert(topicRows);
     }
