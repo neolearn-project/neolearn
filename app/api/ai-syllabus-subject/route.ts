@@ -7,28 +7,8 @@ const openai = new OpenAI({
   apiKey: process.env.NEOLEARN_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
 });
 
-// Supabase envs
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-
-// ✅ Admin password – try all the names that might be used elsewhere
-const ADMIN_PASSWORD =
-  process.env.NEOLEARN_ADMIN_PASSWORD ||
-  process.env.ADMIN_PASSWORD ||
-  process.env.NEXT_PUBLIC_ADMIN_PASSWORD ||
-  "";
-
-type AiTopic = { number: number; name: string };
-type AiChapter = { number: number; name: string; topics: AiTopic[] };
-type AiSyllabus = {
-  subject: {
-    board: string;
-    class: number;
-    name: string;
-    code?: string;
-  };
-  chapters: AiChapter[];
-};
 
 export async function POST(req: NextRequest) {
   try {
@@ -43,10 +23,10 @@ export async function POST(req: NextRequest) {
       overwriteExisting,
     } = body;
 
-    // 🔹 Convert classLevel to a number (fallback 6)
-    const classNumber = Number(classLevel) || 6;
-
-    // ❗ DO NOT re-declare ADMIN_PASSWORD here – we use the top-level one
+    // -----------------------------
+    // ✅ ADMIN PASSWORD CHECK
+    // -----------------------------
+    const ADMIN_PASSWORD = process.env.NEOLEARN_ADMIN_PASSWORD;
     if (!ADMIN_PASSWORD) {
       return NextResponse.json(
         { ok: false, error: "Admin password not configured on server." },
@@ -61,6 +41,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // -----------------------------
+    // ✅ SUPABASE VALIDATION
+    // -----------------------------
     if (!supabaseUrl || !supabaseServiceKey) {
       return NextResponse.json(
         { ok: false, error: "Supabase server env vars are missing." },
@@ -70,53 +53,68 @@ export async function POST(req: NextRequest) {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const board = String(boardRaw || "").toUpperCase() || "CBSE";
+    // -----------------------------
+    // ✅ FIXED BOARD + CLASS LOGIC
+    // -----------------------------
+    const rawBoard = (boardRaw as string | undefined) || "CBSE";
 
-    // --------------- 1) Ask OpenAI for JSON syllabus ---------------
+    const boardKey = rawBoard.trim().toLowerCase();  // for database: "cbse"
+    const boardLabel = boardKey.toUpperCase();       // for AI output: "CBSE"
+
+    const classNumber =
+      typeof classLevel === "number"
+        ? classLevel
+        : parseInt(String(classLevel || "6"), 10) || 6;
+
+    const subjName = (subjectName as string).trim();
+    const subjCodeInput = (subjectCode as string | undefined)?.trim();
+
+    // -----------------------------
+    // 1) AI – Generate JSON Syllabus
+    // -----------------------------
     const systemPrompt = `
 You are an experienced school syllabus designer for Indian boards.
 
 Return ONLY valid JSON (no markdown, no backticks, no commentary).
-The JSON schema must be exactly:
+
+The JSON must match:
 
 {
   "subject": {
-    "board": "CBSE",
-    "class": 6,
-    "name": "Mathematics",
+    "board": "${boardLabel}",
+    "class": ${classNumber},
+    "name": "${subjName}",
     "code": "maths6"
   },
   "chapters": [
     {
       "number": 1,
-      "name": "Chapter title",
+      "name": "Chapter Title",
       "topics": [
-        { "number": 1, "name": "Topic title" }
+        { "number": 1, "name": "Topic Title" }
       ]
     }
   ]
 }
 
 Rules:
-- 8–14 chapters for Class 6.
+- 8–14 chapters.
 - 3–8 topics per chapter.
-- Use realistic CBSE-style chapter & topic names.
-- DO NOT include any extra fields.
-- DO NOT include explanations, notes or examples.
-- The value of "board" must be "${board}".
-- The value of "class" must be ${classNumber}.
-- The value of "name" must be "${subjectName}".
-- The value of "code" should be "${subjectCode || ""}" if provided, otherwise a simple lowercase code like "maths6".
+- NO explanations, no extra fields.
+- board must be "${boardLabel}".
+- class must be ${classNumber}.
+- name must be "${subjName}".
+- code must be "${subjCodeInput || ""}" if provided, else something like "maths6".
 `.trim();
 
     const userPrompt = `
 Design a clean syllabus for:
 
-Board: ${board}
+Board: ${boardLabel}
 Class: ${classNumber}
-Subject: ${subjectName}
+Subject: ${subjName}
 
-Return ONLY JSON as per the schema. No backticks, no markdown.
+Return ONLY JSON.
 `.trim();
 
     const response = await openai.responses.create({
@@ -129,132 +127,109 @@ Return ONLY JSON as per the schema. No backticks, no markdown.
 
     let raw = (response.output_text || "").trim();
 
-    // Sometimes the model wraps in ```json ... ```
+    // Remove ```json wrappers if present
     if (raw.startsWith("```")) {
-      const firstNewline = raw.indexOf("\n");
-      raw = raw.slice(firstNewline + 1);
+      const first = raw.indexOf("\n");
+      raw = raw.slice(first + 1);
+
       if (raw.startsWith("json")) {
-        const secondNewline = raw.indexOf("\n");
-        raw = raw.slice(secondNewline + 1);
+        const second = raw.indexOf("\n");
+        raw = raw.slice(second + 1);
       }
+
       const fence = raw.lastIndexOf("```");
       if (fence !== -1) raw = raw.slice(0, fence);
       raw = raw.trim();
     }
 
-    let syllabus: AiSyllabus;
+    let syllabus;
     try {
       syllabus = JSON.parse(raw);
     } catch (e) {
-      console.error("AI syllabus JSON parse error:", e, raw);
+      console.error("JSON parse error:", e, raw);
       return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "AI did not return valid JSON. Check logs / raw field in response.",
-          raw,
-        },
+        { ok: false, error: "AI returned invalid JSON.", raw },
         { status: 500 }
       );
     }
 
     const chapters = syllabus.chapters || [];
-    const chapterCount = chapters.length;
-
-    if (!chapterCount) {
+    if (!chapters.length) {
       return NextResponse.json(
         { ok: false, error: "AI returned 0 chapters." },
         { status: 500 }
       );
     }
 
-    // --------------- 2) Upsert into Supabase ---------------
-
-    const subjName = subjectName;
-    const subjCode =
-      subjectCode || syllabus.subject.code || subjName.toLowerCase().slice(0, 6);
-
-    const { data: existingSubject, error: selectErr } = await supabase
+    // -----------------------------
+    // 2) UPSERT SUBJECT
+    // -----------------------------
+    const { data: existingSubject } = await supabase
       .from("subjects")
       .select("id")
-      .eq("board", board)
+      .eq("board", boardKey)
       .eq("class_number", classNumber)
       .eq("subject_name", subjName)
       .maybeSingle();
 
-    if (selectErr) {
-      console.error("Supabase select subject error:", selectErr);
-      return NextResponse.json(
-        { ok: false, error: "Failed to fetch subject from Supabase." },
-        { status: 500 }
-      );
-    }
-
     let subjectId: number;
+    const finalCode =
+      subjCodeInput || syllabus.subject.code || subjName.toLowerCase().slice(0, 6);
 
     if (existingSubject?.id) {
       subjectId = existingSubject.id;
+
+      // Update code if needed
       await supabase
         .from("subjects")
-        .update({ subject_code: subjCode })
+        .update({ subject_code: finalCode })
         .eq("id", subjectId);
     } else {
       const { data: newSubj, error: insertErr } = await supabase
         .from("subjects")
         .insert({
-          board,
+          board: boardKey,   // important fix
           class_number: classNumber,
-          subject_code: subjCode,
+          subject_code: finalCode,
           subject_name: subjName,
         })
         .select("id")
         .single();
 
       if (insertErr || !newSubj) {
-        console.error("Supabase insert subject error:", insertErr);
+        console.error("Supabase insert error:", insertErr);
         return NextResponse.json(
           { ok: false, error: "Failed to insert subject into Supabase." },
           { status: 500 }
         );
       }
+
       subjectId = newSubj.id;
     }
 
+    // -----------------------------
+    // 3) DELETE OLD CHAPTERS/TOPICS
+    // -----------------------------
     if (overwriteExisting) {
-      const { data: oldChapters, error: chErr } = await supabase
+      const { data: old } = await supabase
         .from("chapters")
         .select("id")
         .eq("subject_id", subjectId);
 
-      if (chErr) {
-        console.error("Supabase fetch old chapters error:", chErr);
-      } else if (oldChapters && oldChapters.length > 0) {
-        const chapterIds = oldChapters.map((c) => c.id);
-
-        const { error: delTopicsErr } = await supabase
-          .from("topics")
-          .delete()
-          .in("chapter_id", chapterIds);
-
-        if (delTopicsErr) {
-          console.error("Supabase delete topics error:", delTopicsErr);
-        }
-
-        const { error: delChErr } = await supabase
-          .from("chapters")
-          .delete()
-          .eq("subject_id", subjectId);
-
-        if (delChErr) {
-          console.error("Supabase delete chapters error:", delChErr);
-        }
+      if (old?.length) {
+        const ids = old.map((c) => c.id);
+        await supabase.from("topics").delete().in("chapter_id", ids);
+        await supabase.from("chapters").delete().eq("subject_id", subjectId);
       }
     }
 
+    // -----------------------------
+    // 4) INSERT NEW CHAPTERS + TOPICS
+    // -----------------------------
     let chaptersInserted = 0;
 
     for (const ch of chapters) {
-      const { data: chRow, error: chInsertErr } = await supabase
+      const { data: chRow, error: chErr } = await supabase
         .from("chapters")
         .insert({
           subject_id: subjectId,
@@ -264,17 +239,11 @@ Return ONLY JSON as per the schema. No backticks, no markdown.
         .select("id")
         .single();
 
-      if (chInsertErr || !chRow) {
-        console.error("Supabase insert chapter error:", chInsertErr, ch);
-        continue;
-      }
+      if (!chRow || chErr) continue;
 
       chaptersInserted++;
 
-      const topics = ch.topics || [];
-      if (topics.length === 0) continue;
-
-      const topicRows = topics.map((t) => ({
+      const topicRows = (ch.topics || []).map((t) => ({
         chapter_id: chRow.id,
         topic_number: t.number,
         topic_name: t.name,
@@ -282,21 +251,17 @@ Return ONLY JSON as per the schema. No backticks, no markdown.
         is_active: true,
       }));
 
-      const { error: tErr } = await supabase.from("topics").insert(topicRows);
-      if (tErr) {
-        console.error("Supabase insert topics error:", tErr);
-      }
+      await supabase.from("topics").insert(topicRows);
     }
 
     return NextResponse.json({
       ok: true,
       subjectId,
       chaptersInserted,
-      summary: { chapterCount },
-      syllabus,
+      summary: { chapterCount: chapters.length },
     });
   } catch (err) {
-    console.error("ai-syllabus-subject route error:", err);
+    console.error("ai-syllabus error:", err);
     return NextResponse.json(
       { ok: false, error: "Unexpected server error." },
       { status: 500 }
