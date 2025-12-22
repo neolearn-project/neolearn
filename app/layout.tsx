@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "NeoLearn",
-  description: "AI Teachers for Every Child, Anytime.",
+  description: "NeoLearn – AI Teachers for Every Child",
 };
 
 export default function RootLayout({
@@ -14,14 +14,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
+      <body>
         {/* Razorpay Checkout Script */}
         <Script
           src="https://checkout.razorpay.com/v1/checkout.js"
-          strategy="beforeInteractive"
+          strategy="afterInteractive"
         />
-      </head>
-      <body>{children}</body>
+
+        {children}
+      </body>
     </html>
   );
 }
