@@ -3,3 +3,4 @@ import "../styles/globals.css";
 export default function RootLayout({ children }:{children:React.ReactNode}) {
   return (<html lang="en"><body>{children}</body></html>);
 }
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>

@@ -61,3 +61,46 @@ export async function sendWhatsAppText(to: string, text: string): Promise<void> 
     console.log("WhatsApp sent OK to", phone);
   }
 }
+
+// --- Weekly Summary helper (ADD BELOW sendWhatsAppText) ---
+
+export function buildWeeklySummaryMessage(opts: {
+  parentName?: string | null;
+  childName?: string | null;
+  weekStart: string;
+  weekEnd: string;
+  topicsCompleted: number;
+  testsTaken: number;
+  avgScore: number | null;
+  needsRevisionCount?: number;
+}) {
+  const parent = opts.parentName?.trim() ? opts.parentName.trim() : "Parent";
+  const child = opts.childName?.trim() ? opts.childName.trim() : "your child";
+
+  const scorePart =
+    opts.avgScore === null ? "No test score recorded" : `Avg score: ${opts.avgScore}%`;
+
+  const weakCount = opts.needsRevisionCount ?? 0;
+  const weakPart =
+    weakCount > 0 ? `Needs revision in ${weakCount} topic(s).` : `No weak topics flagged.`;
+
+  return (
+    `📘 NeoLearn Weekly Report\n` +
+    `Hello ${parent} 👋\n\n` +
+    `👦 Student: ${child}\n` +
+    `📅 Week: ${opts.weekStart} to ${opts.weekEnd}\n\n` +
+    `✅ Topics completed: ${opts.topicsCompleted}\n` +
+    `📝 Tests taken: ${opts.testsTaken}\n` +
+    `📊 ${scorePart}\n` +
+    `⚠️ ${weakPart}\n\n` +
+    `— NeoLearn`
+  );
+}
+
+/**
+ * Convenience sender for weekly summary.
+ */
+export async function sendWeeklySummaryWhatsApp(to: string, message: string) {
+  return sendWhatsAppText(to, message);
+}
+

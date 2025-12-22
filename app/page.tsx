@@ -1,31 +1,33 @@
 ﻿"use client";
 
-
+import { useState } from "react";
 import Image from "next/image";
+
 import LeadForm from "../components/LeadForm";
 import ChatWidget from "../components/ChatWidget";
 import TeacherBot from "./components/TeacherBot";
-import StudentLogin from "./components/StudentLogin";
+import AuthModal from "./components/AuthModal";
 
 const WP = process.env.NEXT_PUBLIC_WHATSAPP || "918000000000";
 
 export default function Page() {
+  const [authOpen, setAuthOpen] = useState<null | "login" | "signup">(null);
+
   return (
     <div>
+      {/* HERO */}
       <section className="container pt-12 pb-10">
         <div className="flex flex-col md:flex-row items-center gap-8">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-5">
-  <Image
-    src="/neolearn-logo.png"
-    width={350}      // tweak size if needed
-    height={50}
-    alt="NeoLearn – The Future of Learning"
-  />
-  <span className="text-sm text-gray-600 ml-1">
-    
-  </span>
-</div>
+              <Image
+                src="/neolearn-logo.png"
+                width={350}
+                height={50}
+                alt="NeoLearn – The Future of Learning"
+              />
+            </div>
+
             <h1 className="text-4xl md:text-5xl font-extrabold leading-tight mb-4">
               AI Teachers for Every Child,{" "}
               <span className="text-blue-600">Anytime</span>.
@@ -37,13 +39,25 @@ export default function Page() {
             </p>
 
             <div className="flex gap-3">
-              <a href="#demo" className="btn btn-primary">
-                Book Free Demo
-              </a>
+              <button
+                className="btn btn-ghost"
+                onClick={() => setAuthOpen("login")}
+              >
+                Login
+              </button>
+
+              <button
+                className="btn btn-primary"
+                onClick={() => setAuthOpen("signup")}
+              >
+                Sign up (Free Trial)
+              </button>
+
               <a
                 href={`https://wa.me/${WP}`}
                 className="btn btn-ghost"
                 target="_blank"
+                rel="noreferrer"
               >
                 Chat on WhatsApp
               </a>
@@ -62,6 +76,7 @@ export default function Page() {
         </div>
       </section>
 
+      {/* 3 CARDS */}
       <section className="container grid md:grid-cols-3 gap-4 pb-6">
         <div className="card">
           <div className="text-xl font-bold mb-1">Learn</div>
@@ -83,6 +98,7 @@ export default function Page() {
         </div>
       </section>
 
+      {/* DEMO (keep for now) */}
       <section id="demo" className="container pb-16">
         <div className="card">
           <h3 className="text-2xl font-bold mb-2">Book a Free Demo</h3>
@@ -93,19 +109,27 @@ export default function Page() {
         </div>
       </section>
 
-{/* NEW: Teacher Bot section */}
+      {/* TEACHER PREVIEW */}
       <section className="container pb-16">
         <div className="card">
           <h3 className="text-2xl font-bold mb-2">Try NeoLearn Maths Teacher</h3>
           <p className="text-gray-600 mb-4">
-            This is an early preview of our AI Teacher for Class 6 Mathematics.
+            Preview mode. For full classroom, tests, audio lessons and weekly
+            parent reports, please sign up.
           </p>
-	  <StudentLogin />
+
+          <button
+            className="btn btn-primary mb-4"
+            onClick={() => setAuthOpen("signup")}
+          >
+            Start Free Trial
+          </button>
+
           <TeacherBot />
         </div>
       </section>
 
-
+      {/* FOOTER */}
       <footer className="bg-white border-t">
         <div className="container py-6 text-sm text-gray-600 flex items-center justify-between">
           <div>© {new Date().getFullYear()} NeoLearn</div>
@@ -118,8 +142,10 @@ export default function Page() {
         </div>
       </footer>
 
+      {/* AUTH MODAL */}
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(null)} />
+
       <ChatWidget />
     </div>
   );
 }
-
