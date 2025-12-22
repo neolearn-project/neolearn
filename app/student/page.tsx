@@ -237,44 +237,45 @@ useEffect(() => {
   }, [student]);
 
   // Fetch weekly progress
-  useEffect(() => {
-    if (!student) return;
+useEffect(() => {
+  if (!student) return;
 
-    async function loadWeekly() {
-      setWeeklyLoading(true);
-      setWeeklyError(null);
-      try {
-        const res = await fetch(
-          `/api/progress/weekly-get?mobile=${encodeURIComponent(
-            student.mobile
-          )}`
-        );
-        const data = await res.json();
+  const mobile = student.mobile; // ✅ TS-safe snapshot
 
-        if (!res.ok || !data.ok) {
-          setWeeklyError(
-            data?.error || `Failed with HTTP ${res.status}`
-          );
-          setWeeklyRows([]);
-          return;
-        }
+  async function loadWeekly() {
+    setWeeklyLoading(true);
+    setWeeklyError(null);
+    try {
+      const res = await fetch(
+        `/api/progress/weekly-get?mobile=${encodeURIComponent(mobile)}`
+      );
+      const data = await res.json();
 
-        setWeeklyRows(data.weeks || []);
-      } catch (err: any) {
-        console.error("weekly-get error:", err);
-        setWeeklyError(err?.message || "Failed to load weekly progress");
+      if (!res.ok || !data.ok) {
+        setWeeklyError(data?.error || `Failed with HTTP ${res.status}`);
         setWeeklyRows([]);
-      } finally {
-        setWeeklyLoading(false);
+        return;
       }
-    }
 
-    loadWeekly();
-  }, [student]);
+      setWeeklyRows(data.weeks || []);
+    } catch (err: any) {
+      console.error("weekly-get error:", err);
+      setWeeklyError(err?.message || "Failed to load weekly progress");
+      setWeeklyRows([]);
+    } finally {
+      setWeeklyLoading(false);
+    }
+  }
+
+  loadWeekly();
+}, [student]);
+
 
 // ✅ Fetch DAILY progress (Today – IST)
 useEffect(() => {
   if (!student) return;
+
+  const mobile = student.mobile; // ✅ TS-safe snapshot
 
   async function loadDaily() {
     setDailyLoading(true);
@@ -282,7 +283,7 @@ useEffect(() => {
 
     try {
       const res = await fetch(
-        `/api/progress/daily-get?mobile=${encodeURIComponent(student.mobile)}`
+        `/api/progress/daily-get?mobile=${encodeURIComponent(mobile)}`
       );
       const data = await res.json();
 
@@ -309,6 +310,7 @@ useEffect(() => {
 
   loadDaily();
 }, [student]);
+
 
 
 
@@ -438,8 +440,15 @@ const handleStartLesson = useCallback(async () => {
   setAudioError(null);
   setQaError(null);
 
+const mobile = student?.mobile;
+if (!mobile) {
+  pushMessage("Teacher", "Student info missing. Please login again.", true);
+  setIsStartingLesson(false);
+  return;
+}
+
 const accessRes = await fetch(
-  `/api/access/check?mobile=${encodeURIComponent(student.mobile)}`
+  `/api/access/check?mobile=${encodeURIComponent(mobile)}`
 );
 const access = await accessRes.json();
 
@@ -580,6 +589,7 @@ if (accessRes.ok && access.ok && !access.allowed) {
   currentTopic,
   student?.classId,
   student?.name,
+  student?.mobile,
   language,
   speed,
   pushMessage,
