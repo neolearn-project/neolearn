@@ -1,18 +1,23 @@
 // lib/supabase/server.ts
 import { createClient } from "@supabase/supabase-js";
 
-// Read environment variables once
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Read environment variables once (may be undefined at type level)
+const supabaseUrlEnv = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const anonKeyEnv = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const serviceRoleKeyEnv = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Basic sanity checks
-if (!supabaseUrl) {
+// Basic sanity checks (runtime)
+if (!supabaseUrlEnv) {
   throw new Error("NEXT_PUBLIC_SUPABASE_URL is not set in .env.local");
 }
-if (!anonKey) {
+if (!anonKeyEnv) {
   throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is not set in .env.local");
 }
+
+// ✅ After checks, narrow to string for TypeScript
+const supabaseUrl: string = supabaseUrlEnv;
+const anonKey: string = anonKeyEnv;
+const serviceRoleKey: string | undefined = serviceRoleKeyEnv;
 
 /**
  * Standard server-side client using the anon key.
@@ -30,13 +35,7 @@ export function supabaseServer() {
  * so local dev keeps working.
  */
 export function supabaseServerAdmin() {
-  const key = serviceRoleKey || anonKey;
-
-  if (!key) {
-    throw new Error(
-      "No Supabase key found. Set SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY."
-    );
-  }
+  const key: string = serviceRoleKey ?? anonKey;
 
   return createClient(supabaseUrl, key, {
     auth: { persistSession: false },
