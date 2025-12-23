@@ -37,6 +37,9 @@ interface TopicRow {
   topic_name: string;
   content: any;
   is_active: boolean;
+
+  // ✅ added for UI (even if backend does not send it sometimes)
+  status?: "completed" | "in_progress" | "needs_revision" | "not_started" | string;
 }
 
 interface WeeklyProgressRow {
@@ -1827,11 +1830,11 @@ const handleSubmitTopicTest = async () => {
             <div className="text-xs font-semibold text-gray-600">
               Topic Mini Test
             </div>
-{currentTopic?.status && (
+{(currentTopic as any)?.status && (
   <div className="mt-1 text-[11px] font-semibold">
     Status:{" "}
     <span className="ml-1">
-      {TOPIC_STATUS_UI[currentTopic.status] || "—"}
+      {TOPIC_STATUS_UI[(currentTopic as any).status] || "—"}
     </span>
   </div>
 )}
