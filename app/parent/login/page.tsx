@@ -22,32 +22,76 @@ export default function ParentLoginPage() {
     }
   }, [router]);
 
-  const handleMobileSubmit = (e: React.FormEvent) => {
+  const handleMobileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
     const trimmed = mobile.trim();
-    if (!trimmed || trimmed.length < 8) {
-      setError("Please enter a valid mobile number.");
+
+    // basic validation (India 10-digit)
+    if (!/^\d{10}$/.test(trimmed)) {
+      setError("Please enter a valid 10-digit mobile number.");
       return;
     }
-    setStep("otp");
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mobile: trimmed }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || `Failed to send OTP (HTTP ${res.status})`);
+      }
+
+      setStep("otp");
+    } catch (e: any) {
+      setError(e?.message || "Failed to send OTP");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    const trimmedMobile = mobile.trim();
+    const code = otp.trim();
+
+    if (!/^\d{10}$/.test(trimmedMobile)) {
+      setError("Please enter a valid 10-digit mobile number.");
+      return;
+    }
+    if (!/^\d{4,8}$/.test(code)) {
+      setError("Please enter the OTP you received.");
+      return;
+    }
+
     setLoading(true);
     try {
-      // Demo OTP: 1111
-      if (otp.trim() !== "1111") {
-        setError("Invalid OTP. For demo, use 1111.");
-        return;
+      const res = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mobile: trimmedMobile, code }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || `OTP verify failed (HTTP ${res.status})`);
       }
 
+      // ✅ Parent dashboard reads this key
       if (typeof window !== "undefined") {
-        window.localStorage.setItem(PARENT_STORAGE_KEY, mobile.trim());
+        window.localStorage.setItem(PARENT_STORAGE_KEY, trimmedMobile);
       }
+
       router.replace("/parent/dashboard");
+    } catch (e: any) {
+      setError(e?.message || "OTP verification failed");
     } finally {
       setLoading(false);
     }
@@ -64,7 +108,7 @@ export default function ParentLoginPage() {
           <p className="text-[11px] text-gray-500 mt-1">
             Use your WhatsApp number to see your child&apos;s progress.
             <br />
-            <span className="font-semibold">Demo OTP: 1111</span>
+            OTP will be sent to your mobile for verification.
           </p>
         </div>
 
@@ -82,14 +126,15 @@ export default function ParentLoginPage() {
                 placeholder="10-digit WhatsApp number"
               />
             </div>
-            {error && (
-              <p className="text-[11px] text-red-500">{error}</p>
-            )}
+
+            {error && <p className="text-[11px] text-red-500">{error}</p>}
+
             <button
               type="submit"
-              className="w-full rounded-xl bg-blue-600 text-white text-sm font-semibold py-2 hover:bg-blue-700"
+              disabled={loading}
+              className="w-full rounded-xl bg-blue-600 text-white text-sm font-semibold py-2 hover:bg-blue-700 disabled:opacity-60"
             >
-              Continue
+              {loading ? "Sending OTP…" : "Continue"}
             </button>
           </form>
         )}
@@ -97,11 +142,9 @@ export default function ParentLoginPage() {
         {step === "otp" && (
           <form onSubmit={handleOtpSubmit} className="space-y-3">
             <div className="text-[11px] text-gray-600 mb-1">
-              We have (demo) sent an OTP to{" "}
-              <span className="font-semibold">{mobile}</span>.
-              <br />
-              For now, use <span className="font-semibold">1111</span>.
+              We sent an OTP to <span className="font-semibold">{mobile}</span>.
             </div>
+
             <div>
               <label className="block text-[11px] font-medium text-gray-600 mb-1">
                 Enter OTP
@@ -111,12 +154,12 @@ export default function ParentLoginPage() {
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
                 className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter 4-digit OTP"
+                placeholder="Enter OTP"
               />
             </div>
-            {error && (
-              <p className="text-[11px] text-red-500">{error}</p>
-            )}
+
+            {error && <p className="text-[11px] text-red-500">{error}</p>}
+
             <button
               type="submit"
               disabled={loading}
@@ -124,6 +167,7 @@ export default function ParentLoginPage() {
             >
               {loading ? "Verifying…" : "Verify & Continue"}
             </button>
+
             <button
               type="button"
               onClick={() => {

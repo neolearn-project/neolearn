@@ -1,15 +1,19 @@
 // app/api/syllabus/route.ts
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabasePublic, supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function GET(req: Request) {
+const supabase = supabasePublic();
+const admin = supabaseAdmin();
+
   const { searchParams } = new URL(req.url);
 
-  const classParam = searchParams.get("class");
-  const boardParam = searchParams.get("board");
+const classStr = (searchParams.get("class") || "6").trim();
+const boardRaw = (searchParams.get("board") || "cbse").trim();
 
-  const classNumber = classParam ? parseInt(classParam, 10) : NaN;
-  const board = boardParam?.toLowerCase();
+const classNumber = Number(classStr);
+const board = boardRaw.toLowerCase(); // 🔥 IMPORTANT
+
 
   if (!board || Number.isNaN(classNumber)) {
     return NextResponse.json(
@@ -20,19 +24,12 @@ export async function GET(req: Request) {
 
   try {
     // 1) SUBJECTS
-    const { data: subjects, error: subjectsError } = await supabaseAdmin
-      .from("subjects")
-      .select(
-        `
-        id,
-        board,
-        class_number,
-        subject_code,
-        subject_name
-      `
-      )
-      .eq("board", board)
-      .eq("class_number", classNumber);
+    const { data: subjects, error: subjectsError } = await admin
+  .from("subjects")
+  .select("*")
+  .eq("class_number", classNumber)
+  .ilike("board", board);
+
 
     if (subjectsError) {
       console.error("subjectsError", subjectsError);
@@ -49,7 +46,7 @@ export async function GET(req: Request) {
     const subjectIds = subjects.map((s) => s.id);
 
     // 2) CHAPTERS
-    const { data: chapters, error: chaptersError } = await supabaseAdmin
+    const { data: chapters, error: chaptersError } = await admin
       .from("chapters")
       .select(
         `
@@ -72,7 +69,7 @@ export async function GET(req: Request) {
     // 3) TOPICS
     let topics: any[] = [];
     if (chapterIds.length > 0) {
-      const { data: topicsData, error: topicsError } = await supabaseAdmin
+      const { data: topicsData, error: topicsError } = await admin
         .from("topics")
         .select(
           `

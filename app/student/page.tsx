@@ -6,6 +6,7 @@ import { getAvatarForSubject } from "../lib/teacherAvatar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RealtimeTeacherClient } from "./realtimeTeacherClient";
+import jsPDF from "jspdf";
 
 type ClassId = "5" | "6" | "7" | "8" | "9";
 
@@ -13,6 +14,9 @@ interface StudentInfo {
   name: string;
   mobile: string;
   classId: ClassId;
+
+  // ✅ Supabase Auth user id (needed for Persona Engine)
+  studentId?: string;
 }
 
 interface SubjectRow {
@@ -67,7 +71,8 @@ type ActiveTab =
   | "topics"
   | "progress"
   | "payments"
-  | "gallery";
+  | "gallery"
+  | "routine";
 
 type MessageAuthor = "Teacher" | "You";
 
@@ -79,6 +84,26 @@ interface ChatMessage {
   isError?: boolean;
 }
 
+type ClassSession = {
+  id: string;
+  startTime: number;   // timestamp
+  endTime: number;     // timestamp
+  isLive: boolean;
+  subjects: string[];  // ["Maths", "Science"]
+};
+
+type StoredSession = {
+  id: string;
+  studentMobile: string;
+  subject: string;
+  chapter: string;
+  topic: string;
+  language: string;
+  startedAt: string; // ISO
+  endedAt: string;   // ISO
+  transcript: string; // realtimeTranscript
+};
+
 const TOPIC_STATUS_UI: Record<string, string> = {
   completed: "✅ Completed",
   in_progress: "🟡 In Progress",
@@ -86,7 +111,69 @@ const TOPIC_STATUS_UI: Record<string, string> = {
   not_started: "❌ Not Started",
 };
 
+const SESSION_HISTORY_KEY = "neolearnSessionHistory";
+
 const STORAGE_KEY = "neolearnStudent";
+type Weekday =
+  | "Monday"
+  | "Tuesday"
+  | "Wednesday"
+  | "Thursday"
+  | "Friday"
+  | "Saturday"
+  | "Sunday";
+
+const WEEKDAYS: Weekday[] = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+
+type RoutineDayPlan = {
+  time: string; // "18:30" (24h)
+  subject1Id: number | null;
+  subject2Id: number | null;
+  minutesPerSubject: number; // 30-45 recommended
+};
+
+type WeeklyRoutine = Record<Weekday, RoutineDayPlan>;
+
+function getTodayWeekday(): Weekday {
+  // JS: Sunday=0 ... Saturday=6
+  const d = new Date().getDay();
+  const map: Weekday[] = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+  return map[d];
+}
+
+function defaultRoutine(): WeeklyRoutine {
+  const base: RoutineDayPlan = {
+    time: "18:30",
+    subject1Id: null,
+    subject2Id: null,
+    minutesPerSubject: 30,
+  };
+  return {
+    Monday: { ...base },
+    Tuesday: { ...base },
+    Wednesday: { ...base },
+    Thursday: { ...base },
+    Friday: { ...base },
+    Saturday: { ...base },
+    Sunday: { ...base },
+  };
+}
 
 export default function StudentDashboardPage() {
   const router = useRouter();
@@ -100,12 +187,118 @@ const [teacherAvatar, setTeacherAvatar] = useState<string>(
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("classroom");
 
+ const [routine, setRoutine] = useState<WeeklyRoutine>(defaultRoutine());
+  const [routineLoaded, setRoutineLoaded] = useState(false);
+
+   const startTodayClass = (dayOverride?: Weekday) => {
+    const day = dayOverride ?? getTodayWeekday();
+    const plan = routine[day];
+
+    if (!plan?.subject1Id || !plan?.subject2Id) {
+      alert(`Routine not set for ${day}. Please select 2 subjects first.`);
+      return;
+    }
+
+    setSelectedSubjectId(plan.subject1Id);
+    setSelectedChapterId(null);
+    setSelectedTopicId(null);
+
+    setActiveTab("classroom");
+
+    setAutoStartPayload({
+      subject1Id: plan.subject1Id,
+      subject2Id: plan.subject2Id,
+      minutesPerSubject: plan.minutesPerSubject || 30,
+    });
+    setAutoStartToken((n) => n + 1);
+  };
+
+       
+  // Used to trigger "auto start" inside ClassroomView
+  const [autoStartToken, setAutoStartToken] = useState(0);
+  const [autoStartPayload, setAutoStartPayload] = useState<{
+    subject1Id: number;
+    subject2Id: number;
+    minutesPerSubject: number;
+  } | null>(null);
+
+
+const [savedSessions, setSavedSessions] = useState<StoredSession[]>([]);
+const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+
+const [classSession, setClassSession] = useState<ClassSession | null>(null);
+const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
+// 🔹 Store the full realtime transcript for this class session
+const [sessionTranscript, setSessionTranscript] = useState<string>("");
+
   const handleLogout = () => {
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(STORAGE_KEY);
     }
     router.replace("/");
   };
+
+const printSession = () => {
+  if (typeof window === "undefined") return;
+  window.print();
+};
+
+// 🔹 DEV: Start a live class session (temporary)
+const startClassSession = () => {
+  const now = Date.now();
+  const durationMinutes = 40;
+
+  const session: ClassSession = {
+    id: crypto.randomUUID(),
+    startTime: now,
+    endTime: now + durationMinutes * 60 * 1000,
+    isLive: true,
+    subjects: ["Maths", "Science"],
+  };
+
+  setClassSession(session);
+  setRemainingSeconds(durationMinutes * 60);
+};
+function loadSessionHistory(): StoredSession[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(SESSION_HISTORY_KEY);
+    return raw ? (JSON.parse(raw) as StoredSession[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSessionHistory(item: StoredSession) {
+  if (typeof window === "undefined") return;
+  const prev = loadSessionHistory();
+  const next = [item, ...prev].slice(0, 200); // keep last 200 sessions
+  window.localStorage.setItem(SESSION_HISTORY_KEY, JSON.stringify(next));
+}
+
+// 🔹 End class session + save transcript chapter-wise
+const endClassSession = () => {
+  if (!classSession || !student) return;
+
+  const subject = currentSubject?.subject_name || "Unknown Subject";
+  const chapter = currentChapter?.chapter_name || "Unknown Chapter";
+  const topic = currentTopic?.topic_name || "Unknown Topic";
+
+  saveSessionHistory({
+    id: classSession.id,
+    studentMobile: student.mobile,
+    subject,
+    chapter,
+    topic,
+    language,
+    startedAt: new Date(classSession.startTime).toISOString(),
+    endedAt: new Date().toISOString(),
+    transcript: sessionTranscript.trim(),
+  });
+
+  setClassSession((prev) => (prev ? { ...prev, isLive: false } : null));
+  setRemainingSeconds(0);
+};
 
   // syllabus
   const [syllabusLoading, setSyllabusLoading] = useState(false);
@@ -200,6 +393,40 @@ useEffect(() => {
       setLoadingStudent(false);
     }
   }, [router]);
+
+  // Load routine per-student
+  useEffect(() => {
+    if (!student?.mobile) return;
+
+    const key = `neolearnRoutine:${student.mobile}`;
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw) as WeeklyRoutine;
+        setRoutine(parsed);
+      } else {
+        setRoutine(defaultRoutine());
+      }
+    } catch {
+      setRoutine(defaultRoutine());
+    } finally {
+      setRoutineLoaded(true);
+    }
+  }, [student?.mobile]);
+
+  // Save routine per-student
+  useEffect(() => {
+    if (!student?.mobile) return;
+    if (!routineLoaded) return;
+
+    const key = `neolearnRoutine:${student.mobile}`;
+    try {
+      window.localStorage.setItem(key, JSON.stringify(routine));
+    } catch {
+      // ignore
+    }
+  }, [routine, routineLoaded, student?.mobile]);
+
 
   // Fetch syllabus from Supabase
   useEffect(() => {
@@ -426,6 +653,46 @@ useEffect(() => {
     []
   );
 
+// 🔹 Countdown timer for live class
+useEffect(() => {
+  if (!classSession?.isLive) return;
+
+  const interval = setInterval(() => {
+    const now = Date.now();
+    const remaining = Math.floor(
+      (classSession.endTime - now) / 1000
+    );
+
+    if (remaining <= 0) {
+      setRemainingSeconds(0);
+      setClassSession((prev) =>
+        prev ? { ...prev, isLive: false } : null
+      );
+      clearInterval(interval);
+    } else {
+      setRemainingSeconds(remaining);
+    }
+  }, 1000);
+
+  return () => clearInterval(interval);
+}, [classSession]);
+
+useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  // load for this student only
+  const all = loadSessionHistory();
+  const mine = student ? all.filter((s) => s.studentMobile === student.mobile) : [];
+  setSavedSessions(mine);
+
+  // auto-select first
+  if (!selectedSessionId && mine.length > 0) {
+    setSelectedSessionId(mine[0].id);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [student, activeTab]);
+
+
   // Start Lesson -> /api/generate-lesson + /api/lesson-audio
 const handleStartLesson = useCallback(async () => {
   if (isStartingLesson) return;
@@ -623,16 +890,39 @@ if (accessRes.ok && access.ok && !access.allowed) {
     try {
       // 1) Get text answer from teacher-math
       const res = await fetch("/api/teacher-math", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question: trimmed,
-          subject: currentSubject.subject_name,
-          chapter: currentChapter.chapter_name,
-          topic: currentTopic.topic_name,
-          classId: student?.classId,
-        }),
-      });
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({
+  question: trimmed,
+
+// ✅ Persona Engine key
+  studentId: student?.studentId || "",
+
+  // 🔹 DB IDs (TEXT) — Supabase memory
+  subjectDbId: String(currentSubject?.id ?? ""),
+  chapterDbId: String(currentChapter?.id ?? ""),
+  topicDbId: String(currentTopic?.id ?? ""),
+
+  // 🔹 Semantic ID — AI logic
+  subjectId: currentSubject?.subject_code || "maths6",
+
+  classId: String(student?.classId ?? "6"),
+  studentMobile: student?.mobile,
+
+  board: "cbse",
+  lang:
+    language === "Hindi"
+      ? "hi"
+      : language === "Bengali"
+      ? "bn"
+      : "en",
+
+  // optional (debug / analytics)
+  subject: currentSubject?.subject_name,
+  chapter: currentChapter?.chapter_name,
+  topic: currentTopic?.topic_name,
+}),
+});
 
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
@@ -717,8 +1007,7 @@ if (accessRes.ok && access.ok && !access.allowed) {
     language,
     pushMessage,
   ]);
-
-
+     
   // ----------------- RENDER -----------------
 
   if (loadingStudent) {
@@ -763,6 +1052,16 @@ if (accessRes.ok && access.ok && !access.allowed) {
 
 
       {/* Main layout */}
+{/* 🔹 DEV ONLY: Start Live Class */}
+<div className="mb-3">
+  <button
+    onClick={startClassSession}
+    className="rounded-xl bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-700"
+  >
+    ▶ Start Class (DEV)
+  </button>
+</div>
+
       <div className="mx-auto flex max-w-6xl gap-4 px-4 py-4">
         {/* Left navigation */}
         <aside className="w-64 rounded-2xl bg-white p-3 shadow-sm">
@@ -770,50 +1069,64 @@ if (accessRes.ok && access.ok && !access.allowed) {
             Student Area
           </div>
           <nav className="space-y-1 text-sm">
-            <TabButton
-              active={activeTab === "classroom"}
-              onClick={() => setActiveTab("classroom")}
-            >
-              🎓 Classroom (AI Teacher)
-            </TabButton>
-            <TabButton
-              active={activeTab === "subjects"}
-              onClick={() => setActiveTab("subjects")}
-            >
-              📚 Subjects
-            </TabButton>
-            <TabButton
-              active={activeTab === "chapters"}
-              onClick={() => setActiveTab("chapters")}
-            >
-              📘 Chapters
-            </TabButton>
-            <TabButton
-              active={activeTab === "topics"}
-              onClick={() => setActiveTab("topics")}
-            >
-              🧩 Topics
-            </TabButton>
-            <TabButton
-              active={activeTab === "progress"}
-              onClick={() => setActiveTab("progress")}
-            >
-              📊 Weekly Progress
-            </TabButton>
-            <TabButton
-              active={activeTab === "payments"}
-              onClick={() => setActiveTab("payments")}
-            >
-              💳 Payment History
-            </TabButton>
-            <TabButton
-              active={activeTab === "gallery"}
-              onClick={() => setActiveTab("gallery")}
-            >
-              🖼️ Gallery / Notes
-            </TabButton>
-          </nav>
-        </aside>
+  <TabButton
+    active={activeTab === "classroom"}
+    onClick={() => setActiveTab("classroom")}
+  >
+    🎓 Classroom (AI Teacher)
+  </TabButton>
+
+  <TabButton
+    active={activeTab === "subjects"}
+    onClick={() => setActiveTab("subjects")}
+  >
+    📚 Subjects
+  </TabButton>
+
+  <TabButton
+    active={activeTab === "chapters"}
+    onClick={() => setActiveTab("chapters")}
+  >
+    📘 Chapters
+  </TabButton>
+
+  <TabButton
+    active={activeTab === "topics"}
+    onClick={() => setActiveTab("topics")}
+  >
+    🧩 Topics
+  </TabButton>
+
+  <TabButton
+    active={activeTab === "progress"}
+    onClick={() => setActiveTab("progress")}
+  >
+    📊 Weekly Progress
+  </TabButton>
+
+  <TabButton
+    active={activeTab === "payments"}
+    onClick={() => setActiveTab("payments")}
+  >
+    💳 Payment History
+  </TabButton>
+
+  <TabButton
+    active={activeTab === "gallery"}
+    onClick={() => setActiveTab("gallery")}
+  >
+    🖼️ Gallery / Notes
+  </TabButton>
+
+  <TabButton
+    active={activeTab === "routine"}
+    onClick={() => setActiveTab("routine")}
+  >
+    🗓️ Weekly Routine
+  </TabButton>
+</nav>
+</aside>
+
 
         {/* Right content */}
         <main className="flex-1 rounded-2xl bg-white p-4 shadow-sm">
@@ -840,7 +1153,13 @@ if (accessRes.ok && access.ok && !access.allowed) {
               messagesEndRef={messagesEndRef}
 	      teacherAvatar={teacherAvatar}
 	      studentName={student.name}
-              studentMobile={student.mobile} 
+              studentMobile={student.mobile}
+	      isClassLive={!!classSession?.isLive}
+              remainingSeconds={remainingSeconds}
+              onAppendTranscript={(delta) =>             	      setSessionTranscript((p) => p + delta)}
+	      onEndClass={endClassSession} 
+	      autoStartToken={autoStartToken}
+              autoStartPayload={autoStartPayload}
             />
           )}
 
@@ -895,11 +1214,21 @@ if (accessRes.ok && access.ok && !access.allowed) {
           )}
 
           {activeTab === "gallery" && (
-            <PlaceholderView title="Gallery / Notes">
-              Here we will store saved examples, screenshots and teacher notes
-              for the student.
-            </PlaceholderView>
+  <GalleryView
+    sessions={savedSessions}
+    selectedId={selectedSessionId}
+    setSelectedId={setSelectedSessionId}
+  />
+)}
+          {activeTab === "routine" && (
+            <RoutineView
+              subjects={subjects}
+              routine={routine}
+              setRoutine={setRoutine}
+              onStartToday={() => startTodayClass()}
+            />
           )}
+
         </main>
       </div>
     </div>
@@ -1307,6 +1636,191 @@ function WeeklyProgressView({
   );
 }
 
+function GalleryView({
+  sessions,
+  selectedId,
+  setSelectedId,
+}: {
+  sessions: StoredSession[];
+  selectedId: string | null;
+  setSelectedId: (id: string | null) => void;
+}) {
+  const selected = useMemo(
+    () => sessions.find((s) => s.id === selectedId) || null,
+    [sessions, selectedId]
+  );
+
+  const downloadPdf = () => {
+  if (!selected) return;
+
+  const doc = new jsPDF({
+    orientation: "p",
+    unit: "pt",
+    format: "a4",
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  const margin = 40;
+  let y = margin;
+
+  const lineGap = 14;
+
+  const addLine = (text: string, fontSize = 11, isBold = false) => {
+    doc.setFont("helvetica", isBold ? "bold" : "normal");
+    doc.setFontSize(fontSize);
+
+    const maxWidth = pageWidth - margin * 2;
+    const lines = doc.splitTextToSize(text, maxWidth);
+
+    for (const line of lines) {
+      if (y + lineGap > pageHeight - margin) {
+        doc.addPage();
+        y = margin;
+      }
+      doc.text(line, margin, y);
+      y += lineGap;
+    }
+  };
+
+  // Title
+  addLine("NeoLearn – Class Recording", 14, true);
+  y += 6;
+
+  // Meta
+  addLine(`Subject: ${selected.subject}`, 11, true);
+  addLine(`Chapter: ${selected.chapter}`, 11, true);
+  addLine(`Topic: ${selected.topic}`, 11, true);
+  addLine(`Language: ${selected.language}`, 11, false);
+  addLine(`Start: ${new Date(selected.startedAt).toLocaleString()}`, 11, false);
+  addLine(`End: ${new Date(selected.endedAt).toLocaleString()}`, 11, false);
+
+  y += 10;
+  addLine("Transcript:", 12, true);
+  y += 4;
+
+  const transcript = (selected.transcript || "").trim() || "No transcript saved.";
+  addLine(transcript, 11, false);
+
+  // Footer
+  y += 12;
+  addLine("Generated by NeoLearn • AI Assisted Learning", 9, false);
+
+  const safeFile =
+    `NeoLearn_${selected.subject}_${selected.topic}_${new Date(selected.endedAt)
+      .toISOString()
+      .slice(0, 10)}`
+      .replaceAll(" ", "_")
+      .replaceAll("/", "_");
+
+  doc.save(`${safeFile}.pdf`);
+};
+
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold">Gallery / Class History</h1>
+        <div className="text-[11px] text-gray-500">
+          Saved realtime classes (chapter-wise)
+        </div>
+      </div>
+
+      {sessions.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-300 p-4 text-xs text-slate-600">
+          No saved classes yet. Start a live class, use realtime voice, then click{" "}
+          <b>End Class &amp; Save</b>.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          {/* Left list */}
+          <div className="md:col-span-1 rounded-2xl border border-slate-200 bg-slate-50 p-2">
+            <div className="mb-2 text-[11px] font-semibold text-gray-600 uppercase">
+              Recordings
+            </div>
+
+            <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+              {sessions.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setSelectedId(s.id)}
+                  className={`w-full rounded-xl border px-3 py-2 text-left text-xs ${
+                    selectedId === s.id
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-slate-200 bg-white hover:bg-slate-100"
+                  }`}
+                >
+                  <div className="font-semibold text-slate-800 truncate">
+                    {s.subject} • {s.topic}
+                  </div>
+                  <div className="text-[11px] text-slate-600 truncate">
+                    {s.chapter}
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-1">
+                    {new Date(s.endedAt).toLocaleString()}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Right viewer */}
+          <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-3">
+            {!selected ? (
+              <div className="text-xs text-slate-600">
+                Select any recording from the left.
+              </div>
+            ) : (
+              <>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-800">
+                      {selected.subject} • {selected.topic}
+                    </div>
+                    <div className="text-[11px] text-slate-600">
+                      Chapter: {selected.chapter}
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-1">
+                      {new Date(selected.startedAt).toLocaleString()} →{" "}
+                      {new Date(selected.endedAt).toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+  type="button"
+  onClick={() => window.print()}
+  className="rounded-xl border border-slate-300 px-3 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
+>
+  Print
+</button>
+
+                    <button
+                      type="button"
+                      onClick={() => downloadPdf()}
+                      className="rounded-xl border border-slate-300 px-3 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
+                    >
+                      Download
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 max-h-[420px] overflow-y-auto whitespace-pre-wrap">
+                  {selected.transcript?.trim()
+                    ? selected.transcript.trim()
+                    : "No transcript saved for this session."}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 interface TopicTestQuestion {
   id: number;
@@ -1315,6 +1829,143 @@ interface TopicTestQuestion {
   correctIndex: number;
   explanation: string;
 }
+
+function RoutineView({
+  subjects,
+  routine,
+  setRoutine,
+  onStartToday,
+}: {
+  subjects: SubjectRow[];
+  routine: WeeklyRoutine;
+  setRoutine: (r: WeeklyRoutine) => void;
+  onStartToday: () => void;
+}) {
+  const updateDay = (day: Weekday, patch: Partial<RoutineDayPlan>) => {
+    setRoutine({
+      ...routine,
+      [day]: {
+        ...routine[day],
+        ...patch,
+      },
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold">Weekly Routine</h1>
+
+        <button
+          type="button"
+          onClick={onStartToday}
+          className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700"
+        >
+          ▶️ Start Today Class
+        </button>
+      </div>
+
+      <div className="text-xs text-gray-600">
+        Set <b>2 subjects per day</b> + class time. Each day runs two blocks (Phase 1 & Phase 2).
+        Recommended: <b>30–45 minutes</b> per subject.
+      </div>
+
+      <div className="grid grid-cols-1 gap-3">
+        {WEEKDAYS.map((day) => {
+          const plan = routine[day];
+          return (
+            <div
+              key={day}
+              className="rounded-2xl border border-slate-200 bg-white p-3"
+            >
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold">{day}</div>
+                <div className="text-[11px] text-slate-500">
+                  Time:{" "}
+                  <input
+                    type="time"
+                    value={plan.time}
+                    onChange={(e) => updateDay(day, { time: e.target.value })}
+                    className="ml-2 rounded-lg border border-slate-300 px-2 py-1 text-[11px]"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-3">
+                <div>
+                  <div className="text-[11px] font-semibold text-slate-600 mb-1">
+                    Subject 1
+                  </div>
+                  <select
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                    value={plan.subject1Id ?? ""}
+                    onChange={(e) =>
+                      updateDay(day, {
+                        subject1Id: e.target.value ? Number(e.target.value) : null,
+                      })
+                    }
+                  >
+                    <option value="">Select subject…</option>
+                    {subjects.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.subject_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <div className="text-[11px] font-semibold text-slate-600 mb-1">
+                    Subject 2
+                  </div>
+                  <select
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                    value={plan.subject2Id ?? ""}
+                    onChange={(e) =>
+                      updateDay(day, {
+                        subject2Id: e.target.value ? Number(e.target.value) : null,
+                      })
+                    }
+                  >
+                    <option value="">Select subject…</option>
+                    {subjects.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.subject_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <div className="text-[11px] font-semibold text-slate-600 mb-1">
+                    Minutes / Subject
+                  </div>
+                  <select
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+                    value={plan.minutesPerSubject}
+                    onChange={(e) =>
+                      updateDay(day, { minutesPerSubject: Number(e.target.value) })
+                    }
+                  >
+                    <option value={30}>30 min</option>
+                    <option value={35}>35 min</option>
+                    <option value={40}>40 min</option>
+                    <option value={45}>45 min</option>
+                  </select>
+
+                  <div className="mt-1 text-[11px] text-slate-500">
+                    Total/day ≈ {plan.minutesPerSubject * 2} minutes
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 
 /* ---------- Classroom view (center circle + right chat) ---------- */
 
@@ -1341,6 +1992,17 @@ function ClassroomView(props: {
   teacherAvatar: string;
   studentName: string;
   studentMobile: string;
+  isClassLive: boolean;
+  remainingSeconds: number;
+  onAppendTranscript: (delta: string) => void;
+  onEndClass: () => void;
+  autoStartToken: number;
+  autoStartPayload: {
+    subject1Id: number;
+    subject2Id: number;
+    minutesPerSubject: number;
+  } | null;
+
 }) {
   const {
     syllabusLoading,
@@ -1365,7 +2027,47 @@ function ClassroomView(props: {
     teacherAvatar,
     studentName,
     studentMobile,
+    isClassLive,
+    remainingSeconds,
+    onAppendTranscript,
+    onEndClass,
+    autoStartToken,
+         autoStartPayload,
   } = props;
+
+  // ===============================
+  // ✅ Class Timer (Classroom only)
+  // ===============================
+  const [classRunning, setClassRunning] = useState(false);
+  const [phase, setPhase] = useState<1 | 2>(1);
+  const [endsAt, setEndsAt] = useState<number | null>(null);
+  const [remainingSec, setRemainingSec] = useState<number>(0);
+
+  const formatTime = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
+  };
+
+ useEffect(() => {
+  if (!endsAt) return;
+
+  const t = window.setInterval(() => {
+    const now = Date.now();
+    const left = Math.max(0, Math.floor((endsAt - now) / 1000));
+    setRemainingSec(left);
+
+    if (left <= 0) {
+      window.clearInterval(t);
+      setClassRunning(false);
+      setRealtimeStatus("✅ Class block finished. You can move to next subject.");
+    }
+  }, 1000);
+
+  return () => window.clearInterval(t);
+}, [endsAt]);
+
+
 
   // 🔹 Realtime voice state
   const [realtimeClient, setRealtimeClient] =
@@ -1373,8 +2075,37 @@ function ClassroomView(props: {
   const [isRealtimeOn, setIsRealtimeOn] = useState(false);
   const [realtimeStatus, setRealtimeStatus] = useState<string>("");
 
-  const [isListening, setIsListening] = useState(false);
+   const [isListening, setIsListening] = useState(false);
   const [realtimeTranscript, setRealtimeTranscript] = useState("");
+
+  // ✅ Auto start today class: enable realtime + start timer
+  useEffect(() => {
+    if (!autoStartToken) return;
+    if (!autoStartPayload) return;
+
+    const mins = Math.max(5, Number(autoStartPayload.minutesPerSubject || 30));
+    const seconds = mins * 60;
+
+    setPhase(1);
+    setClassRunning(true);
+    setEndsAt(Date.now() + seconds * 1000);
+    setRemainingSec(seconds);
+
+    // turn realtime ON if off
+    (async () => {
+      try {
+        if (!isRealtimeOn) {
+          await handleToggleRealtime();
+        }
+        setRealtimeStatus(
+          `✅ Started today's class. Phase 1 running (${mins} min). Realtime enabled.`
+        );
+      } catch {
+        setRealtimeStatus("Started timer, but realtime connection failed.");
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStartToken]);
 
   // 🔹 Topic mini test state (MCQs)
   const [topicTest, setTopicTest] = useState<TopicTestQuestion[] | null>(null);
@@ -1411,6 +2142,10 @@ function ClassroomView(props: {
   };
 
   const handleToggleRealtime = async () => {
+if (!isClassLive) {
+  setRealtimeStatus("Start the class first to enable Realtime Voice.");
+  return;
+}
     // Turn OFF if already on
     if (isRealtimeOn && realtimeClient) {
       realtimeClient.disconnect();
@@ -1425,11 +2160,12 @@ function ClassroomView(props: {
       onStatus: (s) => setRealtimeStatus(s),
       onError: (msg) => setRealtimeStatus(msg),
       onTranscript: (delta) => {
-        setRealtimeTranscript((prev) => prev + delta);
-      },
+  setRealtimeTranscript((prev) => prev + delta);
+  onAppendTranscript(delta); // ✅ also store globally for saving
+},
     });
 
-    setRealtimeClient(client);
+      setRealtimeClient(client);
 
     const baseInstruction =
       language === "Hindi"
@@ -1699,6 +2435,56 @@ const handleSubmitTopicTest = async () => {
             Conversation
           </div>
 
+          {/* ✅ Class timer bar */}
+          {classRunning && (
+            <div className="mb-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800 flex items-center justify-between">
+              <div className="font-semibold">
+                ⏱️ Class Running • Phase {phase}/2 • Time left: {formatTime(remainingSec)}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  // end current phase manually
+                  setEndsAt((prev) => (prev ? Date.now() : prev)); // triggers finish in interval
+                }}
+                className="rounded-lg border border-emerald-300 bg-white px-2 py-1 text-[11px] font-semibold hover:bg-emerald-100"
+              >
+                End Phase
+              </button>
+            </div>
+          )}
+
+          {!classRunning && autoStartPayload && (
+            <div className="mb-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-700 flex items-center justify-between">
+              <div className="font-semibold">
+                Today Plan: 2 subjects selected • Phase {phase}/2
+              </div>
+              {phase === 1 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const mins = Math.max(
+                      5,
+                      Number(autoStartPayload.minutesPerSubject || 30)
+                    );
+                    const seconds = mins * 60;
+
+                    setPhase(2);
+                    setClassRunning(true);
+                    setEndsAt(Date.now() + seconds * 1000);
+                    setRemainingSec(seconds);
+                    setRealtimeStatus(`▶️ Phase 2 started (${mins} min).`);
+                  }}
+                  className="rounded-lg border border-indigo-300 bg-indigo-50 px-2 py-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100"
+                >
+                  Start Phase 2
+                </button>
+              ) : (
+                <span className="text-emerald-700 font-semibold">✅ Done</span>
+              )}
+            </div>
+          )}
+
           {/* Chat box */}
           <div className="flex-1 rounded-xl bg-white border border-slate-200 p-2 text-xs text-gray-700 flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto pr-1 space-y-1">
@@ -1793,6 +2579,31 @@ const handleSubmitTopicTest = async () => {
           </div>
 
           {/* realtime toggle + status */}
+{/* 🔹 Live class bar */}
+<div className="mb-2 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px]">
+  <div className="font-semibold text-slate-700">
+    {isClassLive ? "🟢 Live Class Running" : "⚪ Class Not Started"}
+  </div>
+
+  <div className="flex items-center gap-2">
+    {isClassLive && (
+      <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-700">
+        Time left: {Math.floor(remainingSeconds / 60)}m {remainingSeconds % 60}s
+      </span>
+    )}
+
+    {isClassLive && (
+      <button
+        type="button"
+        onClick={onEndClass}
+        className="rounded-lg border border-red-300 bg-red-50 px-2 py-1 font-semibold text-red-700 hover:bg-red-100"
+      >
+        End Class & Save
+      </button>
+    )}
+  </div>
+</div>
+
           <div className="mt-2 flex items-center justify-between text-[11px] text-gray-600">
             <button
               type="button"

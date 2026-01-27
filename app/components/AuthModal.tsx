@@ -27,7 +27,7 @@ export default function AuthModal({
               {mode === "login" ? "Login" : "Sign up (Free Trial)"}
             </div>
             <div className="text-[11px] text-gray-500">
-              Demo OTP: <b>1234</b> (we’ll connect real OTP later)
+              OTP will be sent to your mobile for verification.
             </div>
           </div>
           <button
