@@ -12,17 +12,37 @@ function toEmailFromUserId(userId: string) {
   return `${userId}@neolearn.local`;
 }
 
+function mapLanguage(input: string) {
+  const v = String(input || "").trim().toLowerCase();
+  // store in DB as short codes
+  if (v === "hindi" || v === "hi") return "hi";
+  if (v === "bengali" || v === "bn") return "bn";
+  return "en";
+}
+
+function mapCourseType(input: string) {
+  const v = String(input || "").trim().toLowerCase();
+  if (v === "competitive") return "competitive";
+  return "regular";
+}
+
 export async function POST(req: Request) {
   try {
-const admin = supabaseAdmin();
+    const admin = supabaseAdmin();
     const body = await req.json();
 
     const rawUserId = String(body?.userId || "");
     const userId = toSafeUserId(rawUserId);
+
     const password = String(body?.password || "").trim();
     const name = String(body?.name || "").trim();
     const mobile = String(body?.mobile || "").trim();
     const classId = String(body?.classId || "6").trim();
+
+    // NEW fields
+    const country = String(body?.country || "India").trim();
+    const preferredLanguage = mapLanguage(body?.preferredLanguage);
+    const courseType = mapCourseType(body?.courseType);
 
     if (!userId || userId.length < 3) {
       return NextResponse.json(
@@ -48,20 +68,24 @@ const admin = supabaseAdmin();
 
     const email = toEmailFromUserId(userId);
 
-    // 1️⃣ Create Supabase Auth user
-    const { data, error: authErr } =
-      await admin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          role: "student",
-          userId,
-          mobile,
-          name,
-          classId,
-        },
-      });
+    // 1) Create Supabase Auth user
+    const { data, error: authErr } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        role: "student",
+        userId,
+        mobile,
+        name,
+        classId,
+
+        // NEW metadata
+        country,
+        preferredLanguage,
+        courseType,
+      },
+    });
 
     if (authErr || !data?.user) {
       return NextResponse.json(
@@ -72,31 +96,32 @@ const admin = supabaseAdmin();
 
     const uid = data.user.id;
 
-    // 2️⃣ Create student_profile
-    const { error: profileErr } = await admin
-  .from("student_profile")
-  .insert({
-        student_id: uid,
-        mobile,
-        name,
-        preferred_language: "en",
-        preferred_speed: "normal",
-        explain_style: "simple",
-        weak_topic_ids: [],
-        persona_summary: "",
-      });
+    // 2) Create student_profile
+    const { error: profileErr } = await admin.from("student_profile").insert({
+      student_id: uid,
+      mobile,
+      name,
+
+      // NEW fields (make sure columns exist in DB, see note below)
+      country,
+      course_type: courseType,
+
+      // existing preferences
+      preferred_language: preferredLanguage,
+      preferred_speed: "normal",
+      explain_style: "simple",
+      weak_topic_ids: [],
+      persona_summary: "",
+    });
 
     if (profileErr) {
-      return NextResponse.json(
-        { error: profileErr.message },
-        { status: 400 }
-      );
+      // optional cleanup: delete auth user if profile insert fails
+      // await admin.auth.admin.deleteUser(uid);
+
+      return NextResponse.json({ error: profileErr.message }, { status: 400 });
     }
 
-    return NextResponse.json({
-      ok: true,
-      studentId: uid,
-    });
+    return NextResponse.json({ ok: true, studentId: uid });
   } catch (e: any) {
     return NextResponse.json(
       { error: e?.message || "Signup failed" },

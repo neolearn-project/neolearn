@@ -1,6 +1,13 @@
 ﻿import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
+import IntroGate from "./components/IntroGate";
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   title: "NeoLearn",
@@ -21,7 +28,10 @@ export default function RootLayout({
           strategy="afterInteractive"
         />
 
-        {children}
+        {/* Netflix-style NeoLearn Intro */}
+        <IntroGate>
+          {children}
+        </IntroGate>
       </body>
     </html>
   );
