@@ -88,6 +88,56 @@ const TOPIC_STATUS_UI: Record<string, string> = {
 
 const STORAGE_KEY = "neolearnStudent";
 
+function getFallbackSyllabus(classId: string) {
+  const fallbackSubjects: SubjectRow[] = [
+    {
+      id: 1001,
+      board: "cbse",
+      class_number: Number(classId || "6"),
+      subject_code: "maths",
+      subject_name: "Mathematics",
+    },
+  ];
+
+  const fallbackChapters: ChapterRow[] = [
+    { id: 2001, subject_id: 1001, chapter_number: 1, chapter_name: "Fractions" },
+    { id: 2002, subject_id: 1001, chapter_number: 2, chapter_name: "Decimals" },
+  ];
+
+  const fallbackTopics: TopicRow[] = [
+    {
+      id: 3001,
+      chapter_id: 2001,
+      topic_number: 1,
+      topic_name: "Introduction to Fractions",
+      content: null,
+      is_active: true,
+    },
+    {
+      id: 3002,
+      chapter_id: 2001,
+      topic_number: 2,
+      topic_name: "Addition of Fractions",
+      content: null,
+      is_active: true,
+    },
+    {
+      id: 3003,
+      chapter_id: 2002,
+      topic_number: 1,
+      topic_name: "Place Value in Decimals",
+      content: null,
+      is_active: true,
+    },
+  ];
+
+  return {
+    subjects: fallbackSubjects,
+    chapters: fallbackChapters,
+    topics: fallbackTopics,
+  };
+}
+
 export default function StudentDashboardPage() {
   const router = useRouter();
 
@@ -205,6 +255,8 @@ useEffect(() => {
   useEffect(() => {
     if (!student) return;
 
+    const classId = student.classId;
+
     async function load() {
       setSyllabusLoading(true);
       setSyllabusError(null);
@@ -218,7 +270,12 @@ useEffect(() => {
         const data = (await res.json()) as SyllabusResponse;
 
         if (!data.ok || !data.data) {
-          setSyllabusError(data.error || "Failed to load syllabus");
+          const fallback = getFallbackSyllabus(classId);
+          setSubjects(fallback.subjects);
+          setChapters(fallback.chapters);
+          setTopics(fallback.topics);
+          setSelectedSubjectId(fallback.subjects[0]?.id ?? null);
+          setSyllabusError(null);
           return;
         }
 
@@ -230,7 +287,12 @@ useEffect(() => {
           setSelectedSubjectId(data.data.subjects[0].id);
         }
       } catch (err: any) {
-        setSyllabusError(err?.message || "Failed to load syllabus");
+        const fallback = getFallbackSyllabus(classId);
+        setSubjects(fallback.subjects);
+        setChapters(fallback.chapters);
+        setTopics(fallback.topics);
+        setSelectedSubjectId(fallback.subjects[0]?.id ?? null);
+        setSyllabusError(null);
       } finally {
         setSyllabusLoading(false);
       }
@@ -450,12 +512,46 @@ if (!mobile) {
   return;
 }
 
-const accessRes = await fetch(
-  `/api/access/check?mobile=${encodeURIComponent(mobile)}`
-);
-const access = await accessRes.json();
+let access: { ok?: boolean; allowed?: boolean; used?: number; limit?: number } | null = null;
 
-if (accessRes.ok && access.ok && !access.allowed) {
+try {
+  const accessRes = await fetch(
+    `/api/access/check?mobile=${encodeURIComponent(mobile)}`
+  );
+
+  if (!accessRes.ok) {
+    pushMessage(
+      "Teacher",
+      "Unable to verify your plan right now. Please try again.",
+      true
+    );
+    setIsStartingLesson(false);
+    return;
+  }
+
+  access = await accessRes.json();
+} catch (err) {
+  console.error("access-check failed:", err);
+  pushMessage(
+    "Teacher",
+    "Unable to verify your plan right now. Please try again.",
+    true
+  );
+  setIsStartingLesson(false);
+  return;
+}
+
+if (!access?.ok) {
+  pushMessage(
+    "Teacher",
+    "Unable to verify your plan right now. Please try again.",
+    true
+  );
+  setIsStartingLesson(false);
+  return;
+}
+
+if (!access.allowed) {
   pushMessage(
     "Teacher",
     `Free limit reached (${access.used}/${access.limit}). Please subscribe to continue.`,
@@ -763,13 +859,9 @@ if (accessRes.ok && access.ok && !access.allowed) {
 
 
       {/* Main layout */}
-      <div className="mx-auto flex max-w-6xl gap-4 px-4 py-4">
-        {/* Left navigation */}
-        <aside className="w-64 rounded-2xl bg-white p-3 shadow-sm">
-          <div className="mb-2 text-xs font-semibold text-gray-500 uppercase">
-            Student Area
-          </div>
-          <nav className="space-y-1 text-sm">
+      <div className="mx-auto w-full max-w-7xl px-4 py-4">
+        <div className="mb-3 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+          <nav className="flex min-w-max gap-2 text-sm">
             <TabButton
               active={activeTab === "classroom"}
               onClick={() => setActiveTab("classroom")}
@@ -813,10 +905,9 @@ if (accessRes.ok && access.ok && !access.allowed) {
               🖼️ Gallery / Notes
             </TabButton>
           </nav>
-        </aside>
+        </div>
 
-        {/* Right content */}
-        <main className="flex-1 rounded-2xl bg-white p-4 shadow-sm">
+        <main className="rounded-2xl bg-white p-4 shadow-sm">
           {activeTab === "classroom" && (
             <ClassroomView
               syllabusLoading={syllabusLoading}
@@ -921,7 +1012,7 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full rounded-xl px-3 py-2 text-left text-xs ${
+      className={`rounded-full px-3 py-2 text-left text-xs whitespace-nowrap ${
         active
           ? "bg-blue-600 text-white"
           : "text-gray-700 hover:bg-slate-100"
@@ -1388,6 +1479,55 @@ function ClassroomView(props: {
   } | null>(null);
   const [isLoadingTest, setIsLoadingTest] = useState(false);
   const [isTopicTestOpen, setIsTopicTestOpen] = useState(false);
+  const [hasStartedClass, setHasStartedClass] = useState(false);
+
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) videoRef.current.srcObject = null;
+  };
+
+  const openCamera = async () => {
+    setCameraError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      streamRef.current = stream;
+      setIsCameraOpen(true);
+      setTimeout(() => {
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      }, 0);
+    } catch {
+      setCameraError("Camera access blocked. Please allow camera permission.");
+      setIsCameraOpen(false);
+    }
+  };
+
+  const captureFromCamera = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    setCapturedImage(canvas.toDataURL("image/jpeg", 0.9));
+    stopCamera();
+    setIsCameraOpen(false);
+  };
 
   // 🧠 Build a context-rich question for the realtime teacher
   const buildRealtimeQuestion = (raw: string) => {
@@ -1452,6 +1592,10 @@ function ClassroomView(props: {
     setIsRealtimeOn(true);
     setRealtimeStatus("Realtime voice connected.");
   };
+
+  useEffect(() => {
+    return () => stopCamera();
+  }, []);
 
   const handleAskRealtime = () => {
     const trimmed = question.trim();
@@ -1606,87 +1750,34 @@ const handleSubmitTopicTest = async () => {
   }
 };
 
+  const handleStartClass = async () => {
+    setHasStartedClass(true);
+    await onStartLesson();
+  };
 
   return (
     <>
-      <div className="flex h-[430px] gap-4">
-        {/* Teacher avatar area */}
-        <div className="flex-1 rounded-2xl bg-slate-50 p-4 flex flex-col">
-          <div className="mb-2 text-xs font-semibold text-gray-500 uppercase">
-            AI Teacher
-          </div>
-
-          <div className="flex-1 flex flex-col items-center justify-center">
-            <div className="mb-3 h-90 w-60 overflow-hidden rounded-3xl bg-white shadow-xl flex items-end">
-              <img
-                src={teacherAvatar}
-                alt="AI Teacher"
-                className="w-full h-auto object-contain"
-              />
+      <div className="relative min-h-[76vh]">
+        <div className="flex min-h-[74vh] flex-col rounded-2xl border border-slate-200 bg-slate-50/70 lg:pr-36">
+          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-800">NeoLearn AI Classroom</h2>
+              <p className="text-xs text-slate-500">Chat with your teacher like a real assistant.</p>
             </div>
-
-            <div className="text-sm font-semibold mt-1 text-center">
-              NeoLearn Maths Teacher
-            </div>
-          </div>
-
-          <div className="text-xs text-gray-600 text-center max-w-md mt-1">
-            Select your subject, chapter and topic on the left side, then click{" "}
-            <span className="font-semibold">Start Lesson (beta)</span> to get a
-            short explanation. Later we will replace this with a talking avatar
-            video.
-          </div>
-
-          <div className="mt-3 text-[11px] text-gray-500">
-            {syllabusLoading && "Loading syllabus…"}
-            {syllabusError && (
-              <span className="text-red-500">
-                {" "}
-                (Syllabus error: {syllabusError})
-              </span>
-            )}
-            {!syllabusLoading &&
-              !syllabusError &&
-              (!currentSubject || !currentChapter || !currentTopic) && (
-                <span>
-                  Please pick Subject → Chapter → Topic using the left menu.
-                </span>
-              )}
-          </div>
-        </div>
-
-        {/* Right: conversation card */}
-        <div className="w-[360px] rounded-2xl bg-slate-50 p-3 flex flex-col h-full">
-          {/* Language + speed */}
-          <div className="mb-2 flex gap-2">
-            <div className="flex-1">
-              <label className="block text-[11px] font-medium text-gray-600 mb-1">
-                Language
-              </label>
+            <div className="flex gap-2">
               <select
-                className="w-full rounded-xl border border-slate-300 bg-white px-2 py-1 text-[11px] outline-none focus:ring-2 focus:ring-blue-500"
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
                 value={language}
-                onChange={(e) =>
-                  setLanguage(
-                    e.target.value as "English" | "Hindi" | "Bengali"
-                  )
-                }
+                onChange={(e) => setLanguage(e.target.value as "English" | "Hindi" | "Bengali")}
               >
                 <option value="English">English</option>
                 <option value="Hindi">Hindi</option>
                 <option value="Bengali">Bengali</option>
               </select>
-            </div>
-            <div className="flex-1">
-              <label className="block text-[11px] font-medium text-gray-600 mb-1">
-                Speed
-              </label>
               <select
-                className="w-full rounded-xl border border-slate-300 bg-white px-2 py-1 text-[11px] outline-none focus:ring-2 focus:ring-blue-500"
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
                 value={speed}
-                onChange={(e) =>
-                  setSpeed(e.target.value as "Slow" | "Normal" | "Fast")
-                }
+                onChange={(e) => setSpeed(e.target.value as "Slow" | "Normal" | "Fast")}
               >
                 <option value="Slow">Slow</option>
                 <option value="Normal">Normal</option>
@@ -1695,172 +1786,240 @@ const handleSubmitTopicTest = async () => {
             </div>
           </div>
 
-          <div className="mb-2 text-xs font-semibold text-gray-500 uppercase">
-            Conversation
-          </div>
-
-          {/* Chat box */}
-          <div className="flex-1 rounded-xl bg-white border border-slate-200 p-2 text-xs text-gray-700 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto pr-1 space-y-1">
-              {messages.map((m) => (
-                <div key={m.id} className="leading-snug whitespace-pre-wrap">
-                  <span
-                    className={`font-semibold ${
-                      m.author === "Teacher"
-                        ? "text-blue-600"
-                        : "text-emerald-700"
-                    }`}
+          <div className="flex-1 overflow-y-auto px-4 py-4">
+            <div className="mx-auto max-w-5xl space-y-3">
+              {messages.map((m) => {
+                const isTeacher = m.author === "Teacher";
+                return (
+                  <div
+                    key={m.id}
+                    className={`flex ${isTeacher ? "justify-start" : "justify-end"}`}
                   >
-                    {m.author}:
-                  </span>{" "}
-                  <span
-                    className={m.isError ? "text-red-600" : "text-gray-800"}
-                  >
-                    {m.text}
-                  </span>
-                  <span className="ml-1 text-[10px] text-gray-400">
-                    {m.ts}
-                  </span>
-                </div>
-              ))}
+                    <div
+                      className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
+                        isTeacher
+                          ? "rounded-tl-md border border-slate-200 bg-white text-slate-800"
+                          : "rounded-tr-md bg-emerald-500 text-white"
+                      } ${m.isError ? "border-red-300 bg-red-50 text-red-700" : ""}`}
+                    >
+                      <div className="whitespace-pre-wrap leading-relaxed">{m.text}</div>
+                      <div className={`mt-1 text-[11px] ${isTeacher ? "text-slate-400" : "text-emerald-100"}`}>
+                        {isTeacher ? "Teacher" : "You"} • {m.ts}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
 
-              {/* live captions */}
               {realtimeTranscript && (
-                <div className="leading-snug whitespace-pre-wrap bg-blue-50 border border-blue-200 rounded-md px-2 py-1 text-[11px] text-gray-700">
-                  <span className="font-semibold text-blue-600">
-                    Teacher (live):
-                  </span>{" "}
+                <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-slate-700">
+                  <span className="font-semibold text-blue-700">Teacher (live): </span>
                   {realtimeTranscript}
+                </div>
+              )}
+
+              {capturedImage && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                  <div className="mb-2 text-xs font-semibold text-slate-500">Captured image</div>
+                  <img src={capturedImage} alt="Captured" className="max-h-56 w-auto rounded-xl border border-slate-200" />
+                </div>
+              )}
+
+              {uploadedFiles.length > 0 && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                  <div className="mb-1 text-xs font-semibold text-slate-500">Uploaded files</div>
+                  <ul className="list-disc pl-5 text-xs text-slate-700">
+                    {uploadedFiles.map((f, idx) => (
+                      <li key={`${f.name}-${idx}`}>{f.name}</li>
+                    ))}
+                  </ul>
                 </div>
               )}
 
               <div ref={messagesEndRef} />
             </div>
-
-            {audioUrl && (
-              <div className="mt-2 border-t pt-1">
-                <audio id="lesson-audio" controls className="w-full">
-                  <source src={audioUrl} />
-                  Your browser does not support audio playback.
-                </audio>
-              </div>
-            )}
-
-            {audioError && (
-              <p className="mt-1 text-[11px] text-red-500">{audioError}</p>
-            )}
           </div>
 
-          {/* Question input + realtime controls */}
-          <div className="mt-2 flex gap-2">
-            <input
-              type="text"
-              className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder={
-                isRealtimeOn
-                  ? "Type a doubt or use mic for realtime teacher…"
-                  : "Ask a doubt about this topic…"
-              }
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  if (!isAsking) handleAskRealtime();
-                }
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => handleAskRealtime()}
-              className="rounded-xl bg-slate-800 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-900 disabled:opacity-50"
-              disabled={isAsking}
-            >
-              {isRealtimeOn ? "Send (Realtime)" : isAsking ? "Thinking…" : "Ask"}
-            </button>
-            <button
-              type="button"
-              onClick={handleMicToggle}
-              className={`rounded-xl border px-3 py-2 text-xs font-semibold ${
-                isListening
-                  ? "border-red-500 text-red-600 bg-red-50"
-                  : "border-slate-300 text-slate-700 bg-white hover:bg-slate-100"
-              } disabled:opacity-50`}
-              disabled={!isRealtimeOn}
-            >
-              {isListening ? "⏹ Stop & Send" : "🎙 Speak"}
-            </button>
-          </div>
-
-          {/* realtime toggle + status */}
-          <div className="mt-2 flex items-center justify-between text-[11px] text-gray-600">
-            <button
-              type="button"
-              onClick={handleToggleRealtime}
-              className={`rounded-full px-3 py-1 border text-[11px] ${
-                isRealtimeOn
-                  ? "border-emerald-500 text-emerald-700 bg-emerald-50"
-                  : "border-slate-300 text-slate-700 bg-white"
-              }`}
-            >
-              {isRealtimeOn ? "🟢 Realtime Voice ON" : "⚪ Realtime Voice OFF"}
-            </button>
-            <span className="truncate max-w-[220px] text-right">
-              {isListening
-                ? "Listening… speak now."
-                : realtimeStatus ||
-                  (isRealtimeOn ? "Connected to voice teacher." : "")}
-            </span>
-          </div>
-
-          {/* Start lesson */}
-          <div className="mt-3">
-            <button
-              type="button"
-              onClick={() => !isStartingLesson && onStartLesson()}
-              disabled={isStartingLesson}
-              className="w-full rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-            >
-              {isStartingLesson ? "Preparing lesson…" : "Start Lesson (beta)"}
-            </button>
-          </div>
-
-          {/* Small launcher row for Topic Test */}
-          <div className="mt-3 flex items-center justify-between text-[11px]">
-            <div className="text-xs font-semibold text-gray-600">
-              Topic Mini Test
+          {audioUrl && (
+            <div className="border-t border-slate-200 px-4 py-2">
+              <audio id="lesson-audio" controls className="w-full">
+                <source src={audioUrl} />
+                Your browser does not support audio playback.
+              </audio>
             </div>
-{(currentTopic as any)?.status && (
-  <div className="mt-1 text-[11px] font-semibold">
-    Status:{" "}
-    <span className="ml-1">
-      {TOPIC_STATUS_UI[(currentTopic as any).status] || "—"}
-    </span>
-  </div>
-)}
-            <div className="flex items-center gap-2">
-              {topicTestResult && (
-                <span className="text-emerald-700 font-semibold">
-                  Last score: {topicTestResult.correct}/{topicTestResult.total} (
-                  {topicTestResult.percent}%)
-                </span>
-              )}
+          )}
+          {audioError && <p className="px-4 pb-2 text-xs text-red-500">{audioError}</p>}
+
+          <div className="border-t border-slate-200 px-4 py-3">
+            <div className="mb-2 flex items-center gap-2 overflow-x-auto pb-1">
+              <button
+                type="button"
+                onClick={handleToggleRealtime}
+                className={`rounded-full border px-3 py-1 text-xs whitespace-nowrap ${
+                  isRealtimeOn
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                    : "border-slate-300 bg-white text-slate-700"
+                }`}
+              >
+                {isRealtimeOn ? "🟢 Realtime Voice ON" : "⚪ Realtime Voice OFF"}
+              </button>
+              <button
+                type="button"
+                onClick={handleMicToggle}
+                disabled={!isRealtimeOn}
+                className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 disabled:opacity-50 whitespace-nowrap"
+              >
+                {isListening ? "⏹ Stop & Send" : "🎙 Speak"}
+              </button>
+              <button
+                type="button"
+                onClick={() => !isStartingLesson && handleStartClass()}
+                disabled={isStartingLesson}
+                className="rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white disabled:opacity-60 whitespace-nowrap"
+              >
+                {isStartingLesson ? "Preparing lesson…" : "Start Lesson"}
+              </button>
               <button
                 type="button"
                 onClick={handleStartTopicTest}
                 disabled={isLoadingTest || !currentTopic}
-                className="rounded-xl border border-indigo-500 px-3 py-1 text-[11px] font-semibold text-indigo-600 bg-white hover:bg-indigo-50 disabled:opacity-50"
+                className="rounded-full border border-indigo-500 bg-white px-3 py-1 text-xs font-semibold text-indigo-600 disabled:opacity-50 whitespace-nowrap"
               >
-                {isLoadingTest
-                  ? "Preparing test…"
-                  : topicTest
-                  ? "Open / Regenerate Test"
-                  : "Start Topic Test"}
+                {isLoadingTest ? "Preparing test…" : "Start Topic Test"}
+              </button>
+            </div>
+
+            <div className="mb-2 flex items-center gap-2 overflow-x-auto pb-1 text-[11px] text-slate-500">
+              <span className="whitespace-nowrap">{isListening ? "Listening… speak now." : realtimeStatus || "Ready"}</span>
+              {(currentTopic as any)?.status && (
+                <span className="whitespace-nowrap rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">
+                  Status: {TOPIC_STATUS_UI[(currentTopic as any).status] || "—"}
+                </span>
+              )}
+              {topicTestResult && (
+                <span className="whitespace-nowrap rounded-full bg-emerald-50 px-2 py-1 font-semibold text-emerald-700">
+                  Score: {topicTestResult.correct}/{topicTestResult.total} ({topicTestResult.percent}%)
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <input
+                type="text"
+                className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder={isRealtimeOn ? "Type a doubt or use mic for realtime teacher…" : "Ask a doubt about this topic…"}
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!isAsking) handleAskRealtime();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => handleAskRealtime()}
+                className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-black disabled:opacity-50"
+                disabled={isAsking}
+              >
+                {isRealtimeOn ? "Send" : isAsking ? "Thinking…" : "Ask"}
+              </button>
+            </div>
+
+            <div className="mt-2 flex items-center gap-2 overflow-x-auto pb-1">
+              <label className="cursor-pointer rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 whitespace-nowrap hover:bg-slate-100">
+                📎 Upload notes/photo
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => setUploadedFiles(Array.from(e.target.files || []))}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={openCamera}
+                className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 whitespace-nowrap hover:bg-slate-100"
+              >
+                📷 Open camera
+              </button>
+              {capturedImage && (
+                <button
+                  type="button"
+                  onClick={() => setCapturedImage(null)}
+                  className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 whitespace-nowrap hover:bg-slate-100"
+                >
+                  Clear image
+                </button>
+              )}
+            </div>
+            {cameraError && <p className="mt-1 text-xs text-red-500">{cameraError}</p>}
+            {syllabusLoading && <p className="mt-1 text-xs text-slate-500">Loading syllabus…</p>}
+            {syllabusError && <p className="mt-1 text-xs text-red-500">Syllabus error: {syllabusError}</p>}
+          </div>
+        </div>
+
+        <aside
+          className={`hidden lg:block absolute right-3 top-3 z-20 w-64 rounded-2xl border border-slate-200 bg-white p-3 shadow-md transition-transform duration-300 ${
+            hasStartedClass ? "translate-x-[74%] hover:translate-x-0" : "translate-x-0"
+          }`}
+        >
+          <div className="sticky top-3">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Teacher</div>
+            <div className="mx-auto w-28 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+              <img src={teacherAvatar} alt="AI Teacher" className="h-auto w-full object-contain" />
+            </div>
+            <p className="mt-2 text-center text-xs font-medium text-slate-700">NeoLearn Maths Teacher</p>
+            <p className="mt-2 text-center text-[11px] text-slate-500">
+              Subject: {currentSubject?.subject_name || "Select subject"}
+              <br />
+              Topic: {currentTopic?.topic_name || "Select topic"}
+            </p>
+          </div>
+        </aside>
+      </div>
+
+      {isCameraOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-3">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-4 shadow-xl">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Capture question image</h3>
+              <button
+                type="button"
+                className="rounded-full border border-slate-300 px-3 py-1 text-xs"
+                onClick={() => {
+                  stopCamera();
+                  setIsCameraOpen(false);
+                }}
+              >
+                Close
+              </button>
+            </div>
+            <video ref={videoRef} autoPlay playsInline className="max-h-[60vh] w-full rounded-xl border border-slate-200 bg-black" />
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold"
+                onClick={() => {
+                  stopCamera();
+                  setIsCameraOpen(false);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white"
+                onClick={captureFromCamera}
+              >
+                Capture
               </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* 🔹 Topic Test Modal */}
       {isTopicTestOpen && (
@@ -1976,4 +2135,3 @@ const handleSubmitTopicTest = async () => {
   );
 }
   
-

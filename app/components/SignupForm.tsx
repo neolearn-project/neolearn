@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 
-export default function SignupForm({ onDone }: { onDone: () => void }) {
+type SubjectType = "regular" | "competitive";
+
+export default function SignupForm({
+  onDone,
+  onSwitchToLogin,
+}: {
+  onDone: () => void;
+  onSwitchToLogin?: () => void;
+}) {
   const [form, setForm] = useState({
     studentName: "",
     studentMobile: "",
@@ -10,6 +18,9 @@ export default function SignupForm({ onDone }: { onDone: () => void }) {
     parentMobile: "",
     board: "CBSE",
     classNumber: "6",
+    country: "India",
+    language: "English",
+    subjectType: "regular" as SubjectType,
   });
 
   const [loading, setLoading] = useState(false);
@@ -32,6 +43,9 @@ export default function SignupForm({ onDone }: { onDone: () => void }) {
           childMobile: form.studentMobile.trim(),
           board: form.board,
           classNumber: Number(form.classNumber || "6"),
+          country: form.country,
+          language: form.language,
+          subjectType: form.subjectType,
           parentName: form.parentName.trim(), // safe to ignore server if not stored yet
         }),
       });
@@ -99,9 +113,42 @@ export default function SignupForm({ onDone }: { onDone: () => void }) {
           value={form.classNumber}
           onChange={(e) => setForm((f) => ({ ...f, classNumber: e.target.value }))}
         >
-          {["5","6","7","8","9","10"].map((c) => (
+          {["5", "6", "7", "8", "9", "10"].map((c) => (
             <option key={c} value={c}>Class {c}</option>
           ))}
+        </select>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <select
+          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          value={form.country}
+          onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
+        >
+          <option value="India">India</option>
+          <option value="Bangladesh">Bangladesh</option>
+          <option value="Nepal">Nepal</option>
+        </select>
+
+        <select
+          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          value={form.language}
+          onChange={(e) => setForm((f) => ({ ...f, language: e.target.value }))}
+        >
+          <option value="English">English</option>
+          <option value="Hindi">Hindi</option>
+          <option value="Bengali">Bengali</option>
+        </select>
+
+        <select
+          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          value={form.subjectType}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, subjectType: e.target.value as SubjectType }))
+          }
+        >
+          <option value="regular">Regular (Class V–XII)</option>
+          <option value="competitive">Competitive</option>
         </select>
       </div>
 
@@ -114,6 +161,19 @@ export default function SignupForm({ onDone }: { onDone: () => void }) {
       <div className="text-[11px] text-slate-500">
         Trial starts on first student login (so preview doesn’t waste trial).
       </div>
+
+      {onSwitchToLogin && (
+        <p className="text-center text-sm text-gray-600">
+          Already have an account?{" "}
+          <button
+            type="button"
+            className="font-semibold text-blue-600 hover:underline"
+            onClick={onSwitchToLogin}
+          >
+            Login
+          </button>
+        </p>
+      )}
     </div>
   );
 }

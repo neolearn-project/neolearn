@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/parent/children
-// body: { parentMobile, childName, childMobile, board, classNumber }
+// body: { parentMobile, childName, childMobile, board, classNumber, country?, language?, subjectType? }
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -62,6 +62,11 @@ export async function POST(req: NextRequest) {
     const childMobile = (body.childMobile as string | undefined)?.trim();
     const board = (body.board as string | undefined)?.trim();
     const classNumberRaw = body.classNumber;
+
+    const country = (body.country as string | undefined)?.trim() || "India";
+    const language = (body.language as string | undefined)?.trim() || "English";
+    const subjectType =
+      (body.subjectType as "regular" | "competitive" | undefined) || "regular";
 
     if (!parentMobile || !childName || !childMobile || !board) {
       return NextResponse.json(
@@ -92,20 +97,43 @@ export async function POST(req: NextRequest) {
       console.error("children existing check error:", existingErr);
     }
 
+    const payload = {
+      child_name: childName,
+      board,
+      class_number: classNumber,
+      country,
+      language,
+      subject_type: subjectType,
+    };
+
     if (existing) {
       const { data: updated, error: updateErr } = await supabase
         .from("children")
-        .update({
-          child_name: childName,
-          board,
-          class_number: classNumber,
-        })
+        .update(payload)
         .eq("id", existing.id)
         .select("*")
         .single();
 
       if (updateErr || !updated) {
         console.error("children update error:", updateErr);
+
+        const dbErr = String(updateErr?.message || "").toLowerCase();
+        if (
+          dbErr.includes("column") &&
+          (dbErr.includes("country") ||
+            dbErr.includes("language") ||
+            dbErr.includes("subject_type"))
+        ) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error:
+                "Database columns missing. Please add children.country, children.language, and children.subject_type in Supabase.",
+            },
+            { status: 500 }
+          );
+        }
+
         return NextResponse.json(
           { ok: false, error: "Failed to update child profile." },
           { status: 500 }
@@ -119,16 +147,32 @@ export async function POST(req: NextRequest) {
       .from("children")
       .insert({
         parent_mobile: parentMobile,
-        child_name: childName,
         child_mobile: childMobile,
-        board,
-        class_number: classNumber,
+        ...payload,
       })
       .select("*")
       .single();
 
     if (insertErr || !inserted) {
       console.error("children insert error:", insertErr);
+
+      const dbErr = String(insertErr?.message || "").toLowerCase();
+      if (
+        dbErr.includes("column") &&
+        (dbErr.includes("country") ||
+          dbErr.includes("language") ||
+          dbErr.includes("subject_type"))
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Database columns missing. Please add children.country, children.language, and children.subject_type in Supabase.",
+          },
+          { status: 500 }
+        );
+      }
+
       return NextResponse.json(
         { ok: false, error: "Failed to add child profile." },
         { status: 500 }
