@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Image from "next/image";
 import { getAvatarForSubject } from "../lib/teacherAvatar";
@@ -15,7 +15,7 @@ interface StudentInfo {
   mobile: string;
   classId: ClassId;
 
-  // ✅ Supabase Auth user id (needed for Persona Engine)
+  // âœ… Supabase Auth user id (needed for Persona Engine)
   studentId?: string;
 }
 
@@ -42,7 +42,7 @@ interface TopicRow {
   content: any;
   is_active: boolean;
 
-  // ✅ added for UI (even if backend does not send it sometimes)
+  // âœ… added for UI (even if backend does not send it sometimes)
   status?: "completed" | "in_progress" | "needs_revision" | "not_started" | string;
 }
 
@@ -105,10 +105,10 @@ type StoredSession = {
 };
 
 const TOPIC_STATUS_UI: Record<string, string> = {
-  completed: "✅ Completed",
-  in_progress: "🟡 In Progress",
-  needs_revision: "⚠️ Needs Revision",
-  not_started: "❌ Not Started",
+  completed: "âœ… Completed",
+  in_progress: "ðŸŸ¡ In Progress",
+  needs_revision: "âš ï¸ Needs Revision",
+  not_started: "âŒ Not Started",
 };
 
 const SESSION_HISTORY_KEY = "neolearnSessionHistory";
@@ -175,6 +175,56 @@ function defaultRoutine(): WeeklyRoutine {
   };
 }
 
+function getFallbackSyllabus(classId: string) {
+  const fallbackSubjects: SubjectRow[] = [
+    {
+      id: 1001,
+      board: "cbse",
+      class_number: Number(classId || "6"),
+      subject_code: "maths",
+      subject_name: "Mathematics",
+    },
+  ];
+
+  const fallbackChapters: ChapterRow[] = [
+    { id: 2001, subject_id: 1001, chapter_number: 1, chapter_name: "Fractions" },
+    { id: 2002, subject_id: 1001, chapter_number: 2, chapter_name: "Decimals" },
+  ];
+
+  const fallbackTopics: TopicRow[] = [
+    {
+      id: 3001,
+      chapter_id: 2001,
+      topic_number: 1,
+      topic_name: "Introduction to Fractions",
+      content: null,
+      is_active: true,
+    },
+    {
+      id: 3002,
+      chapter_id: 2001,
+      topic_number: 2,
+      topic_name: "Addition of Fractions",
+      content: null,
+      is_active: true,
+    },
+    {
+      id: 3003,
+      chapter_id: 2002,
+      topic_number: 1,
+      topic_name: "Place Value in Decimals",
+      content: null,
+      is_active: true,
+    },
+  ];
+
+  return {
+    subjects: fallbackSubjects,
+    chapters: fallbackChapters,
+    topics: fallbackTopics,
+  };
+}
+
 export default function StudentDashboardPage() {
   const router = useRouter();
 
@@ -228,7 +278,7 @@ const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
 const [classSession, setClassSession] = useState<ClassSession | null>(null);
 const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
-// 🔹 Store the full realtime transcript for this class session
+// ðŸ”¹ Store the full realtime transcript for this class session
 const [sessionTranscript, setSessionTranscript] = useState<string>("");
 
   const handleLogout = () => {
@@ -243,7 +293,7 @@ const printSession = () => {
   window.print();
 };
 
-// 🔹 DEV: Start a live class session (temporary)
+// ðŸ”¹ DEV: Start a live class session (temporary)
 const startClassSession = () => {
   const now = Date.now();
   const durationMinutes = 40;
@@ -276,7 +326,7 @@ function saveSessionHistory(item: StoredSession) {
   window.localStorage.setItem(SESSION_HISTORY_KEY, JSON.stringify(next));
 }
 
-// 🔹 End class session + save transcript chapter-wise
+// ðŸ”¹ End class session + save transcript chapter-wise
 const endClassSession = () => {
   if (!classSession || !student) return;
 
@@ -309,7 +359,7 @@ const endClassSession = () => {
 const [weeklyRows, setWeeklyRows] = useState<WeeklyProgressRow[]>([]);
   const [weeklyLoading, setWeeklyLoading] = useState(false);
   const [weeklyError, setWeeklyError] = useState<string | null>(null);
-// ✅ Daily progress (Today)
+// âœ… Daily progress (Today)
 const [daily, setDaily] = useState<{
   date: string;
   topicsCompleted: number;
@@ -432,6 +482,8 @@ useEffect(() => {
   useEffect(() => {
     if (!student) return;
 
+    const classId = student.classId;
+
     async function load() {
       setSyllabusLoading(true);
       setSyllabusError(null);
@@ -445,7 +497,12 @@ useEffect(() => {
         const data = (await res.json()) as SyllabusResponse;
 
         if (!data.ok || !data.data) {
-          setSyllabusError(data.error || "Failed to load syllabus");
+          const fallback = getFallbackSyllabus(classId);
+          setSubjects(fallback.subjects);
+          setChapters(fallback.chapters);
+          setTopics(fallback.topics);
+          setSelectedSubjectId(fallback.subjects[0]?.id ?? null);
+          setSyllabusError(null);
           return;
         }
 
@@ -457,7 +514,12 @@ useEffect(() => {
           setSelectedSubjectId(data.data.subjects[0].id);
         }
       } catch (err: any) {
-        setSyllabusError(err?.message || "Failed to load syllabus");
+        const fallback = getFallbackSyllabus(classId);
+        setSubjects(fallback.subjects);
+        setChapters(fallback.chapters);
+        setTopics(fallback.topics);
+        setSelectedSubjectId(fallback.subjects[0]?.id ?? null);
+        setSyllabusError(null);
       } finally {
         setSyllabusLoading(false);
       }
@@ -470,7 +532,7 @@ useEffect(() => {
 useEffect(() => {
   if (!student) return;
 
-  const mobile = student.mobile; // ✅ TS-safe snapshot
+  const mobile = student.mobile; // âœ… TS-safe snapshot
 
   async function loadWeekly() {
     setWeeklyLoading(true);
@@ -501,11 +563,11 @@ useEffect(() => {
 }, [student]);
 
 
-// ✅ Fetch DAILY progress (Today – IST)
+// âœ… Fetch DAILY progress (Today â€“ IST)
 useEffect(() => {
   if (!student) return;
 
-  const mobile = student.mobile; // ✅ TS-safe snapshot
+  const mobile = student.mobile; // âœ… TS-safe snapshot
 
   async function loadDaily() {
     setDailyLoading(true);
@@ -617,7 +679,7 @@ useEffect(() => {
           author: "Teacher",
           text:
             "Hi! I am your NeoLearn Maths teacher. " +
-            "Select your topic, then click “Start Lesson (beta)” to hear a short explanation. " +
+            "Select your topic, then click â€œStart Lesson (beta)â€ to hear a short explanation. " +
             "You can also ask me questions anytime.",
           ts: new Date().toLocaleTimeString([], {
             hour: "2-digit",
@@ -653,7 +715,7 @@ useEffect(() => {
     []
   );
 
-// 🔹 Countdown timer for live class
+// ðŸ”¹ Countdown timer for live class
 useEffect(() => {
   if (!classSession?.isLive) return;
 
@@ -717,12 +779,46 @@ if (!mobile) {
   return;
 }
 
-const accessRes = await fetch(
-  `/api/access/check?mobile=${encodeURIComponent(mobile)}`
-);
-const access = await accessRes.json();
+let access: { ok?: boolean; allowed?: boolean; used?: number; limit?: number } | null = null;
 
-if (accessRes.ok && access.ok && !access.allowed) {
+try {
+  const accessRes = await fetch(
+    `/api/access/check?mobile=${encodeURIComponent(mobile)}`
+  );
+
+  if (!accessRes.ok) {
+    pushMessage(
+      "Teacher",
+      "Unable to verify your plan right now. Please try again.",
+      true
+    );
+    setIsStartingLesson(false);
+    return;
+  }
+
+  access = await accessRes.json();
+} catch (err) {
+  console.error("access-check failed:", err);
+  pushMessage(
+    "Teacher",
+    "Unable to verify your plan right now. Please try again.",
+    true
+  );
+  setIsStartingLesson(false);
+  return;
+}
+
+if (!access?.ok) {
+  pushMessage(
+    "Teacher",
+    "Unable to verify your plan right now. Please try again.",
+    true
+  );
+  setIsStartingLesson(false);
+  return;
+}
+
+if (!access.allowed) {
   pushMessage(
     "Teacher",
     `Free limit reached (${access.used}/${access.limit}). Please subscribe to continue.`,
@@ -741,7 +837,7 @@ if (accessRes.ok && access.ok && !access.allowed) {
   });
 
   // Status message in chat
-  pushMessage("Teacher", "Generating your lesson. Please wait a moment…");
+  pushMessage("Teacher", "Generating your lesson. Please wait a momentâ€¦");
 
   try {
     const langCode = getLangCode(language);          // "en" | "hi" | "bn"
@@ -784,9 +880,9 @@ if (accessRes.ok && access.ok && !access.allowed) {
         `Hi ${student?.name || "Student"}, I am your NeoLearn ${
           currentSubject.subject_name
         } teacher.\n\n` +
-        `Today we will learn the topic “${currentTopic.topic_name}” from the chapter “${
+        `Today we will learn the topic â€œ${currentTopic.topic_name}â€ from the chapter â€œ${
           currentChapter.chapter_name
-        }” for Class ${student?.classId || "6"}.\n` +
+        }â€ for Class ${student?.classId || "6"}.\n` +
         `I will explain it step by step in very simple ${langLabel} so you can understand easily.`
       ).trim();
     }
@@ -794,7 +890,7 @@ if (accessRes.ok && access.ok && !access.allowed) {
         // Show explanation in chat
     pushMessage("Teacher", scriptText);
 
-    // 🔥 NEW: Save topic completion in Supabase
+    // ðŸ”¥ NEW: Save topic completion in Supabase
     try {
       await fetch("/api/progress/topic", {
         method: "POST",
@@ -895,15 +991,15 @@ if (accessRes.ok && access.ok && !access.allowed) {
  body: JSON.stringify({
   question: trimmed,
 
-// ✅ Persona Engine key
+// âœ… Persona Engine key
   studentId: student?.studentId || "",
 
-  // 🔹 DB IDs (TEXT) — Supabase memory
+  // ðŸ”¹ DB IDs (TEXT) â€” Supabase memory
   subjectDbId: String(currentSubject?.id ?? ""),
   chapterDbId: String(currentChapter?.id ?? ""),
   topicDbId: String(currentTopic?.id ?? ""),
 
-  // 🔹 Semantic ID — AI logic
+  // ðŸ”¹ Semantic ID â€” AI logic
   subjectId: currentSubject?.subject_code || "maths6",
 
   classId: String(student?.classId ?? "6"),
@@ -1007,13 +1103,13 @@ if (accessRes.ok && access.ok && !access.allowed) {
     language,
     pushMessage,
   ]);
-     
+ 
   // ----------------- RENDER -----------------
 
   if (loadingStudent) {
     return (
       <div className="min-h-screen flex items-center justify-center text-sm text-gray-500">
-        Loading your classroom…
+        Loading your classroomâ€¦
       </div>
     );
   }
@@ -1038,7 +1134,7 @@ if (accessRes.ok && access.ok && !access.allowed) {
 
   <div className="flex items-center gap-3 text-xs text-gray-600">
     <span>
-      {student.name} • Class {student.classId} • {student.mobile}
+      {student.name} â€¢ Class {student.classId} â€¢ {student.mobile}
     </span>
     <button
       type="button"
@@ -1052,189 +1148,152 @@ if (accessRes.ok && access.ok && !access.allowed) {
 
 
       {/* Main layout */}
-{/* 🔹 DEV ONLY: Start Live Class */}
-<div className="mb-3">
-  <button
-    onClick={startClassSession}
-    className="rounded-xl bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-700"
-  >
-    ▶ Start Class (DEV)
-  </button>
+<div className="mx-auto w-full max-w-7xl px-4 py-4">
+  {/* Top horizontal navigation */}
+  <div className="mb-3 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+    <nav className="flex min-w-max gap-2 text-sm">
+      <TabButton active={activeTab === "classroom"} onClick={() => setActiveTab("classroom")}>
+        ðŸŽ“ Classroom
+      </TabButton>
+
+      <TabButton active={activeTab === "subjects"} onClick={() => setActiveTab("subjects")}>
+        ðŸ“š Subjects
+      </TabButton>
+
+      <TabButton active={activeTab === "chapters"} onClick={() => setActiveTab("chapters")}>
+        ðŸ“˜ Chapters
+      </TabButton>
+
+      <TabButton active={activeTab === "topics"} onClick={() => setActiveTab("topics")}>
+        ðŸ§© Topics
+      </TabButton>
+
+      <TabButton active={activeTab === "progress"} onClick={() => setActiveTab("progress")}>
+        ðŸ“Š Progress
+      </TabButton>
+
+      <TabButton active={activeTab === "payments"} onClick={() => setActiveTab("payments")}>
+        ðŸ’³ Payments
+      </TabButton>
+
+      <TabButton active={activeTab === "gallery"} onClick={() => setActiveTab("gallery")}>
+        ðŸ–¼ Gallery
+      </TabButton>
+
+      <TabButton active={activeTab === "routine"} onClick={() => setActiveTab("routine")}>
+        ðŸ—“ Routine
+      </TabButton>
+    </nav>
+  </div>
+
+  <main className="rounded-2xl bg-white p-4 shadow-sm">
+    {activeTab === "classroom" && (
+      <ClassroomView
+        syllabusLoading={syllabusLoading}
+        syllabusError={syllabusError}
+        currentSubject={currentSubject}
+        currentChapter={currentChapter}
+        currentTopic={currentTopic}
+        language={language}
+        setLanguage={setLanguage}
+        speed={speed}
+        setSpeed={setSpeed}
+        messages={messages}
+        question={question}
+        setQuestion={setQuestion}
+        onStartLesson={handleStartLesson}
+        onAskQuestion={handleAskQuestion}
+        isStartingLesson={isStartingLesson}
+        isAsking={isAsking}
+        audioUrl={audioUrl}
+        audioError={audioError}
+        messagesEndRef={messagesEndRef}
+        teacherAvatar={teacherAvatar}
+        studentName={student.name}
+        studentMobile={student.mobile}
+        isClassLive={!!classSession?.isLive}
+        remainingSeconds={remainingSeconds}
+        onAppendTranscript={(delta) =>
+          setSessionTranscript((p) => p + delta)
+        }
+        onEndClass={endClassSession}
+        autoStartToken={autoStartToken}
+        autoStartPayload={autoStartPayload}
+      />
+    )}
+
+    {activeTab === "subjects" && (
+      <SubjectsView
+        subjects={subjects}
+        selectedSubjectId={selectedSubjectId}
+        setSelectedSubjectId={setSelectedSubjectId}
+        loading={syllabusLoading}
+        error={syllabusError}
+      />
+    )}
+
+    {activeTab === "chapters" && (
+      <ChaptersView
+        chapters={filteredChapters}
+        currentSubject={currentSubject}
+        selectedChapterId={selectedChapterId}
+        setSelectedChapterId={setSelectedChapterId}
+        loading={syllabusLoading}
+        error={syllabusError}
+      />
+    )}
+
+    {activeTab === "topics" && (
+      <TopicsView
+        topics={filteredTopics}
+        currentSubject={currentSubject}
+        currentChapter={currentChapter}
+        selectedTopicId={selectedTopicId}
+        setSelectedTopicId={setSelectedTopicId}
+        loading={syllabusLoading}
+        error={syllabusError}
+      />
+    )}
+
+    {activeTab === "progress" && (
+      <WeeklyProgressView
+        loading={weeklyLoading}
+        error={weeklyError}
+        rows={weeklyRows}
+        daily={daily}
+        dailyLoading={dailyLoading}
+        dailyError={dailyError}
+      />
+    )}
+
+    {activeTab === "payments" && (
+      <PlaceholderView title="Payment History">
+        Here we will show subscription plan, invoices and payment history.
+      </PlaceholderView>
+    )}
+
+    {activeTab === "gallery" && (
+      <GalleryView
+        sessions={savedSessions}
+        selectedId={selectedSessionId}
+        setSelectedId={setSelectedSessionId}
+      />
+    )}
+
+    {activeTab === "routine" && (
+      <RoutineView
+        subjects={subjects}
+        routine={routine}
+        setRoutine={setRoutine}
+        onStartToday={() => startTodayClass()}
+      />
+    )}
+  </main>
 </div>
-
-      <div className="mx-auto flex max-w-6xl gap-4 px-4 py-4">
-        {/* Left navigation */}
-        <aside className="w-64 rounded-2xl bg-white p-3 shadow-sm">
-          <div className="mb-2 text-xs font-semibold text-gray-500 uppercase">
-            Student Area
-          </div>
-          <nav className="space-y-1 text-sm">
-  <TabButton
-    active={activeTab === "classroom"}
-    onClick={() => setActiveTab("classroom")}
-  >
-    🎓 Classroom (AI Teacher)
-  </TabButton>
-
-  <TabButton
-    active={activeTab === "subjects"}
-    onClick={() => setActiveTab("subjects")}
-  >
-    📚 Subjects
-  </TabButton>
-
-  <TabButton
-    active={activeTab === "chapters"}
-    onClick={() => setActiveTab("chapters")}
-  >
-    📘 Chapters
-  </TabButton>
-
-  <TabButton
-    active={activeTab === "topics"}
-    onClick={() => setActiveTab("topics")}
-  >
-    🧩 Topics
-  </TabButton>
-
-  <TabButton
-    active={activeTab === "progress"}
-    onClick={() => setActiveTab("progress")}
-  >
-    📊 Weekly Progress
-  </TabButton>
-
-  <TabButton
-    active={activeTab === "payments"}
-    onClick={() => setActiveTab("payments")}
-  >
-    💳 Payment History
-  </TabButton>
-
-  <TabButton
-    active={activeTab === "gallery"}
-    onClick={() => setActiveTab("gallery")}
-  >
-    🖼️ Gallery / Notes
-  </TabButton>
-
-  <TabButton
-    active={activeTab === "routine"}
-    onClick={() => setActiveTab("routine")}
-  >
-    🗓️ Weekly Routine
-  </TabButton>
-</nav>
-</aside>
-
-
-        {/* Right content */}
-        <main className="flex-1 rounded-2xl bg-white p-4 shadow-sm">
-          {activeTab === "classroom" && (
-            <ClassroomView
-              syllabusLoading={syllabusLoading}
-              syllabusError={syllabusError}
-              currentSubject={currentSubject}
-              currentChapter={currentChapter}
-              currentTopic={currentTopic}
-              language={language}
-              setLanguage={setLanguage}
-              speed={speed}
-              setSpeed={setSpeed}
-              messages={messages}
-              question={question}
-              setQuestion={setQuestion}
-              onStartLesson={handleStartLesson}
-              onAskQuestion={handleAskQuestion}
-              isStartingLesson={isStartingLesson}
-              isAsking={isAsking}
-              audioUrl={audioUrl}
-              audioError={audioError}
-              messagesEndRef={messagesEndRef}
-	      teacherAvatar={teacherAvatar}
-	      studentName={student.name}
-              studentMobile={student.mobile}
-	      isClassLive={!!classSession?.isLive}
-              remainingSeconds={remainingSeconds}
-              onAppendTranscript={(delta) =>             	      setSessionTranscript((p) => p + delta)}
-	      onEndClass={endClassSession} 
-	      autoStartToken={autoStartToken}
-              autoStartPayload={autoStartPayload}
-            />
-          )}
-
-          {activeTab === "subjects" && (
-            <SubjectsView
-              subjects={subjects}
-              selectedSubjectId={selectedSubjectId}
-              setSelectedSubjectId={setSelectedSubjectId}
-              loading={syllabusLoading}
-              error={syllabusError}
-            />
-          )}
-
-          {activeTab === "chapters" && (
-            <ChaptersView
-              chapters={filteredChapters}
-              currentSubject={currentSubject}
-              selectedChapterId={selectedChapterId}
-              setSelectedChapterId={setSelectedChapterId}
-              loading={syllabusLoading}
-              error={syllabusError}
-            />
-          )}
-
-          {activeTab === "topics" && (
-            <TopicsView
-              topics={filteredTopics}
-              currentSubject={currentSubject}
-              currentChapter={currentChapter}
-              selectedTopicId={selectedTopicId}
-              setSelectedTopicId={setSelectedTopicId}
-              loading={syllabusLoading}
-              error={syllabusError}
-            />
-          )}
-
-          {activeTab === "progress" && (
-  <WeeklyProgressView
-    loading={weeklyLoading}
-    error={weeklyError}
-    rows={weeklyRows}
-    daily={daily}
-    dailyLoading={dailyLoading}
-    dailyError={dailyError}
-  />
-)}
-
-          {activeTab === "payments" && (
-            <PlaceholderView title="Payment History">
-              Here we will show subscription plan, invoices and payment history.
-            </PlaceholderView>
-          )}
-
-          {activeTab === "gallery" && (
-  <GalleryView
-    sessions={savedSessions}
-    selectedId={selectedSessionId}
-    setSelectedId={setSelectedSessionId}
-  />
-)}
-          {activeTab === "routine" && (
-            <RoutineView
-              subjects={subjects}
-              routine={routine}
-              setRoutine={setRoutine}
-              onStartToday={() => startTodayClass()}
-            />
-          )}
-
-        </main>
-      </div>
-    </div>
+</div>
   );
 }
-
+               
 /* ---------- Small components ---------- */
 
 function TabButton({
@@ -1250,7 +1309,7 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full rounded-xl px-3 py-2 text-left text-xs ${
+      className={`rounded-full px-3 py-2 text-left text-xs whitespace-nowrap ${
         active
           ? "bg-blue-600 text-white"
           : "text-gray-700 hover:bg-slate-100"
@@ -1299,7 +1358,7 @@ function SubjectsView({
     <div className="space-y-3 text-sm">
       <h1 className="text-lg font-semibold mb-1">Subjects</h1>
       {loading && (
-        <p className="text-xs text-gray-500">Loading subjects from server…</p>
+        <p className="text-xs text-gray-500">Loading subjects from serverâ€¦</p>
       )}
       {error && (
         <p className="text-xs text-red-500">
@@ -1367,7 +1426,7 @@ function ChaptersView({
       )}
 
       {loading && (
-        <p className="text-xs text-gray-500">Loading chapters…</p>
+        <p className="text-xs text-gray-500">Loading chaptersâ€¦</p>
       )}
       {error && (
         <p className="text-xs text-red-500">
@@ -1446,7 +1505,7 @@ function TopicsView({
       )}
 
       {loading && (
-        <p className="text-xs text-gray-500">Loading topics…</p>
+        <p className="text-xs text-gray-500">Loading topicsâ€¦</p>
       )}
       {error && (
         <p className="text-xs text-red-500">
@@ -1531,17 +1590,17 @@ function WeeklyProgressView({
     <div className="space-y-3 text-sm">
       <h1 className="text-lg font-semibold mb-1">Weekly Progress</h1>
 
-{/* ✅ Today's Progress */}
+{/* âœ… Today's Progress */}
 <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-3">
   <div className="flex items-center justify-between">
-    <div className="text-sm font-semibold">Today’s Progress</div>
+    <div className="text-sm font-semibold">Todayâ€™s Progress</div>
     {daily?.date && (
       <div className="text-[11px] text-gray-500">{daily.date}</div>
     )}
   </div>
 
   {dailyLoading && (
-    <p className="text-xs text-gray-500 mt-1">Loading today…</p>
+    <p className="text-xs text-gray-500 mt-1">Loading todayâ€¦</p>
   )}
 
   {dailyError && (
@@ -1567,7 +1626,7 @@ function WeeklyProgressView({
       <div className="rounded-xl bg-slate-50 border border-slate-200 p-2">
         <div className="text-[11px] text-gray-600">Avg Score</div>
         <div className="text-lg font-semibold">
-          {daily.avgScore === null ? "—" : `${daily.avgScore}%`}
+          {daily.avgScore === null ? "â€”" : `${daily.avgScore}%`}
         </div>
       </div>
     </div>
@@ -1581,7 +1640,7 @@ function WeeklyProgressView({
       </p>
 
       {loading && (
-        <p className="text-xs text-gray-500">Loading weekly data…</p>
+        <p className="text-xs text-gray-500">Loading weekly dataâ€¦</p>
       )}
 
       {error && (
@@ -1606,7 +1665,7 @@ function WeeklyProgressView({
             >
               <div className="flex items-center justify-between mb-1">
                 <div className="font-semibold">
-                  Week of {w.weekStart} – {w.weekEnd}
+                  Week of {w.weekStart} â€“ {w.weekEnd}
                 </div>
                 {w.avgScore !== null && (
                   <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
@@ -1685,7 +1744,7 @@ function GalleryView({
   };
 
   // Title
-  addLine("NeoLearn – Class Recording", 14, true);
+  addLine("NeoLearn â€“ Class Recording", 14, true);
   y += 6;
 
   // Meta
@@ -1705,7 +1764,7 @@ function GalleryView({
 
   // Footer
   y += 12;
-  addLine("Generated by NeoLearn • AI Assisted Learning", 9, false);
+  addLine("Generated by NeoLearn â€¢ AI Assisted Learning", 9, false);
 
   const safeFile =
     `NeoLearn_${selected.subject}_${selected.topic}_${new Date(selected.endedAt)
@@ -1753,7 +1812,7 @@ function GalleryView({
                   }`}
                 >
                   <div className="font-semibold text-slate-800 truncate">
-                    {s.subject} • {s.topic}
+                    {s.subject} â€¢ {s.topic}
                   </div>
                   <div className="text-[11px] text-slate-600 truncate">
                     {s.chapter}
@@ -1777,13 +1836,13 @@ function GalleryView({
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="text-sm font-semibold text-slate-800">
-                      {selected.subject} • {selected.topic}
+                      {selected.subject} â€¢ {selected.topic}
                     </div>
                     <div className="text-[11px] text-slate-600">
                       Chapter: {selected.chapter}
                     </div>
                     <div className="text-[11px] text-slate-500 mt-1">
-                      {new Date(selected.startedAt).toLocaleString()} →{" "}
+                      {new Date(selected.startedAt).toLocaleString()} â†’{" "}
                       {new Date(selected.endedAt).toLocaleString()}
                     </div>
                   </div>
@@ -1861,13 +1920,13 @@ function RoutineView({
           onClick={onStartToday}
           className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700"
         >
-          ▶️ Start Today Class
+          â–¶ï¸ Start Today Class
         </button>
       </div>
 
       <div className="text-xs text-gray-600">
         Set <b>2 subjects per day</b> + class time. Each day runs two blocks (Phase 1 & Phase 2).
-        Recommended: <b>30–45 minutes</b> per subject.
+        Recommended: <b>30â€“45 minutes</b> per subject.
       </div>
 
       <div className="grid grid-cols-1 gap-3">
@@ -1905,7 +1964,7 @@ function RoutineView({
                       })
                     }
                   >
-                    <option value="">Select subject…</option>
+                    <option value="">Select subjectâ€¦</option>
                     {subjects.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.subject_name}
@@ -1927,7 +1986,7 @@ function RoutineView({
                       })
                     }
                   >
-                    <option value="">Select subject…</option>
+                    <option value="">Select subjectâ€¦</option>
                     {subjects.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.subject_name}
@@ -1954,7 +2013,7 @@ function RoutineView({
                   </select>
 
                   <div className="mt-1 text-[11px] text-slate-500">
-                    Total/day ≈ {plan.minutesPerSubject * 2} minutes
+                    Total/day â‰ˆ {plan.minutesPerSubject * 2} minutes
                   </div>
                 </div>
               </div>
@@ -2036,7 +2095,7 @@ function ClassroomView(props: {
   } = props;
 
   // ===============================
-  // ✅ Class Timer (Classroom only)
+  // âœ… Class Timer (Classroom only)
   // ===============================
   const [classRunning, setClassRunning] = useState(false);
   const [phase, setPhase] = useState<1 | 2>(1);
@@ -2060,7 +2119,7 @@ function ClassroomView(props: {
     if (left <= 0) {
       window.clearInterval(t);
       setClassRunning(false);
-      setRealtimeStatus("✅ Class block finished. You can move to next subject.");
+      setRealtimeStatus("âœ… Class block finished. You can move to next subject.");
     }
   }, 1000);
 
@@ -2069,7 +2128,7 @@ function ClassroomView(props: {
 
 
 
-  // 🔹 Realtime voice state
+  // ðŸ”¹ Realtime voice state
   const [realtimeClient, setRealtimeClient] =
     useState<RealtimeTeacherClient | null>(null);
   const [isRealtimeOn, setIsRealtimeOn] = useState(false);
@@ -2078,7 +2137,7 @@ function ClassroomView(props: {
    const [isListening, setIsListening] = useState(false);
   const [realtimeTranscript, setRealtimeTranscript] = useState("");
 
-  // ✅ Auto start today class: enable realtime + start timer
+  // âœ… Auto start today class: enable realtime + start timer
   useEffect(() => {
     if (!autoStartToken) return;
     if (!autoStartPayload) return;
@@ -2098,7 +2157,7 @@ function ClassroomView(props: {
           await handleToggleRealtime();
         }
         setRealtimeStatus(
-          `✅ Started today's class. Phase 1 running (${mins} min). Realtime enabled.`
+          `âœ… Started today's class. Phase 1 running (${mins} min). Realtime enabled.`
         );
       } catch {
         setRealtimeStatus("Started timer, but realtime connection failed.");
@@ -2107,7 +2166,7 @@ function ClassroomView(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStartToken]);
 
-  // 🔹 Topic mini test state (MCQs)
+  // ðŸ”¹ Topic mini test state (MCQs)
   const [topicTest, setTopicTest] = useState<TopicTestQuestion[] | null>(null);
   const [topicTestAnswers, setTopicTestAnswers] = useState<
     Record<number, number | null>
@@ -2119,8 +2178,57 @@ function ClassroomView(props: {
   } | null>(null);
   const [isLoadingTest, setIsLoadingTest] = useState(false);
   const [isTopicTestOpen, setIsTopicTestOpen] = useState(false);
+  const [hasStartedClass, setHasStartedClass] = useState(false);
 
-  // 🧠 Build a context-rich question for the realtime teacher
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) videoRef.current.srcObject = null;
+  };
+
+  const openCamera = async () => {
+    setCameraError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      streamRef.current = stream;
+      setIsCameraOpen(true);
+      setTimeout(() => {
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      }, 0);
+    } catch {
+      setCameraError("Camera access blocked. Please allow camera permission.");
+      setIsCameraOpen(false);
+    }
+  };
+
+  const captureFromCamera = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    setCapturedImage(canvas.toDataURL("image/jpeg", 0.9));
+    stopCamera();
+    setIsCameraOpen(false);
+  };
+
+  // ðŸ§  Build a context-rich question for the realtime teacher
   const buildRealtimeQuestion = (raw: string) => {
     const trimmed = raw.trim();
     if (!trimmed) return "";
@@ -2161,7 +2269,7 @@ if (!isClassLive) {
       onError: (msg) => setRealtimeStatus(msg),
       onTranscript: (delta) => {
   setRealtimeTranscript((prev) => prev + delta);
-  onAppendTranscript(delta); // ✅ also store globally for saving
+  onAppendTranscript(delta); // âœ… also store globally for saving
 },
     });
 
@@ -2188,6 +2296,10 @@ if (!isClassLive) {
     setIsRealtimeOn(true);
     setRealtimeStatus("Realtime voice connected.");
   };
+
+  useEffect(() => {
+    return () => stopCamera();
+  }, []);
 
   const handleAskRealtime = () => {
     const trimmed = question.trim();
@@ -2220,7 +2332,7 @@ if (!isClassLive) {
     }
   };
 
-  // 🔹 Start / regenerate topic test
+  // ðŸ”¹ Start / regenerate topic test
   const handleStartTopicTest = async () => {
     if (!currentSubject || !currentChapter || !currentTopic) {
       setRealtimeStatus(
@@ -2233,7 +2345,7 @@ if (!isClassLive) {
     setTopicTest(null);
     setTopicTestAnswers({});
     setTopicTestResult(null);
-    setRealtimeStatus("Preparing topic test…");
+    setRealtimeStatus("Preparing topic testâ€¦");
 
     try {
       const langCode =
@@ -2306,7 +2418,7 @@ const handleSubmitTopicTest = async () => {
       return;
     }
 
-    // ✅ Save test score to topic_progress (your submit route updates tests_taken/last_score)
+    // âœ… Save test score to topic_progress (your submit route updates tests_taken/last_score)
     const saveRes = await fetch("/api/topic-test/submit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2335,94 +2447,41 @@ const handleSubmitTopicTest = async () => {
       return;
     }
 
-    setRealtimeStatus("✅ Test saved.");
+    setRealtimeStatus("âœ… Test saved.");
   } catch (e) {
     console.error("handleSubmitTopicTest error:", e);
     setRealtimeStatus("Submit crashed. Check console.");
   }
 };
 
+  const handleStartClass = async () => {
+    setHasStartedClass(true);
+    await onStartLesson();
+  };
 
   return (
     <>
-      <div className="flex h-[430px] gap-4">
-        {/* Teacher avatar area */}
-        <div className="flex-1 rounded-2xl bg-slate-50 p-4 flex flex-col">
-          <div className="mb-2 text-xs font-semibold text-gray-500 uppercase">
-            AI Teacher
-          </div>
-
-          <div className="flex-1 flex flex-col items-center justify-center">
-            <div className="mb-3 h-90 w-60 overflow-hidden rounded-3xl bg-white shadow-xl flex items-end">
-              <img
-                src={teacherAvatar}
-                alt="AI Teacher"
-                className="w-full h-auto object-contain"
-              />
+      <div className="relative min-h-[76vh]">
+        <div className="flex min-h-[74vh] flex-col rounded-2xl border border-slate-200 bg-slate-50/70 lg:pr-36">
+          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-800">NeoLearn AI Classroom</h2>
+              <p className="text-xs text-slate-500">Chat with your teacher like a real assistant.</p>
             </div>
-
-            <div className="text-sm font-semibold mt-1 text-center">
-              NeoLearn Maths Teacher
-            </div>
-          </div>
-
-          <div className="text-xs text-gray-600 text-center max-w-md mt-1">
-            Select your subject, chapter and topic on the left side, then click{" "}
-            <span className="font-semibold">Start Lesson (beta)</span> to get a
-            short explanation. Later we will replace this with a talking avatar
-            video.
-          </div>
-
-          <div className="mt-3 text-[11px] text-gray-500">
-            {syllabusLoading && "Loading syllabus…"}
-            {syllabusError && (
-              <span className="text-red-500">
-                {" "}
-                (Syllabus error: {syllabusError})
-              </span>
-            )}
-            {!syllabusLoading &&
-              !syllabusError &&
-              (!currentSubject || !currentChapter || !currentTopic) && (
-                <span>
-                  Please pick Subject → Chapter → Topic using the left menu.
-                </span>
-              )}
-          </div>
-        </div>
-
-        {/* Right: conversation card */}
-        <div className="w-[360px] rounded-2xl bg-slate-50 p-3 flex flex-col h-full">
-          {/* Language + speed */}
-          <div className="mb-2 flex gap-2">
-            <div className="flex-1">
-              <label className="block text-[11px] font-medium text-gray-600 mb-1">
-                Language
-              </label>
+            <div className="flex gap-2">
               <select
-                className="w-full rounded-xl border border-slate-300 bg-white px-2 py-1 text-[11px] outline-none focus:ring-2 focus:ring-blue-500"
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
                 value={language}
-                onChange={(e) =>
-                  setLanguage(
-                    e.target.value as "English" | "Hindi" | "Bengali"
-                  )
-                }
+                onChange={(e) => setLanguage(e.target.value as "English" | "Hindi" | "Bengali")}
               >
                 <option value="English">English</option>
                 <option value="Hindi">Hindi</option>
                 <option value="Bengali">Bengali</option>
               </select>
-            </div>
-            <div className="flex-1">
-              <label className="block text-[11px] font-medium text-gray-600 mb-1">
-                Speed
-              </label>
               <select
-                className="w-full rounded-xl border border-slate-300 bg-white px-2 py-1 text-[11px] outline-none focus:ring-2 focus:ring-blue-500"
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
                 value={speed}
-                onChange={(e) =>
-                  setSpeed(e.target.value as "Slow" | "Normal" | "Fast")
-                }
+                onChange={(e) => setSpeed(e.target.value as "Slow" | "Normal" | "Fast")}
               >
                 <option value="Slow">Slow</option>
                 <option value="Normal">Normal</option>
@@ -2431,167 +2490,90 @@ const handleSubmitTopicTest = async () => {
             </div>
           </div>
 
-          <div className="mb-2 text-xs font-semibold text-gray-500 uppercase">
-            Conversation
-          </div>
+{/* Conversation header */}
+<div className="mb-2 text-xs font-semibold text-gray-500 uppercase">
+  Conversation
+</div>
 
-          {/* ✅ Class timer bar */}
-          {classRunning && (
-            <div className="mb-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800 flex items-center justify-between">
-              <div className="font-semibold">
-                ⏱️ Class Running • Phase {phase}/2 • Time left: {formatTime(remainingSec)}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  // end current phase manually
-                  setEndsAt((prev) => (prev ? Date.now() : prev)); // triggers finish in interval
-                }}
-                className="rounded-lg border border-emerald-300 bg-white px-2 py-1 text-[11px] font-semibold hover:bg-emerald-100"
-              >
-                End Phase
-              </button>
+{/* Phase timer bar */}
+{classRunning && (
+  <div className="mb-2 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800">
+    <div className="font-semibold">
+      â±ï¸ Class Running â€¢ Phase {phase}/2 â€¢ Time left: {formatTime(remainingSec)}
+    </div>
+    <button
+      type="button"
+      onClick={() => setEndsAt(Date.now())}
+      className="rounded-lg border border-emerald-300 bg-white px-2 py-1 text-[11px] font-semibold hover:bg-emerald-100"
+    >
+      End Phase
+    </button>
+  </div>
+)}
+
+{/* Chat area */}
+<div className="flex-1 overflow-y-auto px-4 py-4">
+  <div className="mx-auto max-w-5xl space-y-3">
+    {messages.map((m) => {
+      const isTeacher = m.author === "Teacher";
+      return (
+        <div key={m.id} className={`flex ${isTeacher ? "justify-start" : "justify-end"}`}>
+          <div
+            className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
+              isTeacher
+                ? "rounded-tl-md border border-slate-200 bg-white text-slate-800"
+                : "rounded-tr-md bg-emerald-500 text-white"
+            } ${m.isError ? "border-red-300 bg-red-50 text-red-700" : ""}`}
+          >
+            <div className="whitespace-pre-wrap leading-relaxed">{m.text}</div>
+            <div className={`mt-1 text-[11px] ${isTeacher ? "text-slate-400" : "text-emerald-100"}`}>
+              {isTeacher ? "Teacher" : "You"} â€¢ {m.ts}
             </div>
-          )}
-
-          {!classRunning && autoStartPayload && (
-            <div className="mb-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-700 flex items-center justify-between">
-              <div className="font-semibold">
-                Today Plan: 2 subjects selected • Phase {phase}/2
-              </div>
-              {phase === 1 ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const mins = Math.max(
-                      5,
-                      Number(autoStartPayload.minutesPerSubject || 30)
-                    );
-                    const seconds = mins * 60;
-
-                    setPhase(2);
-                    setClassRunning(true);
-                    setEndsAt(Date.now() + seconds * 1000);
-                    setRemainingSec(seconds);
-                    setRealtimeStatus(`▶️ Phase 2 started (${mins} min).`);
-                  }}
-                  className="rounded-lg border border-indigo-300 bg-indigo-50 px-2 py-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100"
-                >
-                  Start Phase 2
-                </button>
-              ) : (
-                <span className="text-emerald-700 font-semibold">✅ Done</span>
-              )}
-            </div>
-          )}
-
-          {/* Chat box */}
-          <div className="flex-1 rounded-xl bg-white border border-slate-200 p-2 text-xs text-gray-700 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto pr-1 space-y-1">
-              {messages.map((m) => (
-                <div key={m.id} className="leading-snug whitespace-pre-wrap">
-                  <span
-                    className={`font-semibold ${
-                      m.author === "Teacher"
-                        ? "text-blue-600"
-                        : "text-emerald-700"
-                    }`}
-                  >
-                    {m.author}:
-                  </span>{" "}
-                  <span
-                    className={m.isError ? "text-red-600" : "text-gray-800"}
-                  >
-                    {m.text}
-                  </span>
-                  <span className="ml-1 text-[10px] text-gray-400">
-                    {m.ts}
-                  </span>
-                </div>
-              ))}
-
-              {/* live captions */}
-              {realtimeTranscript && (
-                <div className="leading-snug whitespace-pre-wrap bg-blue-50 border border-blue-200 rounded-md px-2 py-1 text-[11px] text-gray-700">
-                  <span className="font-semibold text-blue-600">
-                    Teacher (live):
-                  </span>{" "}
-                  {realtimeTranscript}
-                </div>
-              )}
-
-              <div ref={messagesEndRef} />
-            </div>
-
-            {audioUrl && (
-              <div className="mt-2 border-t pt-1">
-                <audio id="lesson-audio" controls className="w-full">
-                  <source src={audioUrl} />
-                  Your browser does not support audio playback.
-                </audio>
-              </div>
-            )}
-
-            {audioError && (
-              <p className="mt-1 text-[11px] text-red-500">{audioError}</p>
-            )}
           </div>
+        </div>
+      );
+    })}
 
-          {/* Question input + realtime controls */}
-          <div className="mt-2 flex gap-2">
-            <input
-              type="text"
-              className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder={
-                isRealtimeOn
-                  ? "Type a doubt or use mic for realtime teacher…"
-                  : "Ask a doubt about this topic…"
-              }
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  if (!isAsking) handleAskRealtime();
-                }
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => handleAskRealtime()}
-              className="rounded-xl bg-slate-800 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-900 disabled:opacity-50"
-              disabled={isAsking}
-            >
-              {isRealtimeOn ? "Send (Realtime)" : isAsking ? "Thinking…" : "Ask"}
-            </button>
-            <button
-              type="button"
-              onClick={handleMicToggle}
-              className={`rounded-xl border px-3 py-2 text-xs font-semibold ${
-                isListening
-                  ? "border-red-500 text-red-600 bg-red-50"
-                  : "border-slate-300 text-slate-700 bg-white hover:bg-slate-100"
-              } disabled:opacity-50`}
-              disabled={!isRealtimeOn}
-            >
-              {isListening ? "⏹ Stop & Send" : "🎙 Speak"}
-            </button>
-          </div>
+    {realtimeTranscript && (
+      <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-slate-700">
+        <span className="font-semibold text-blue-700">Teacher (live): </span>
+        {realtimeTranscript}
+      </div>
+    )}
 
-          {/* realtime toggle + status */}
-{/* 🔹 Live class bar */}
+    {capturedImage && (
+      <div className="rounded-2xl border border-slate-200 bg-white p-3">
+        <div className="mb-2 text-xs font-semibold text-slate-500">Captured image</div>
+        <img src={capturedImage} alt="Captured" className="max-h-56 w-auto rounded-xl border border-slate-200" />
+      </div>
+    )}
+
+    {uploadedFiles.length > 0 && (
+      <div className="rounded-2xl border border-slate-200 bg-white p-3">
+        <div className="mb-1 text-xs font-semibold text-slate-500">Uploaded files</div>
+        <ul className="list-disc pl-5 text-xs text-slate-700">
+          {uploadedFiles.map((f, idx) => (
+            <li key={`${f.name}-${idx}`}>{f.name}</li>
+          ))}
+        </ul>
+      </div>
+    )}
+
+    <div ref={messagesEndRef} />
+  </div>
+</div>
+
+{/* Live class bar */}
 <div className="mb-2 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px]">
   <div className="font-semibold text-slate-700">
-    {isClassLive ? "🟢 Live Class Running" : "⚪ Class Not Started"}
+    {isClassLive ? "ðŸŸ¢ Live Class Running" : "âšª Class Not Started"}
   </div>
-
   <div className="flex items-center gap-2">
     {isClassLive && (
       <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-700">
         Time left: {Math.floor(remainingSeconds / 60)}m {remainingSeconds % 60}s
       </span>
     )}
-
     {isClassLive && (
       <button
         type="button"
@@ -2604,187 +2586,197 @@ const handleSubmitTopicTest = async () => {
   </div>
 </div>
 
-          <div className="mt-2 flex items-center justify-between text-[11px] text-gray-600">
-            <button
-              type="button"
-              onClick={handleToggleRealtime}
-              className={`rounded-full px-3 py-1 border text-[11px] ${
-                isRealtimeOn
-                  ? "border-emerald-500 text-emerald-700 bg-emerald-50"
-                  : "border-slate-300 text-slate-700 bg-white"
-              }`}
-            >
-              {isRealtimeOn ? "🟢 Realtime Voice ON" : "⚪ Realtime Voice OFF"}
-            </button>
-            <span className="truncate max-w-[220px] text-right">
-              {isListening
-                ? "Listening… speak now."
-                : realtimeStatus ||
-                  (isRealtimeOn ? "Connected to voice teacher." : "")}
-            </span>
-          </div>
-
-          {/* Start lesson */}
-          <div className="mt-3">
-            <button
-              type="button"
-              onClick={() => !isStartingLesson && onStartLesson()}
-              disabled={isStartingLesson}
-              className="w-full rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-            >
-              {isStartingLesson ? "Preparing lesson…" : "Start Lesson (beta)"}
-            </button>
-          </div>
-
-          {/* Small launcher row for Topic Test */}
-          <div className="mt-3 flex items-center justify-between text-[11px]">
-            <div className="text-xs font-semibold text-gray-600">
-              Topic Mini Test
-            </div>
-{(currentTopic as any)?.status && (
-  <div className="mt-1 text-[11px] font-semibold">
-    Status:{" "}
-    <span className="ml-1">
-      {TOPIC_STATUS_UI[(currentTopic as any).status] || "—"}
-    </span>
+{/* Audio player */}
+{audioUrl && (
+  <div className="border-t border-slate-200 px-4 py-2">
+    <audio controls className="w-full">
+      <source src={audioUrl} />
+    </audio>
   </div>
 )}
-            <div className="flex items-center gap-2">
-              {topicTestResult && (
-                <span className="text-emerald-700 font-semibold">
-                  Last score: {topicTestResult.correct}/{topicTestResult.total} (
-                  {topicTestResult.percent}%)
-                </span>
-              )}
+
+{audioError && (
+  <p className="px-4 pb-2 text-xs text-red-500">
+    {audioError}
+  </p>
+)}
+
+          <div className="border-t border-slate-200 px-4 py-3">
+            <div className="mb-2 flex items-center gap-2 overflow-x-auto pb-1">
+              <button
+                type="button"
+                onClick={handleToggleRealtime}
+                className={`rounded-full border px-3 py-1 text-xs whitespace-nowrap ${
+                  isRealtimeOn
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                    : "border-slate-300 bg-white text-slate-700"
+                }`}
+              >
+                {isRealtimeOn ? "ðŸŸ¢ Realtime Voice ON" : "âšª Realtime Voice OFF"}
+              </button>
+              <button
+                type="button"
+                onClick={handleMicToggle}
+                disabled={!isRealtimeOn}
+                className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 disabled:opacity-50 whitespace-nowrap"
+              >
+                {isListening ? "â¹ Stop & Send" : "ðŸŽ™ Speak"}
+              </button>
+              <button
+                type="button"
+                onClick={() => !isStartingLesson && handleStartClass()}
+                disabled={isStartingLesson}
+                className="rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white disabled:opacity-60 whitespace-nowrap"
+              >
+                {isStartingLesson ? "Preparing lessonâ€¦" : "Start Lesson"}
+              </button>
               <button
                 type="button"
                 onClick={handleStartTopicTest}
                 disabled={isLoadingTest || !currentTopic}
-                className="rounded-xl border border-indigo-500 px-3 py-1 text-[11px] font-semibold text-indigo-600 bg-white hover:bg-indigo-50 disabled:opacity-50"
+                className="rounded-full border border-indigo-500 bg-white px-3 py-1 text-xs font-semibold text-indigo-600 disabled:opacity-50 whitespace-nowrap"
               >
-                {isLoadingTest
-                  ? "Preparing test…"
-                  : topicTest
-                  ? "Open / Regenerate Test"
-                  : "Start Topic Test"}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 🔹 Topic Test Modal */}
-      {isTopicTestOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-[480px] max-h-[80vh] rounded-2xl bg-white shadow-xl p-4 flex flex-col text-xs">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <div className="text-sm font-semibold">
-                  Topic Mini Test –{" "}
-                  {currentTopic ? currentTopic.topic_name : "Current topic"}
-                </div>
-                {currentChapter && (
-                  <div className="text-[11px] text-gray-500">
-                    Chapter: {currentChapter.chapter_number}.{" "}
-                    {currentChapter.chapter_name}
-                  </div>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsTopicTestOpen(false)}
-                className="rounded-full border border-slate-300 px-2 py-1 text-[11px] hover:bg-slate-100"
-              >
-                ✕ Close
+                {isLoadingTest ? "Preparing testâ€¦" : "Start Topic Test"}
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-2 space-y-2">
-              {isLoadingTest && (
-                <p className="text-[11px] text-gray-600">
-                  Preparing test questions…
-                </p>
-              )}
-
-              {!isLoadingTest && topicTest && topicTest.length > 0 && (
-                <>
-                  {topicTest.map((q) => (
-                    <div
-                      key={q.id}
-                      className="bg-white rounded-lg border border-slate-200 p-2 mb-1"
-                    >
-                      <div className="font-medium mb-1">
-                        Q{q.id}. {q.question}
-                      </div>
-                      <div className="space-y-1">
-                        {q.options.map((opt, idx) => (
-                          <label
-                            key={idx}
-                            className="flex items-start gap-1 cursor-pointer"
-                          >
-                            <input
-                              type="radio"
-                              name={`q-${q.id}`}
-                              className="mt-[2px]"
-                              checked={topicTestAnswers[q.id] === idx}
-                              onChange={() =>
-                                setTopicTestAnswers((prev) => ({
-                                  ...prev,
-                                  [q.id]: idx,
-                                }))
-                              }
-                            />
-                            <span>{opt}</span>
-                          </label>
-                        ))}
-                      </div>
-
-                      {topicTestResult && (
-                        <div className="mt-1 text-[11px] text-gray-600">
-                          <div>
-                            Correct answer:{" "}
-                            <span className="font-semibold">
-                              {q.options[q.correctIndex]}
-                            </span>
-                          </div>
-                          <div className="text-gray-500">
-                            Explanation: {q.explanation}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </>
-              )}
-
-              {!isLoadingTest && (!topicTest || topicTest.length === 0) && (
-                <p className="text-[11px] text-gray-500">
-                  No questions yet. Click &quot;Open / Regenerate Test&quot;
-                  again to try regenerating.
-                </p>
-              )}
-            </div>
-
-            <div className="mt-3 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={handleSubmitTopicTest}
-                className="rounded-xl bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700"
-              >
-                Submit Test
-              </button>
-              {topicTestResult && (
-                <span className="text-[11px] font-semibold text-emerald-700">
-                  Score: {topicTestResult.correct}/{topicTestResult.total} (
-                  {topicTestResult.percent}%)
+            <div className="mb-2 flex items-center gap-2 overflow-x-auto pb-1 text-[11px] text-slate-500">
+              <span className="whitespace-nowrap">{isListening ? "Listeningâ€¦ speak now." : realtimeStatus || "Ready"}</span>
+              {(currentTopic as any)?.status && (
+                <span className="whitespace-nowrap rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">
+                  Status: {TOPIC_STATUS_UI[(currentTopic as any).status] || "â€”"}
                 </span>
               )}
+              {topicTestResult && (
+                <span className="whitespace-nowrap rounded-full bg-emerald-50 px-2 py-1 font-semibold text-emerald-700">
+                  Score: {topicTestResult.correct}/{topicTestResult.total} ({topicTestResult.percent}%)
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <input
+                type="text"
+                className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder={isRealtimeOn ? "Type a doubt or use mic for realtime teacherâ€¦" : "Ask a doubt about this topicâ€¦"}
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!isAsking) handleAskRealtime();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => handleAskRealtime()}
+                className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-black disabled:opacity-50"
+                disabled={isAsking}
+              >
+                {isRealtimeOn ? "Send" : isAsking ? "Thinkingâ€¦" : "Ask"}
+              </button>
+            </div>
+
+            <div className="mt-2 flex items-center gap-2 overflow-x-auto pb-1">
+              <label className="cursor-pointer rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 whitespace-nowrap hover:bg-slate-100">
+                ðŸ“Ž Upload notes/photo
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => setUploadedFiles(Array.from(e.target.files || []))}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={openCamera}
+                className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 whitespace-nowrap hover:bg-slate-100"
+              >
+                ðŸ“· Open camera
+              </button>
+              {capturedImage && (
+                <button
+                  type="button"
+                  onClick={() => setCapturedImage(null)}
+                  className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 whitespace-nowrap hover:bg-slate-100"
+                >
+                  Clear image
+                </button>
+              )}
+            </div>
+            {cameraError && <p className="mt-1 text-xs text-red-500">{cameraError}</p>}
+            {syllabusLoading && <p className="mt-1 text-xs text-slate-500">Loading syllabusâ€¦</p>}
+            {syllabusError && <p className="mt-1 text-xs text-red-500">Syllabus error: {syllabusError}</p>}
+          </div>
+        </div>
+
+        <aside
+          className={`hidden lg:block absolute right-3 top-3 z-20 w-64 rounded-2xl border border-slate-200 bg-white p-3 shadow-md transition-transform duration-300 ${
+            hasStartedClass ? "translate-x-[74%] hover:translate-x-0" : "translate-x-0"
+          }`}
+        >
+          <div className="sticky top-3">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Teacher</div>
+            <div className="mx-auto w-28 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+              <img src={teacherAvatar} alt="AI Teacher" className="h-auto w-full object-contain" />
+            </div>
+            <p className="mt-2 text-center text-xs font-medium text-slate-700">NeoLearn Maths Teacher</p>
+            <p className="mt-2 text-center text-[11px] text-slate-500">
+              Subject: {currentSubject?.subject_name || "Select subject"}
+              <br />
+              Topic: {currentTopic?.topic_name || "Select topic"}
+            </p>
+          </div>
+        </aside>
+      </div>
+
+      {isCameraOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-3">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-4 shadow-xl">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Capture question image</h3>
+              <button
+                type="button"
+                className="rounded-full border border-slate-300 px-3 py-1 text-xs"
+                onClick={() => {
+                  stopCamera();
+                  setIsCameraOpen(false);
+                }}
+              >
+                Close
+              </button>
+            </div>
+            <video ref={videoRef} autoPlay playsInline className="max-h-[60vh] w-full rounded-xl border border-slate-200 bg-black" />
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold"
+                onClick={() => {
+                  stopCamera();
+                  setIsCameraOpen(false);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white"
+                onClick={captureFromCamera}
+              >
+                Capture
+              </button>
             </div>
           </div>
         </div>
       )}
+
+      
+             
+
     </>
   );
 }
-  
+
 

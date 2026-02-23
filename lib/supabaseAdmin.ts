@@ -1,24 +1,30 @@
 // lib/supabaseAdmin.ts
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-function mustGet(name: string) {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env ${name}`);
-  return v;
+export function supabasePublic(): SupabaseClient {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !anon) {
+    throw new Error("Supabase public env not configured.");
+  }
+
+  return createClient(url, anon, {
+    auth: { persistSession: false },
+  });
 }
 
-// ✅ Use this for normal reads with RLS (safe for client-like access on server)
-export const supabasePublic = () =>
-  createClient(
-    mustGet("NEXT_PUBLIC_SUPABASE_URL"),
-    mustGet("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
-    { auth: { persistSession: false } }
-  );
+export function supabaseAdmin(): SupabaseClient {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const service =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE;
 
-// ✅ Use this ONLY on server routes that must bypass RLS / admin ops
-export const supabaseAdmin = () =>
-  createClient(
-    mustGet("NEXT_PUBLIC_SUPABASE_URL"),
-    mustGet("SUPABASE_SERVICE_ROLE_KEY"),
-    { auth: { persistSession: false } }
-  );
+  if (!url || !service) {
+    throw new Error("Supabase admin env not configured.");
+  }
+
+  return createClient(url, service, {
+    auth: { persistSession: false },
+  });
+}

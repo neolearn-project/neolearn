@@ -74,26 +74,26 @@ export default function AuthModal({
           )}
 
           {mode === "signup" && (
-  <>
-    <SignupForm
-      onDone={() => {
-        setMode("login");
-        onClose();
-      }}
-      onSwitchToLogin={() => setMode("login")}
-    />
+            <>
+              <SignupForm
+                onDone={() => {
+                  setMode("login");
+                  onClose();
+                }}
+                onSwitchToLogin={() => setMode("login")}
+              />
 
-    <p className="mt-4 text-center text-sm text-gray-600">
-      Already have an account?{" "}
-      <button
-        className="text-blue-600 font-medium hover:underline"
-        onClick={() => setMode("login")}
-      >
-        Login
-      </button>
-    </p>
-  </>
-)}
+              <p className="mt-4 text-center text-sm text-gray-600">
+                Already have an account?{" "}
+                <button
+                  className="text-blue-600 font-medium hover:underline"
+                  onClick={() => setMode("login")}
+                >
+                  Login
+                </button>
+              </p>
+            </>
+          )}
 
           {mode === "reset" && (
             <ResetPasswordForm
