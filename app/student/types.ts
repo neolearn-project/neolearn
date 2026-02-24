@@ -19,7 +19,7 @@ export type ActiveTab =
 
 export type ChatMessage = {
   id: string;
-  role: "Teacher" | "You" | "System";
+  author: "Teacher" | "You" | "System";
   text: string;
   isError?: boolean;
   ts?: number;
@@ -57,4 +57,5 @@ export type TopicTestQuestion = {
   options: string[];
   correctIndex?: number | null;
 };
+
 
