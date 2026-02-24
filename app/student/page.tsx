@@ -9,45 +9,8 @@ import { useRouter } from "next/navigation";
 import { RealtimeTeacherClient } from "./realtimeTeacherClient";
 import jsPDF from "jspdf";
 import ClassroomView from "./components/ClassroomView";
-import type { SubjectRow, ChapterRow, TopicRow, ChatMessage, StudentInfo, ActiveTab, Weekday } from "./types";
 
 type ClassId = "5" | "6" | "7" | "8" | "9";
-
-interface StudentInfo {
-  name: string;
-  mobile: string;
-  classId: ClassId;
-
-  // âœ… Supabase Auth user id (needed for Persona Engine)
-  studentId?: string;
-}
-
-interface SubjectRow {
-  id: number;
-  board: string;
-  class_number: number;
-  subject_code: string;
-  subject_name: string;
-}
-
-interface ChapterRow {
-  id: number;
-  subject_id: number;
-  chapter_number: number;
-  chapter_name: string;
-}
-
-interface TopicRow {
-  id: number;
-  chapter_id: number;
-  topic_number: number;
-  topic_name: string;
-  content: any;
-  is_active: boolean;
-
-  // âœ… added for UI (even if backend does not send it sometimes)
-  status?: "completed" | "in_progress" | "needs_revision" | "not_started" | string;
-}
 
 interface WeeklyProgressRow {
   weekStart: string;
@@ -67,25 +30,7 @@ interface SyllabusResponse {
   error?: string;
 }
 
-type ActiveTab =
-  | "classroom"
-  | "subjects"
-  | "chapters"
-  | "topics"
-  | "progress"
-  | "payments"
-  | "gallery"
-  | "routine";
-
 type MessageAuthor = "Teacher" | "You";
-
-interface ChatMessage {
-  id: number;
-  author: MessageAuthor;
-  text: string;
-  ts: string;
-  isError?: boolean;
-}
 
 type ClassSession = {
   id: string;
@@ -117,15 +62,6 @@ const TOPIC_STATUS_UI: Record<string, string> = {
 const SESSION_HISTORY_KEY = "neolearnSessionHistory";
 
 const STORAGE_KEY = "neolearnStudent";
-type Weekday =
-  | "Monday"
-  | "Tuesday"
-  | "Wednesday"
-  | "Thursday"
-  | "Friday"
-  | "Saturday"
-  | "Sunday";
-
 const WEEKDAYS: Weekday[] = [
   "Monday",
   "Tuesday",
@@ -2030,6 +1966,7 @@ function RoutineView({
 
 
 /* ---------- Classroom view (center circle + right chat) ---------- */
+
 
 
 
