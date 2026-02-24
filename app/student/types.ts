@@ -18,29 +18,35 @@ export type ActiveTab =
   | "routine";
 
 export type ChatMessage = {
-  id: string;
+  id: string | number;
   author: "Teacher" | "You" | "System";
   text: string;
   isError?: boolean;
-  ts?: number;
+  ts: string;
 };
 
 export type SubjectRow = {
   id: number;
-  subject_code?: string | null;
-  subject_name?: string | null;
+  board: string;
+  class_number: number;
+  subject_code: string;
+  subject_name: string;
 };
 
 export type ChapterRow = {
   id: number;
-  chapter_name?: string | null;
-  subject_id?: number | null;
+  subject_id: number;
+  chapter_number: number;
+  chapter_name: string;
 };
 
 export type TopicRow = {
   id: number;
-  topic_name?: string | null;
-  chapter_id?: number | null;
+  chapter_id: number;
+  topic_number: number;
+  topic_name: string;
+  content?: string | null;
+  is_active?: boolean;
   status?: string | null;
 };
 
