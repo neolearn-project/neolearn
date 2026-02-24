@@ -1,7 +1,8 @@
 ﻿'use client';
 
-import React from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SubjectRow, ChapterRow, TopicRow, ChatMessage } from '../types';
+import { RealtimeTeacherClient } from '../realtimeTeacherClient';
 
 export default function ClassroomView(props: {
   syllabusLoading: boolean;
@@ -753,5 +754,7 @@ const handleSubmitTopicTest = async () => {
     </>
   );
 }
+
+
 
 
