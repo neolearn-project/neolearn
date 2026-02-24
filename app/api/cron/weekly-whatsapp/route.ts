@@ -1,3 +1,5 @@
+﻿export const dynamic = "force-dynamic";
+
 // app/api/cron/weekly-whatsapp/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
@@ -10,7 +12,7 @@ const CRON_SECRET = process.env.CRON_SECRET!;
 
 export async function GET(req: NextRequest) {
   try {
-    // 🔐 Security check
+    // ðŸ” Security check
     const secret = req.headers.get("x-cron-secret");
     if (!CRON_SECRET || secret !== CRON_SECRET) {
       return NextResponse.json(
@@ -21,7 +23,7 @@ export async function GET(req: NextRequest) {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 1️⃣ Read parent–child links
+    // 1ï¸âƒ£ Read parentâ€“child links
     const { data: children, error: childErr } = await supabase
       .from("children")
       .select("parent_mobile, child_mobile, child_name");
@@ -34,7 +36,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 2️⃣ Send weekly report for each child
+    // 2ï¸âƒ£ Send weekly report for each child
     for (const row of children || []) {
       const parentMobile = row.parent_mobile;
       const childMobile = row.child_mobile;
@@ -54,17 +56,17 @@ export async function GET(req: NextRequest) {
       const w = weeklyData.weeks[0];
 
       const msg =
-`📘 *NeoLearn Weekly Report*
+`ðŸ“˜ *NeoLearn Weekly Report*
 
-👦 Student: *${childName}*
-📅 Week: ${w.weekStart} → ${w.weekEnd}
+ðŸ‘¦ Student: *${childName}*
+ðŸ“… Week: ${w.weekStart} â†’ ${w.weekEnd}
 
-✅ Topics completed: ${w.topicsCompleted}
-📝 Tests taken: ${w.testsTaken}
-📊 Average score: ${w.avgScore ?? "N/A"}%
+âœ… Topics completed: ${w.topicsCompleted}
+ðŸ“ Tests taken: ${w.testsTaken}
+ðŸ“Š Average score: ${w.avgScore ?? "N/A"}%
 
-Keep supporting ${childName}'s learning journey! 🌱
-— NeoLearn`;
+Keep supporting ${childName}'s learning journey! ðŸŒ±
+â€” NeoLearn`;
 
       await sendWhatsAppText(parentMobile, msg);
     }
@@ -78,3 +80,4 @@ Keep supporting ${childName}'s learning journey! 🌱
     );
   }
 }
+

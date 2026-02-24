@@ -1,3 +1,5 @@
+﻿export const dynamic = "force-dynamic";
+
 // app/api/parent/weekly-report/route.ts
 import { NextResponse } from "next/server";
 
@@ -99,3 +101,4 @@ export async function GET(req: Request) {
     );
   }
 }
+

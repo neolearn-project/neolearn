@@ -1,3 +1,5 @@
+﻿export const dynamic = "force-dynamic";
+
 // app/api/progress/weekly-get/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -129,3 +131,4 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+

@@ -1,3 +1,5 @@
+﻿export const dynamic = "force-dynamic";
+
 // app/api/progress/weak-topics/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -50,3 +52,4 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: e?.message || "Server error" }, { status: 500 });
   }
 }
+

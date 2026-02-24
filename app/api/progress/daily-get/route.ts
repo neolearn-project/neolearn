@@ -1,3 +1,5 @@
+﻿export const dynamic = "force-dynamic";
+
 // app/api/progress/daily-get/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -60,7 +62,7 @@ export async function GET(req: NextRequest) {
       .select("status,last_score,last_test_at,created_at")
       .eq("student_mobile", mobile)
       // anything created today OR tested today.
-      // We'll just fetch rows whose created_at is in today’s range OR last_test_at is in today’s range.
+      // We'll just fetch rows whose created_at is in todayâ€™s range OR last_test_at is in todayâ€™s range.
       // Supabase doesn't support OR cleanly without .or(), so use .or()
       .or(
         `created_at.gte.${startIso},created_at.lt.${endIso},last_test_at.gte.${startIso},last_test_at.lt.${endIso}`
@@ -114,3 +116,4 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
