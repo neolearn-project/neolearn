@@ -50,3 +50,11 @@ export type StudentInfo = {
   mobile: string;
   classId: string;
 };
+
+export type TopicTestQuestion = {
+  id: number;
+  question: string;
+  options: string[];
+  correctIndex?: number | null;
+};
+
