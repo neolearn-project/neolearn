@@ -1,35 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { computeAccessSummary } from "@/lib/access/checkPolicy";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function GET(req: NextRequest) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const mobile = String(searchParams.get("mobile") || "").trim();
+  const { searchParams } = new URL(req.url);
+  const mobile = searchParams.get("mobile");
 
-    if (!mobile) {
-      return NextResponse.json({ ok: false }, { status: 400 });
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    const { data } = await supabase
-      .from("topic_progress")
-      .select("topic_id")
-      .eq("student_mobile", mobile);
-
-    const { used, limit, allowed } = computeAccessSummary(data, 5);
-
-    return NextResponse.json({
-      ok: true,
-      allowed,
-      used,
-      limit,
-    });
-  } catch {
-    return NextResponse.json({ ok: false }, { status: 500 });
+  if (!mobile) {
+    return NextResponse.json({ ok: false, error: "Missing mobile" }, { status: 400 });
   }
+
+  const today = new Date().toISOString().split("T")[0];
+
+  // Get plan
+  const { data: plan } = await supabase
+    .from("student_plans")
+    .select("*")
+    .eq("student_mobile", mobile)
+    .eq("is_active", true)
+    .single();
+
+  const dailyLimit = plan?.daily_limit ?? 3;
+  const planType = plan?.plan_type ?? "free";
+
+  // Get today's usage
+  const { data: usage } = await supabase
+    .from("student_daily_usage")
+    .select("*")
+    .eq("student_mobile", mobile)
+    .eq("date", today)
+    .single();
+
+  const used = usage?.lessons_used ?? 0;
+  const allowed = used < dailyLimit;
+
+  return NextResponse.json({
+    ok: true,
+    allowed,
+    used,
+    limit: dailyLimit,
+    plan: planType,
+  });
 }
