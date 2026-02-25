@@ -65,3 +65,40 @@ export type TopicTestQuestion = {
 };
 
 
+
+export type StoredSession = {
+  id: string;
+  studentMobile: string;
+  subject: string;
+  chapter: string;
+  topic: string;
+  language: string;
+  startedAt: string; // ISO
+  endedAt: string;   // ISO
+  transcript: string;
+};
+
+export type RoutineDayPlan = {
+  time: string; // "18:30"
+  subject1Id: number | null;
+  subject2Id: number | null;
+  minutesPerSubject: number;
+};
+
+export type WeeklyRoutine = Record<Weekday, RoutineDayPlan>;
+
+export type WeeklyRow = {
+  weekStart: string;
+  weekEnd: string;
+  topicsCompleted: number;
+  testsTaken: number;
+  avgScore: number | null;
+};
+
+export type DailyRow = {
+  date: string;
+  topicsCompleted: number;
+  testsTaken: number;
+  avgScore: number | null;
+};
+
