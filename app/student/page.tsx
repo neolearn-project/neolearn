@@ -863,6 +863,17 @@ if (!access.allowed) {
       const blob = await audioRes.blob();
       const url = URL.createObjectURL(blob);
       setAudioUrl(url);
+
+// ✅ Count this lesson usage (only after successful lesson generation)
+try {
+  await fetch("/api/access/increment", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mobile: student?.mobile }),
+  });
+} catch (e) {
+  console.warn("access increment failed:", e);
+}
     } catch (err) {
       console.error("lesson-audio network error:", err);
       setAudioError("Failed to generate lesson audio (network error).");
@@ -990,6 +1001,17 @@ if (!access.allowed) {
         const blob = await ttsRes.blob();
         const url = URL.createObjectURL(blob);
         setAudioUrl(url);
+
+// ✅ Count this lesson usage (only after successful lesson generation)
+try {
+  await fetch("/api/access/increment", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mobile: student?.mobile }),
+  });
+} catch (e) {
+  console.warn("access increment failed:", e);
+}
       } else {
         // JSON with some audio field (same logic as Start Lesson)
         const ttsData = await ttsRes.json();
@@ -1220,6 +1242,8 @@ if (!access.allowed) {
 }
                
 /* ---------- Small components ---------- */
+
+
 
 
 

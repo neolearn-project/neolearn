@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import Twilio from "twilio"; // (not used here, ignore if you don't want)
 import { createClient } from "@supabase/supabase-js";
@@ -89,7 +89,7 @@ try {
     const chapterDbId = String(body?.chapterDbId || "");
     const topicDbId = String(body?.topicDbId || "");
 
-    // ✅ Student identity
+    // âœ… Student identity
 const studentMobile = String(body?.studentMobile || "").trim();
 
 // Prefer Supabase Auth UID (recommended)
@@ -97,6 +97,10 @@ const studentId = String(body?.studentId || "").trim();
 
 // legacy fallback (old UI may send topicId)
 const topicId = String(body?.topicId || "").trim();
+const topicKey = String(topicDbId || topicId || "").trim();
+
+
+
 
 
     const teacher = getTeacherConfig(subjectId, classId);
@@ -127,11 +131,45 @@ try {
   supabase = supabaseAdminClient();
 } catch (e: any) {
   console.warn("Supabase admin not configured:", e?.message);
+
+
+// ------------------------
+// ✅ Topic key + adaptive learning memory (mastery)
+// ------------------------
+
+let masteryLevel = 50;
+let lastPracticedAt: string | null = null;
+
+try {
+  if (supabase && studentMobile && topicKey) {
+    const { data, error } = await supabase
+      .from("student_learning_memory")
+      .select("mastery_level,last_practiced_at")
+      .eq("student_mobile", studentMobile)
+      .eq("topic_id", topicKey)
+      .maybeSingle();
+
+    if (!error && data) {
+      masteryLevel =
+        typeof (data as any).mastery_level === "number"
+          ? (data as any).mastery_level
+          : 50;
+
+      lastPracticedAt =
+        typeof (data as any).last_practiced_at === "string"
+          ? (data as any).last_practiced_at
+          : null;
+    }
+  }
+} catch (e) {
+  console.error("student_learning_memory load failed:", e);
+}
+
 }
 
 
     // ===============================
-// ✅ PERSONA ENGINE (Phase B)
+// âœ… PERSONA ENGINE (Phase B)
 // ===============================
 let profile: PersonaProfile | null = null;
 
@@ -180,9 +218,9 @@ const languageInstruction =
 
 
     // ------------------------
-    // ✅ 1) MEMORY SEARCH FIRST (if RPC exists + ids present)
+    // âœ… 1) MEMORY SEARCH FIRST (if RPC exists + ids present)
     // NOTE: Your RPC signature must match your DB function. If your current call works, keep it.
-    // If it fails, we’ll adjust separately.
+    // If it fails, weâ€™ll adjust separately.
     // ------------------------
     try {
       if (supabase && question && subjectDbId && chapterDbId && topicDbId) {
@@ -222,17 +260,26 @@ Class: ${teacher.classId}
 Chapter: ${chapter.title}
 
 ${languageInstruction}
+STUDENT TOPIC MEMORY (use to adapt):
+- mastery_level: /100
+- last_practiced_at: 
+
+Teaching rules:
+- mastery < 40: explain slower, use more examples, ask very easy check question.
+- mastery 40–70: normal pace, 1 example, 2 short checks.
+- mastery > 70: be concise, give 1 harder challenge question.
+
 
 Your job is to:
 - Restate the child's doubt in one simple line.
 - Explain step-by-step clearly.
-- Give 1–2 small worked examples related to ${chapter.title}.
+- Give 1â€“2 small worked examples related to ${chapter.title}.
 - Use short, simple sentences.
 - End with one follow-up question to check understanding.
 `.trim();
 
-// ✅ If confusion detected, mark topic as weak (best effort)
-// ✅ If confusion detected, mark topic as weak (best effort)
+// âœ… If confusion detected, mark topic as weak (best effort)
+// âœ… If confusion detected, mark topic as weak (best effort)
 try {
   if (supabase && decision.weakTopicAdd && (studentId || studentMobile)) {
   const { data: row } = studentId
@@ -305,10 +352,53 @@ Explain according to the syllabus of this class and board, focused on the given 
       }
     } catch (e) {
       console.error("Answer parsing error:", e);
+
+
+// ------------------------
+// ✅ Update adaptive learning memory (mastery)
+// ------------------------
+try {
+  if (supabase && studentMobile && topicKey) {
+    const delta = 3;
+
+    const { data: existing } = await supabase
+      .from("student_learning_memory")
+      .select("id, mastery_level")
+      .eq("student_mobile", studentMobile)
+      .eq("topic_id", topicKey)
+      .maybeSingle();
+
+    const current = typeof (existing as any)?.mastery_level === "number"
+      ? (existing as any).mastery_level
+      : 50;
+
+    const next = Math.max(0, Math.min(100, current + delta));
+
+    if (!(existing as any)?.id) {
+      await supabase.from("student_learning_memory").insert({
+        student_mobile: studentMobile,
+        topic_id: topicKey,
+        mastery_level: next,
+        last_practiced_at: new Date().toISOString(),
+      });
+    } else {
+      await supabase
+        .from("student_learning_memory")
+        .update({
+          mastery_level: next,
+          last_practiced_at: new Date().toISOString(),
+        })
+        .eq("id", (existing as any).id);
+    }
+  }
+} catch (e) {
+  console.error("student_learning_memory update failed:", e);
+}
+
     }
 
     // ------------------------
-    // ✅ PHASE B: Persona Engine (UPDATE profile)
+    // âœ… PHASE B: Persona Engine (UPDATE profile)
     // ------------------------
     if (supabase && (studentId || studentMobile)) {
   try {
@@ -422,3 +512,9 @@ const tts = await openai.audio.speech.create({
     );
   }
 }
+
+
+
+
+
+
