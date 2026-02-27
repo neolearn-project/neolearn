@@ -7,6 +7,7 @@ import {
   ClassId,
   SubjectId,
 } from "@/app/lib/teacherConfig";
+import { requireAccessOrThrow } from "@/app/lib/accessGuard";
 
 // Decide model based on question complexity
 function pickModel(question: string): string {
@@ -32,6 +33,26 @@ export async function POST(req: Request) {
     const body = await req.json();
     const question = (body?.question || "").trim();
     const studentClass = (body?.student_class || "Class 6").trim();
+    const studentMobile = String(body?.studentMobile || body?.mobile || "").trim();
+
+    if (!studentMobile) {
+      return NextResponse.json(
+        { ok: false, error: "studentMobile is required." },
+        { status: 400 }
+      );
+    }
+
+    try {
+      await requireAccessOrThrow({ mobile: studentMobile, feature: "qa" });
+    } catch (accessErr: any) {
+      if (accessErr?.message === "ACCESS_DENIED") {
+        return NextResponse.json(
+          { ok: false, error: "Free limit reached. Please subscribe." },
+          { status: 403 }
+        );
+      }
+      throw accessErr;
+    }
 
     if (!question) {
       return NextResponse.json(
@@ -199,3 +220,9 @@ Explain according to the syllabus of this class and board, focused on the given 
     );
   }
 }
+
+/*
+curl -X POST http://localhost:3004/api/teacher-math \
+  -H "Content-Type: application/json" \
+  -d '{"studentMobile":"9999999999","question":"What is 1/2 + 1/3?","student_class":"Class 6"}'
+*/

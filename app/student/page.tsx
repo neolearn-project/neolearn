@@ -5,88 +5,80 @@ import { getAvatarForSubject } from "../lib/teacherAvatar";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RealtimeTeacherClient } from "./realtimeTeacherClient";
-
-type ClassId = "5" | "6" | "7" | "8" | "9";
-
-interface StudentInfo {
-  name: string;
-  mobile: string;
-  classId: ClassId;
-}
-
-interface SubjectRow {
-  id: number;
-  board: string;
-  class_number: number;
-  subject_code: string;
-  subject_name: string;
-}
-
-interface ChapterRow {
-  id: number;
-  subject_id: number;
-  chapter_number: number;
-  chapter_name: string;
-}
-
-interface TopicRow {
-  id: number;
-  chapter_id: number;
-  topic_number: number;
-  topic_name: string;
-  content: any;
-  is_active: boolean;
-
-  // ✅ added for UI (even if backend does not send it sometimes)
-  status?: "completed" | "in_progress" | "needs_revision" | "not_started" | string;
-}
-
-interface WeeklyProgressRow {
-  weekStart: string;
-  weekEnd: string;
-  topicsCompleted: number;
-  testsTaken: number;
-  avgScore: number | null;
-}
-
-interface SyllabusResponse {
-  ok: boolean;
-  data?: {
-    subjects: SubjectRow[];
-    chapters: ChapterRow[];
-    topics: TopicRow[];
-  };
-  error?: string;
-}
-
-type ActiveTab =
-  | "classroom"
-  | "subjects"
-  | "chapters"
-  | "topics"
-  | "progress"
-  | "payments"
-  | "gallery";
-
-type MessageAuthor = "Teacher" | "You";
-
-interface ChatMessage {
-  id: number;
-  author: MessageAuthor;
-  text: string;
-  ts: string;
-  isError?: boolean;
-}
-
-const TOPIC_STATUS_UI: Record<string, string> = {
-  completed: "✅ Completed",
-  in_progress: "🟡 In Progress",
-  needs_revision: "⚠️ Needs Revision",
-  not_started: "❌ Not Started",
-};
+import TabButton from "./components/TabButton";
+import SubjectsView from "./components/SubjectsView";
+import ChaptersView from "./components/ChaptersView";
+import TopicsView from "./components/TopicsView";
+import WeeklyProgressView from "./components/WeeklyProgressView";
+import GalleryView from "./components/GalleryView";
+import RoutineView from "./components/RoutineView";
+import ClassroomView from "./components/ClassroomView";
+import type {
+  ActiveTab,
+  ChapterRow,
+  ChatMessage,
+  DailyProgressRow,
+  StudentInfo,
+  SubjectRow,
+  SyllabusResponse,
+  TopicRow,
+  WeeklyProgressRow,
+  LanguageOption,
+  MessageAuthor,
+  SpeedOption,
+} from "./types";
 
 const STORAGE_KEY = "neolearnStudent";
+
+function getFallbackSyllabus(classId: string) {
+  const fallbackSubjects: SubjectRow[] = [
+    {
+      id: 1001,
+      board: "cbse",
+      class_number: Number(classId || "6"),
+      subject_code: "maths",
+      subject_name: "Mathematics",
+    },
+  ];
+
+  const fallbackChapters: ChapterRow[] = [
+    { id: 2001, subject_id: 1001, chapter_number: 1, chapter_name: "Fractions" },
+    { id: 2002, subject_id: 1001, chapter_number: 2, chapter_name: "Decimals" },
+  ];
+
+  const fallbackTopics: TopicRow[] = [
+    {
+      id: 3001,
+      chapter_id: 2001,
+      topic_number: 1,
+      topic_name: "Introduction to Fractions",
+      content: null,
+      is_active: true,
+    },
+    {
+      id: 3002,
+      chapter_id: 2001,
+      topic_number: 2,
+      topic_name: "Addition of Fractions",
+      content: null,
+      is_active: true,
+    },
+    {
+      id: 3003,
+      chapter_id: 2002,
+      topic_number: 1,
+      topic_name: "Place Value in Decimals",
+      content: null,
+      is_active: true,
+    },
+  ];
+
+  return {
+    subjects: fallbackSubjects,
+    chapters: fallbackChapters,
+    topics: fallbackTopics,
+  };
+}
 
 export default function StudentDashboardPage() {
   const router = useRouter();
@@ -117,12 +109,7 @@ const [weeklyRows, setWeeklyRows] = useState<WeeklyProgressRow[]>([]);
   const [weeklyLoading, setWeeklyLoading] = useState(false);
   const [weeklyError, setWeeklyError] = useState<string | null>(null);
 // ✅ Daily progress (Today)
-const [daily, setDaily] = useState<{
-  date: string;
-  topicsCompleted: number;
-  testsTaken: number;
-  avgScore: number | null;
-} | null>(null);
+const [daily, setDaily] = useState<DailyProgressRow | null>(null);
 
 const [dailyLoading, setDailyLoading] = useState(false);
 const [dailyError, setDailyError] = useState<string | null>(null);
@@ -135,7 +122,7 @@ const [dailyError, setDailyError] = useState<string | null>(null);
   );
   const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
 const getLangCode = (
-  language: "English" | "Hindi" | "Bengali"
+  language: LanguageOption
 ): "en" | "hi" | "bn" => {
   if (language === "Hindi") return "hi";
   if (language === "Bengali") return "bn";
@@ -143,7 +130,7 @@ const getLangCode = (
 };
 
 const getSpeedCode = (
-  speed: "Slow" | "Normal" | "Fast"
+  speed: SpeedOption
 ): "slow" | "normal" | "fast" => {
   if (speed === "Slow") return "slow";
   if (speed === "Fast") return "fast";
@@ -159,10 +146,10 @@ const [audioUrl, setAudioUrl] = useState<string | null>(null);
 const [audioError, setAudioError] = useState<string | null>(null);
 const [qaError, setQaError] = useState<string | null>(null);
 
-const [language, setLanguage] = useState<"English" | "Hindi" | "Bengali">(
+const [language, setLanguage] = useState<LanguageOption>(
   "English"
 );
-const [speed, setSpeed] = useState<"Slow" | "Normal" | "Fast">("Normal");
+const [speed, setSpeed] = useState<SpeedOption>("Normal");
 
 const messagesEndRef = useRef<HTMLDivElement | null>(null);
 const messageIdRef = useRef(1);
@@ -205,6 +192,8 @@ useEffect(() => {
   useEffect(() => {
     if (!student) return;
 
+    const classId = student.classId;
+
     async function load() {
       setSyllabusLoading(true);
       setSyllabusError(null);
@@ -218,7 +207,12 @@ useEffect(() => {
         const data = (await res.json()) as SyllabusResponse;
 
         if (!data.ok || !data.data) {
-          setSyllabusError(data.error || "Failed to load syllabus");
+          const fallback = getFallbackSyllabus(classId);
+          setSubjects(fallback.subjects);
+          setChapters(fallback.chapters);
+          setTopics(fallback.topics);
+          setSelectedSubjectId(fallback.subjects[0]?.id ?? null);
+          setSyllabusError(null);
           return;
         }
 
@@ -230,7 +224,12 @@ useEffect(() => {
           setSelectedSubjectId(data.data.subjects[0].id);
         }
       } catch (err: any) {
-        setSyllabusError(err?.message || "Failed to load syllabus");
+        const fallback = getFallbackSyllabus(classId);
+        setSubjects(fallback.subjects);
+        setChapters(fallback.chapters);
+        setTopics(fallback.topics);
+        setSelectedSubjectId(fallback.subjects[0]?.id ?? null);
+        setSyllabusError(null);
       } finally {
         setSyllabusLoading(false);
       }
@@ -450,12 +449,46 @@ if (!mobile) {
   return;
 }
 
-const accessRes = await fetch(
-  `/api/access/check?mobile=${encodeURIComponent(mobile)}`
-);
-const access = await accessRes.json();
+let access: { ok?: boolean; allowed?: boolean; used?: number; limit?: number } | null = null;
 
-if (accessRes.ok && access.ok && !access.allowed) {
+try {
+  const accessRes = await fetch(
+    `/api/access/check?mobile=${encodeURIComponent(mobile)}`
+  );
+
+  if (!accessRes.ok) {
+    pushMessage(
+      "Teacher",
+      "Unable to verify your plan right now. Please try again.",
+      true
+    );
+    setIsStartingLesson(false);
+    return;
+  }
+
+  access = await accessRes.json();
+} catch (err) {
+  console.error("access-check failed:", err);
+  pushMessage(
+    "Teacher",
+    "Unable to verify your plan right now. Please try again.",
+    true
+  );
+  setIsStartingLesson(false);
+  return;
+}
+
+if (!access?.ok) {
+  pushMessage(
+    "Teacher",
+    "Unable to verify your plan right now. Please try again.",
+    true
+  );
+  setIsStartingLesson(false);
+  return;
+}
+
+if (!access.allowed) {
   pushMessage(
     "Teacher",
     `Free limit reached (${access.used}/${access.limit}). Please subscribe to continue.`,
@@ -763,13 +796,9 @@ if (accessRes.ok && access.ok && !access.allowed) {
 
 
       {/* Main layout */}
-      <div className="mx-auto flex max-w-6xl gap-4 px-4 py-4">
-        {/* Left navigation */}
-        <aside className="w-64 rounded-2xl bg-white p-3 shadow-sm">
-          <div className="mb-2 text-xs font-semibold text-gray-500 uppercase">
-            Student Area
-          </div>
-          <nav className="space-y-1 text-sm">
+      <div className="mx-auto w-full max-w-7xl px-4 py-4">
+        <div className="mb-3 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+          <nav className="flex min-w-max gap-2 text-sm">
             <TabButton
               active={activeTab === "classroom"}
               onClick={() => setActiveTab("classroom")}
@@ -813,10 +842,9 @@ if (accessRes.ok && access.ok && !access.allowed) {
               🖼️ Gallery / Notes
             </TabButton>
           </nav>
-        </aside>
+        </div>
 
-        {/* Right content */}
-        <main className="flex-1 rounded-2xl bg-white p-4 shadow-sm">
+        <main className="rounded-2xl bg-white p-4 shadow-sm">
           {activeTab === "classroom" && (
             <ClassroomView
               syllabusLoading={syllabusLoading}
@@ -888,18 +916,9 @@ if (accessRes.ok && access.ok && !access.allowed) {
   />
 )}
 
-          {activeTab === "payments" && (
-            <PlaceholderView title="Payment History">
-              Here we will show subscription plan, invoices and payment history.
-            </PlaceholderView>
-          )}
+          {activeTab === "payments" && <RoutineView />}
 
-          {activeTab === "gallery" && (
-            <PlaceholderView title="Gallery / Notes">
-              Here we will store saved examples, screenshots and teacher notes
-              for the student.
-            </PlaceholderView>
-          )}
+          {activeTab === "gallery" && <GalleryView />}
         </main>
       </div>
     </div>
@@ -908,1072 +927,5 @@ if (accessRes.ok && access.ok && !access.allowed) {
 
 /* ---------- Small components ---------- */
 
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full rounded-xl px-3 py-2 text-left text-xs ${
-        active
-          ? "bg-blue-600 text-white"
-          : "text-gray-700 hover:bg-slate-100"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function PlaceholderView({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-2 text-sm">
-      <h1 className="text-lg font-semibold mb-1">{title}</h1>
-      <p className="text-gray-600 text-xs">{children}</p>
-      <div className="mt-4 rounded-xl border border-dashed border-gray-300 p-4 text-xs text-gray-500">
-        This is a placeholder. We will later replace this with real data and
-        components.
-      </div>
-    </div>
-  );
-}
-
 /* ---------- Subjects / Chapters / Topics views ---------- */
-
-function SubjectsView({
-  subjects,
-  selectedSubjectId,
-  setSelectedSubjectId,
-  loading,
-  error,
-}: {
-  subjects: SubjectRow[];
-  selectedSubjectId: number | null;
-  setSelectedSubjectId: (id: number | null) => void;
-  loading: boolean;
-  error: string | null;
-}) {
-  return (
-    <div className="space-y-3 text-sm">
-      <h1 className="text-lg font-semibold mb-1">Subjects</h1>
-      {loading && (
-        <p className="text-xs text-gray-500">Loading subjects from server…</p>
-      )}
-      {error && (
-        <p className="text-xs text-red-500">
-          Failed to load subjects: {error}
-        </p>
-      )}
-
-      {subjects.length === 0 && !loading && !error && (
-        <p className="text-xs text-gray-500">No subjects found yet.</p>
-      )}
-
-      {subjects.length > 0 && (
-        <div className="space-y-2">
-          <label className="text-xs font-medium text-gray-600">
-            Select subject for this student
-          </label>
-          <select
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500"
-            value={selectedSubjectId ?? ""}
-            onChange={(e) =>
-              setSelectedSubjectId(
-                e.target.value ? Number(e.target.value) : null
-              )
-            }
-          >
-            {subjects.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.subject_name} (Class {s.class_number.toString()})
-              </option>
-            ))}
-          </select>
-          <p className="text-[11px] text-gray-500">
-            This subject selection is shared with the AI Teacher in the
-            Classroom tab.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ChaptersView({
-  chapters,
-  currentSubject,
-  selectedChapterId,
-  setSelectedChapterId,
-  loading,
-  error,
-}: {
-  chapters: ChapterRow[];
-  currentSubject: SubjectRow | null;
-  selectedChapterId: number | null;
-  setSelectedChapterId: (id: number | null) => void;
-  loading: boolean;
-  error: string | null;
-}) {
-  return (
-    <div className="space-y-3 text-sm">
-      <h1 className="text-lg font-semibold mb-1">Chapters</h1>
-
-      {!currentSubject && (
-        <p className="text-xs text-gray-500">
-          Please select a subject first under the <b>Subjects</b> tab.
-        </p>
-      )}
-
-      {loading && (
-        <p className="text-xs text-gray-500">Loading chapters…</p>
-      )}
-      {error && (
-        <p className="text-xs text-red-500">
-          Failed to load chapters: {error}
-        </p>
-      )}
-
-      {currentSubject && chapters.length === 0 && !loading && !error && (
-        <p className="text-xs text-gray-500">
-          No chapters found for {currentSubject.subject_name}.
-        </p>
-      )}
-
-      {currentSubject && chapters.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-xs text-gray-600">
-            Subject:{" "}
-            <span className="font-semibold">
-              {currentSubject.subject_name}
-            </span>
-          </div>
-          <label className="text-xs font-medium text-gray-600">
-            Select chapter
-          </label>
-          <select
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500"
-            value={selectedChapterId ?? ""}
-            onChange={(e) =>
-              setSelectedChapterId(
-                e.target.value ? Number(e.target.value) : null
-              )
-            }
-          >
-            {chapters.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.chapter_number}. {c.chapter_name}
-              </option>
-            ))}
-          </select>
-          <p className="text-[11px] text-gray-500">
-            Selected chapter will be used by the AI Teacher while explaining
-            topics.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function TopicsView({
-  topics,
-  currentSubject,
-  currentChapter,
-  selectedTopicId,
-  setSelectedTopicId,
-  loading,
-  error,
-}: {
-  topics: TopicRow[];
-  currentSubject: SubjectRow | null;
-  currentChapter: ChapterRow | null;
-  selectedTopicId: number | null;
-  setSelectedTopicId: (id: number | null) => void;
-  loading: boolean;
-  error: string | null;
-}) {
-  return (
-    <div className="space-y-3 text-sm">
-      <h1 className="text-lg font-semibold mb-1">Topics</h1>
-
-      {(!currentSubject || !currentChapter) && (
-        <p className="text-xs text-gray-500">
-          Please select subject and chapter first under{" "}
-          <b>Subjects</b> and <b>Chapters</b> tabs.
-        </p>
-      )}
-
-      {loading && (
-        <p className="text-xs text-gray-500">Loading topics…</p>
-      )}
-      {error && (
-        <p className="text-xs text-red-500">
-          Failed to load topics: {error}
-        </p>
-      )}
-
-      {currentSubject &&
-        currentChapter &&
-        topics.length === 0 &&
-        !loading &&
-        !error && (
-          <p className="text-xs text-gray-500">
-            No topics found for this chapter yet.
-          </p>
-        )}
-
-      {currentSubject && currentChapter && topics.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-xs text-gray-600">
-            Subject:{" "}
-            <span className="font-semibold">
-              {currentSubject.subject_name}
-            </span>
-          </div>
-          <div className="text-xs text-gray-600">
-            Chapter:{" "}
-            <span className="font-semibold">
-              {currentChapter.chapter_number}. {currentChapter.chapter_name}
-            </span>
-          </div>
-
-          <label className="text-xs font-medium text-gray-600">
-            Select topic
-          </label>
-          <select
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500"
-            value={selectedTopicId ?? ""}
-            onChange={(e) =>
-              setSelectedTopicId(
-                e.target.value ? Number(e.target.value) : null
-              )
-            }
-          >
-            {topics.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.topic_number}. {t.topic_name}
-              </option>
-            ))}
-          </select>
-          <p className="text-[11px] text-gray-500">
-            The selected topic is what the AI Teacher will explain in the
-            Classroom tab.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function WeeklyProgressView({
-  loading,
-  error,
-  rows,
-  daily,
-  dailyLoading,
-  dailyError,
-}: {
-  loading: boolean;
-  error: string | null;
-  rows: WeeklyProgressRow[];
-  daily: {
-    date: string;
-    topicsCompleted: number;
-    testsTaken: number;
-    avgScore: number | null;
-  } | null;
-  dailyLoading: boolean;
-  dailyError: string | null;
-}) {
-  return (
-    <div className="space-y-3 text-sm">
-      <h1 className="text-lg font-semibold mb-1">Weekly Progress</h1>
-
-{/* ✅ Today's Progress */}
-<div className="mb-4 rounded-2xl border border-slate-200 bg-white p-3">
-  <div className="flex items-center justify-between">
-    <div className="text-sm font-semibold">Today’s Progress</div>
-    {daily?.date && (
-      <div className="text-[11px] text-gray-500">{daily.date}</div>
-    )}
-  </div>
-
-  {dailyLoading && (
-    <p className="text-xs text-gray-500 mt-1">Loading today…</p>
-  )}
-
-  {dailyError && (
-    <p className="text-xs text-red-500 mt-1">{dailyError}</p>
-  )}
-
-  {!dailyLoading && !dailyError && daily && (
-    <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
-      <div className="rounded-xl bg-slate-50 border border-slate-200 p-2">
-        <div className="text-[11px] text-gray-600">Topics</div>
-        <div className="text-lg font-semibold">
-          {daily.topicsCompleted}
-        </div>
-      </div>
-
-      <div className="rounded-xl bg-slate-50 border border-slate-200 p-2">
-        <div className="text-[11px] text-gray-600">Tests</div>
-        <div className="text-lg font-semibold">
-          {daily.testsTaken}
-        </div>
-      </div>
-
-      <div className="rounded-xl bg-slate-50 border border-slate-200 p-2">
-        <div className="text-[11px] text-gray-600">Avg Score</div>
-        <div className="text-lg font-semibold">
-          {daily.avgScore === null ? "—" : `${daily.avgScore}%`}
-        </div>
-      </div>
-    </div>
-  )}
-</div>
-
-      <p className="text-xs text-gray-600">
-        This shows how many topics you completed and your average test
-        score for each week. Later, a summary of this will be sent to
-        your parent on WhatsApp.
-      </p>
-
-      {loading && (
-        <p className="text-xs text-gray-500">Loading weekly data…</p>
-      )}
-
-      {error && (
-        <p className="text-xs text-red-500">
-          Failed to load weekly progress: {error}
-        </p>
-      )}
-
-      {!loading && !error && rows.length === 0 && (
-        <p className="text-xs text-gray-500">
-          No progress recorded yet. Start your first lesson to begin
-          tracking.
-        </p>
-      )}
-
-      {rows.length > 0 && (
-        <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
-          {rows.map((w) => (
-            <div
-              key={w.weekStart}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs"
-            >
-              <div className="flex items-center justify-between mb-1">
-                <div className="font-semibold">
-                  Week of {w.weekStart} – {w.weekEnd}
-                </div>
-                {w.avgScore !== null && (
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                    Avg {w.avgScore}%
-                  </span>
-                )}
-              </div>
-              <div className="space-y-1 text-[11px] text-gray-700">
-                <div>
-                  Topics completed:{" "}
-                  <span className="font-semibold">
-                    {w.topicsCompleted}
-                  </span>
-                </div>
-                <div>
-                  Tests taken:{" "}
-                  <span className="font-semibold">
-                    {w.testsTaken}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-
-interface TopicTestQuestion {
-  id: number;
-  question: string;
-  options: string[];
-  correctIndex: number;
-  explanation: string;
-}
-
-/* ---------- Classroom view (center circle + right chat) ---------- */
-
-function ClassroomView(props: {
-  syllabusLoading: boolean;
-  syllabusError: string | null;
-  currentSubject: SubjectRow | null;
-  currentChapter: ChapterRow | null;
-  currentTopic: TopicRow | null;
-  language: "English" | "Hindi" | "Bengali";
-  setLanguage: (lang: "English" | "Hindi" | "Bengali") => void;
-  speed: "Slow" | "Normal" | "Fast";
-  setSpeed: (s: "Slow" | "Normal" | "Fast") => void;
-  messages: ChatMessage[];
-  question: string;
-  setQuestion: (s: string) => void;
-  onStartLesson: () => Promise<void> | void;
-  onAskQuestion: () => Promise<void> | void;
-  isStartingLesson: boolean;
-  isAsking: boolean;
-  audioUrl: string | null;
-  audioError: string | null;
-  messagesEndRef: React.RefObject<HTMLDivElement | null>;
-  teacherAvatar: string;
-  studentName: string;
-  studentMobile: string;
-}) {
-  const {
-    syllabusLoading,
-    syllabusError,
-    currentSubject,
-    currentChapter,
-    currentTopic,
-    language,
-    setLanguage,
-    speed,
-    setSpeed,
-    messages,
-    question,
-    setQuestion,
-    onStartLesson,
-    onAskQuestion,
-    isStartingLesson,
-    isAsking,
-    audioUrl,
-    audioError,
-    messagesEndRef,
-    teacherAvatar,
-    studentName,
-    studentMobile,
-  } = props;
-
-  // 🔹 Realtime voice state
-  const [realtimeClient, setRealtimeClient] =
-    useState<RealtimeTeacherClient | null>(null);
-  const [isRealtimeOn, setIsRealtimeOn] = useState(false);
-  const [realtimeStatus, setRealtimeStatus] = useState<string>("");
-
-  const [isListening, setIsListening] = useState(false);
-  const [realtimeTranscript, setRealtimeTranscript] = useState("");
-
-  // 🔹 Topic mini test state (MCQs)
-  const [topicTest, setTopicTest] = useState<TopicTestQuestion[] | null>(null);
-  const [topicTestAnswers, setTopicTestAnswers] = useState<
-    Record<number, number | null>
-  >({});
-  const [topicTestResult, setTopicTestResult] = useState<{
-    correct: number;
-    total: number;
-    percent: number;
-  } | null>(null);
-  const [isLoadingTest, setIsLoadingTest] = useState(false);
-  const [isTopicTestOpen, setIsTopicTestOpen] = useState(false);
-
-  // 🧠 Build a context-rich question for the realtime teacher
-  const buildRealtimeQuestion = (raw: string) => {
-    const trimmed = raw.trim();
-    if (!trimmed) return "";
-
-    const parts: string[] = [];
-
-    if (currentSubject) parts.push(`Subject: ${currentSubject.subject_name}`);
-    if (currentChapter) parts.push(`Chapter: ${currentChapter.chapter_name}`);
-    if (currentTopic) parts.push(`Topic: ${currentTopic.topic_name}`);
-
-    if (!parts.length) return trimmed;
-
-    const syllabusContext = parts.join(" | ");
-    return (
-      trimmed +
-      `\n\n[Context for you, teacher: ${syllabusContext}. ` +
-      `Answer in very simple ${language} for an Indian school student.]`
-    );
-  };
-
-  const handleToggleRealtime = async () => {
-    // Turn OFF if already on
-    if (isRealtimeOn && realtimeClient) {
-      realtimeClient.disconnect();
-      setRealtimeClient(null);
-      setIsRealtimeOn(false);
-      setRealtimeStatus("Realtime voice off");
-      return;
-    }
-
-    // Turn ON
-    const client = new RealtimeTeacherClient({
-      onStatus: (s) => setRealtimeStatus(s),
-      onError: (msg) => setRealtimeStatus(msg),
-      onTranscript: (delta) => {
-        setRealtimeTranscript((prev) => prev + delta);
-      },
-    });
-
-    setRealtimeClient(client);
-
-    const baseInstruction =
-      language === "Hindi"
-        ? "You are a female Indian school teacher. Speak in very simple Hindi, slowly and clearly. Do not use any religious greetings or phrases. Use only neutral classroom language."
-        : language === "Bengali"
-        ? "You are a female Indian school teacher. Speak in very simple Bengali, slowly and clearly. Do not use any religious greetings or phrases. Use only neutral classroom language."
-        : "You are a female Indian school teacher in India. Speak in very simple English, slowly and clearly. Do not use any religious greetings or phrases. Use only neutral classroom language.";
-
-    const contextBits: string[] = [
-      "You are teaching in a coaching institute called NeoLearn.",
-    ];
-    if (currentSubject) contextBits.push(`Subject: ${currentSubject.subject_name}.`);
-    if (currentChapter) contextBits.push(`Chapter: ${currentChapter.chapter_name}.`);
-    if (currentTopic) contextBits.push(`Current topic: ${currentTopic.topic_name}.`);
-
-    const instructions = `${baseInstruction} ${contextBits.join(" ")}`;
-    // (Optional) you can feed `instructions` into RealtimeTeacherClient later.
-
-    await client.connect(language);
-    setIsRealtimeOn(true);
-    setRealtimeStatus("Realtime voice connected.");
-  };
-
-  const handleAskRealtime = () => {
-    const trimmed = question.trim();
-    if (!trimmed) return;
-
-    if (isRealtimeOn && realtimeClient) {
-      setRealtimeTranscript("");
-      const contextual = buildRealtimeQuestion(trimmed);
-      if (contextual) realtimeClient.sendText(contextual);
-      setQuestion("");
-      return;
-    }
-
-    if (!isAsking) onAskQuestion();
-  };
-
-  const handleMicToggle = async () => {
-    if (!isRealtimeOn || !realtimeClient) {
-      setRealtimeStatus("Turn ON Realtime Voice first.");
-      return;
-    }
-
-    if (!isListening) {
-      setRealtimeTranscript("");
-      await realtimeClient.startMic();
-      setIsListening(true);
-    } else {
-      realtimeClient.stopMicAndSend();
-      setIsListening(false);
-    }
-  };
-
-  // 🔹 Start / regenerate topic test
-  const handleStartTopicTest = async () => {
-    if (!currentSubject || !currentChapter || !currentTopic) {
-      setRealtimeStatus(
-        "Please select subject, chapter and topic before starting the test."
-      );
-      return;
-    }
-
-    setIsLoadingTest(true);
-    setTopicTest(null);
-    setTopicTestAnswers({});
-    setTopicTestResult(null);
-    setRealtimeStatus("Preparing topic test…");
-
-    try {
-      const langCode =
-        language === "Hindi" ? "hi" : language === "Bengali" ? "bn" : "en";
-
-      const res = await fetch("/api/topic-test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          board: "CBSE",
-          classLevel: "Class 6",
-          subject: currentSubject.subject_name,
-          chapter: currentChapter?.chapter_name ?? "",
-          topic: currentTopic.topic_name,
-          language: langCode,
-          numQuestions: 5,
-        }),
-      });
-
-
-      if (!res.ok) {
-        console.error("topic-test HTTP error:", res.status, await res.text());
-        setRealtimeStatus("Failed to create topic test.");
-        return;
-      }
-
-      const data = await res.json();
-      if (!data.ok || !Array.isArray(data.questions)) {
-        console.error("topic-test invalid response:", data);
-        setRealtimeStatus("AI response was not valid test data.");
-        return;
-      }
-
-      const questions: TopicTestQuestion[] = data.questions;
-      setTopicTest(questions);
-
-      const initialAnswers: Record<number, number | null> = {};
-      for (const q of questions) initialAnswers[q.id] = null;
-      setTopicTestAnswers(initialAnswers);
-
-      setIsTopicTestOpen(true); // open popup
-      setRealtimeStatus("Topic test ready.");
-    } catch (err) {
-      console.error("topic-test fetch error:", err);
-      setRealtimeStatus("Error while generating topic test.");
-    } finally {
-      setIsLoadingTest(false);
-    }
-  };
-
-const handleSubmitTopicTest = async () => {
-  try {
-    if (!topicTest || topicTest.length === 0) return;
-
-    let correct = 0;
-    for (const q of topicTest) {
-      const chosen = topicTestAnswers[q.id];
-      if (chosen === q.correctIndex) correct++;
-    }
-
-    const total = topicTest.length;
-    const percent = Math.round((correct / total) * 100);
-
-    // show score immediately in UI
-    setTopicTestResult({ correct, total, percent });
-    setRealtimeStatus(`You scored ${correct}/${total} (${percent}%). Saving...`);
-
-    if (!currentTopic?.id) {
-      setRealtimeStatus("Save failed: topic missing.");
-      return;
-    }
-
-    // ✅ Save test score to topic_progress (your submit route updates tests_taken/last_score)
-    const saveRes = await fetch("/api/topic-test/submit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        studentMobile,          // from props
-        topicId: currentTopic.id, // topic table id
-        score: percent,
-      }),
-    });
-
-    const saveText = await saveRes.text();
-    console.log("topic-test submit:", saveRes.status, saveText);
-
-    if (!saveRes.ok) {
-      setRealtimeStatus("Save failed (server). Check console.");
-      return;
-    }
-
-    let saveData: any = null;
-    try {
-      saveData = JSON.parse(saveText);
-    } catch {}
-
-    if (!saveData?.ok) {
-      setRealtimeStatus("Save failed (DB). Check console.");
-      return;
-    }
-
-    setRealtimeStatus("✅ Test saved.");
-  } catch (e) {
-    console.error("handleSubmitTopicTest error:", e);
-    setRealtimeStatus("Submit crashed. Check console.");
-  }
-};
-
-
-  return (
-    <>
-      <div className="flex h-[430px] gap-4">
-        {/* Teacher avatar area */}
-        <div className="flex-1 rounded-2xl bg-slate-50 p-4 flex flex-col">
-          <div className="mb-2 text-xs font-semibold text-gray-500 uppercase">
-            AI Teacher
-          </div>
-
-          <div className="flex-1 flex flex-col items-center justify-center">
-            <div className="mb-3 h-90 w-60 overflow-hidden rounded-3xl bg-white shadow-xl flex items-end">
-              <img
-                src={teacherAvatar}
-                alt="AI Teacher"
-                className="w-full h-auto object-contain"
-              />
-            </div>
-
-            <div className="text-sm font-semibold mt-1 text-center">
-              NeoLearn Maths Teacher
-            </div>
-          </div>
-
-          <div className="text-xs text-gray-600 text-center max-w-md mt-1">
-            Select your subject, chapter and topic on the left side, then click{" "}
-            <span className="font-semibold">Start Lesson (beta)</span> to get a
-            short explanation. Later we will replace this with a talking avatar
-            video.
-          </div>
-
-          <div className="mt-3 text-[11px] text-gray-500">
-            {syllabusLoading && "Loading syllabus…"}
-            {syllabusError && (
-              <span className="text-red-500">
-                {" "}
-                (Syllabus error: {syllabusError})
-              </span>
-            )}
-            {!syllabusLoading &&
-              !syllabusError &&
-              (!currentSubject || !currentChapter || !currentTopic) && (
-                <span>
-                  Please pick Subject → Chapter → Topic using the left menu.
-                </span>
-              )}
-          </div>
-        </div>
-
-        {/* Right: conversation card */}
-        <div className="w-[360px] rounded-2xl bg-slate-50 p-3 flex flex-col h-full">
-          {/* Language + speed */}
-          <div className="mb-2 flex gap-2">
-            <div className="flex-1">
-              <label className="block text-[11px] font-medium text-gray-600 mb-1">
-                Language
-              </label>
-              <select
-                className="w-full rounded-xl border border-slate-300 bg-white px-2 py-1 text-[11px] outline-none focus:ring-2 focus:ring-blue-500"
-                value={language}
-                onChange={(e) =>
-                  setLanguage(
-                    e.target.value as "English" | "Hindi" | "Bengali"
-                  )
-                }
-              >
-                <option value="English">English</option>
-                <option value="Hindi">Hindi</option>
-                <option value="Bengali">Bengali</option>
-              </select>
-            </div>
-            <div className="flex-1">
-              <label className="block text-[11px] font-medium text-gray-600 mb-1">
-                Speed
-              </label>
-              <select
-                className="w-full rounded-xl border border-slate-300 bg-white px-2 py-1 text-[11px] outline-none focus:ring-2 focus:ring-blue-500"
-                value={speed}
-                onChange={(e) =>
-                  setSpeed(e.target.value as "Slow" | "Normal" | "Fast")
-                }
-              >
-                <option value="Slow">Slow</option>
-                <option value="Normal">Normal</option>
-                <option value="Fast">Fast</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="mb-2 text-xs font-semibold text-gray-500 uppercase">
-            Conversation
-          </div>
-
-          {/* Chat box */}
-          <div className="flex-1 rounded-xl bg-white border border-slate-200 p-2 text-xs text-gray-700 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto pr-1 space-y-1">
-              {messages.map((m) => (
-                <div key={m.id} className="leading-snug whitespace-pre-wrap">
-                  <span
-                    className={`font-semibold ${
-                      m.author === "Teacher"
-                        ? "text-blue-600"
-                        : "text-emerald-700"
-                    }`}
-                  >
-                    {m.author}:
-                  </span>{" "}
-                  <span
-                    className={m.isError ? "text-red-600" : "text-gray-800"}
-                  >
-                    {m.text}
-                  </span>
-                  <span className="ml-1 text-[10px] text-gray-400">
-                    {m.ts}
-                  </span>
-                </div>
-              ))}
-
-              {/* live captions */}
-              {realtimeTranscript && (
-                <div className="leading-snug whitespace-pre-wrap bg-blue-50 border border-blue-200 rounded-md px-2 py-1 text-[11px] text-gray-700">
-                  <span className="font-semibold text-blue-600">
-                    Teacher (live):
-                  </span>{" "}
-                  {realtimeTranscript}
-                </div>
-              )}
-
-              <div ref={messagesEndRef} />
-            </div>
-
-            {audioUrl && (
-              <div className="mt-2 border-t pt-1">
-                <audio id="lesson-audio" controls className="w-full">
-                  <source src={audioUrl} />
-                  Your browser does not support audio playback.
-                </audio>
-              </div>
-            )}
-
-            {audioError && (
-              <p className="mt-1 text-[11px] text-red-500">{audioError}</p>
-            )}
-          </div>
-
-          {/* Question input + realtime controls */}
-          <div className="mt-2 flex gap-2">
-            <input
-              type="text"
-              className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder={
-                isRealtimeOn
-                  ? "Type a doubt or use mic for realtime teacher…"
-                  : "Ask a doubt about this topic…"
-              }
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  if (!isAsking) handleAskRealtime();
-                }
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => handleAskRealtime()}
-              className="rounded-xl bg-slate-800 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-900 disabled:opacity-50"
-              disabled={isAsking}
-            >
-              {isRealtimeOn ? "Send (Realtime)" : isAsking ? "Thinking…" : "Ask"}
-            </button>
-            <button
-              type="button"
-              onClick={handleMicToggle}
-              className={`rounded-xl border px-3 py-2 text-xs font-semibold ${
-                isListening
-                  ? "border-red-500 text-red-600 bg-red-50"
-                  : "border-slate-300 text-slate-700 bg-white hover:bg-slate-100"
-              } disabled:opacity-50`}
-              disabled={!isRealtimeOn}
-            >
-              {isListening ? "⏹ Stop & Send" : "🎙 Speak"}
-            </button>
-          </div>
-
-          {/* realtime toggle + status */}
-          <div className="mt-2 flex items-center justify-between text-[11px] text-gray-600">
-            <button
-              type="button"
-              onClick={handleToggleRealtime}
-              className={`rounded-full px-3 py-1 border text-[11px] ${
-                isRealtimeOn
-                  ? "border-emerald-500 text-emerald-700 bg-emerald-50"
-                  : "border-slate-300 text-slate-700 bg-white"
-              }`}
-            >
-              {isRealtimeOn ? "🟢 Realtime Voice ON" : "⚪ Realtime Voice OFF"}
-            </button>
-            <span className="truncate max-w-[220px] text-right">
-              {isListening
-                ? "Listening… speak now."
-                : realtimeStatus ||
-                  (isRealtimeOn ? "Connected to voice teacher." : "")}
-            </span>
-          </div>
-
-          {/* Start lesson */}
-          <div className="mt-3">
-            <button
-              type="button"
-              onClick={() => !isStartingLesson && onStartLesson()}
-              disabled={isStartingLesson}
-              className="w-full rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-            >
-              {isStartingLesson ? "Preparing lesson…" : "Start Lesson (beta)"}
-            </button>
-          </div>
-
-          {/* Small launcher row for Topic Test */}
-          <div className="mt-3 flex items-center justify-between text-[11px]">
-            <div className="text-xs font-semibold text-gray-600">
-              Topic Mini Test
-            </div>
-{(currentTopic as any)?.status && (
-  <div className="mt-1 text-[11px] font-semibold">
-    Status:{" "}
-    <span className="ml-1">
-      {TOPIC_STATUS_UI[(currentTopic as any).status] || "—"}
-    </span>
-  </div>
-)}
-            <div className="flex items-center gap-2">
-              {topicTestResult && (
-                <span className="text-emerald-700 font-semibold">
-                  Last score: {topicTestResult.correct}/{topicTestResult.total} (
-                  {topicTestResult.percent}%)
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={handleStartTopicTest}
-                disabled={isLoadingTest || !currentTopic}
-                className="rounded-xl border border-indigo-500 px-3 py-1 text-[11px] font-semibold text-indigo-600 bg-white hover:bg-indigo-50 disabled:opacity-50"
-              >
-                {isLoadingTest
-                  ? "Preparing test…"
-                  : topicTest
-                  ? "Open / Regenerate Test"
-                  : "Start Topic Test"}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 🔹 Topic Test Modal */}
-      {isTopicTestOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-[480px] max-h-[80vh] rounded-2xl bg-white shadow-xl p-4 flex flex-col text-xs">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <div className="text-sm font-semibold">
-                  Topic Mini Test –{" "}
-                  {currentTopic ? currentTopic.topic_name : "Current topic"}
-                </div>
-                {currentChapter && (
-                  <div className="text-[11px] text-gray-500">
-                    Chapter: {currentChapter.chapter_number}.{" "}
-                    {currentChapter.chapter_name}
-                  </div>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsTopicTestOpen(false)}
-                className="rounded-full border border-slate-300 px-2 py-1 text-[11px] hover:bg-slate-100"
-              >
-                ✕ Close
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-2 space-y-2">
-              {isLoadingTest && (
-                <p className="text-[11px] text-gray-600">
-                  Preparing test questions…
-                </p>
-              )}
-
-              {!isLoadingTest && topicTest && topicTest.length > 0 && (
-                <>
-                  {topicTest.map((q) => (
-                    <div
-                      key={q.id}
-                      className="bg-white rounded-lg border border-slate-200 p-2 mb-1"
-                    >
-                      <div className="font-medium mb-1">
-                        Q{q.id}. {q.question}
-                      </div>
-                      <div className="space-y-1">
-                        {q.options.map((opt, idx) => (
-                          <label
-                            key={idx}
-                            className="flex items-start gap-1 cursor-pointer"
-                          >
-                            <input
-                              type="radio"
-                              name={`q-${q.id}`}
-                              className="mt-[2px]"
-                              checked={topicTestAnswers[q.id] === idx}
-                              onChange={() =>
-                                setTopicTestAnswers((prev) => ({
-                                  ...prev,
-                                  [q.id]: idx,
-                                }))
-                              }
-                            />
-                            <span>{opt}</span>
-                          </label>
-                        ))}
-                      </div>
-
-                      {topicTestResult && (
-                        <div className="mt-1 text-[11px] text-gray-600">
-                          <div>
-                            Correct answer:{" "}
-                            <span className="font-semibold">
-                              {q.options[q.correctIndex]}
-                            </span>
-                          </div>
-                          <div className="text-gray-500">
-                            Explanation: {q.explanation}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </>
-              )}
-
-              {!isLoadingTest && (!topicTest || topicTest.length === 0) && (
-                <p className="text-[11px] text-gray-500">
-                  No questions yet. Click &quot;Open / Regenerate Test&quot;
-                  again to try regenerating.
-                </p>
-              )}
-            </div>
-
-            <div className="mt-3 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={handleSubmitTopicTest}
-                className="rounded-xl bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700"
-              >
-                Submit Test
-              </button>
-              {topicTestResult && (
-                <span className="text-[11px] font-semibold text-emerald-700">
-                  Score: {topicTestResult.correct}/{topicTestResult.total} (
-                  {topicTestResult.percent}%)
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-  
 

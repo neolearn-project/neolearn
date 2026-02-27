@@ -65,7 +65,7 @@ export default function AuthModal({
           {mode === "login" ? (
             <LoginForm onDone={onClose} />
           ) : (
-            <SignupForm onDone={() => setMode("login")} />
+            <SignupForm onDone={() => setMode("login")} onSwitchToLogin={() => setMode("login")} />
           )}
         </div>
       </div>

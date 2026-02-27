@@ -4,6 +4,14 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+type Track = "regular" | "competitive";
+
+function normalizeTrack(value: unknown): Track {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  return normalized === "competitive" ? "competitive" : "regular";
+}
 
 // Reuse same pattern as other server routes
 function getAdminClient() {
@@ -52,7 +60,7 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/parent/children
-// body: { parentMobile, childName, childMobile, board, classNumber }
+// body: { parentMobile, childName, childMobile, board, classNumber, country?, language?, track? }
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -62,6 +70,10 @@ export async function POST(req: NextRequest) {
     const childMobile = (body.childMobile as string | undefined)?.trim();
     const board = (body.board as string | undefined)?.trim();
     const classNumberRaw = body.classNumber;
+
+    const country = (body.country as string | undefined)?.trim() || "India";
+    const language = (body.language as string | undefined)?.trim() || "English";
+    const track = normalizeTrack(body.track ?? body.subjectType);
 
     if (!parentMobile || !childName || !childMobile || !board) {
       return NextResponse.json(
@@ -92,20 +104,45 @@ export async function POST(req: NextRequest) {
       console.error("children existing check error:", existingErr);
     }
 
+    const payload = {
+      child_name: childName,
+      board,
+      class_number: classNumber,
+      country,
+      language,
+      track,
+      subject_type: track,
+    };
+
     if (existing) {
       const { data: updated, error: updateErr } = await supabase
         .from("children")
-        .update({
-          child_name: childName,
-          board,
-          class_number: classNumber,
-        })
+        .update(payload)
         .eq("id", existing.id)
         .select("*")
         .single();
 
       if (updateErr || !updated) {
         console.error("children update error:", updateErr);
+
+        const dbErr = String(updateErr?.message || "").toLowerCase();
+        if (
+          dbErr.includes("column") &&
+          (dbErr.includes("country") ||
+            dbErr.includes("language") ||
+            dbErr.includes("subject_type") ||
+            dbErr.includes("track"))
+        ) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error:
+                "Database columns missing. Please add children.country, children.language, children.track, and children.subject_type in Supabase.",
+            },
+            { status: 500 }
+          );
+        }
+
         return NextResponse.json(
           { ok: false, error: "Failed to update child profile." },
           { status: 500 }
@@ -119,16 +156,33 @@ export async function POST(req: NextRequest) {
       .from("children")
       .insert({
         parent_mobile: parentMobile,
-        child_name: childName,
         child_mobile: childMobile,
-        board,
-        class_number: classNumber,
+        ...payload,
       })
       .select("*")
       .single();
 
     if (insertErr || !inserted) {
       console.error("children insert error:", insertErr);
+
+      const dbErr = String(insertErr?.message || "").toLowerCase();
+      if (
+        dbErr.includes("column") &&
+        (dbErr.includes("country") ||
+          dbErr.includes("language") ||
+          dbErr.includes("subject_type") ||
+          dbErr.includes("track"))
+      ) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Database columns missing. Please add children.country, children.language, children.track, and children.subject_type in Supabase.",
+          },
+          { status: 500 }
+        );
+      }
+
       return NextResponse.json(
         { ok: false, error: "Failed to add child profile." },
         { status: 500 }

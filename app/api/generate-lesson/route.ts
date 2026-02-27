@@ -1,14 +1,40 @@
 // app/api/generate-lesson/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-
-const client = new OpenAI({
-  apiKey: process.env.NEOLEARN_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
-});
+import { requireAccessOrThrow } from "@/app/lib/accessGuard";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    const studentMobile = String(body.studentMobile || body.mobile || "").trim();
+    if (!studentMobile) {
+      return NextResponse.json(
+        { ok: false, error: "studentMobile is required." },
+        { status: 400 }
+      );
+    }
+
+    try {
+      await requireAccessOrThrow({ mobile: studentMobile, feature: "lesson" });
+    } catch (accessErr: any) {
+      if (accessErr?.message === "ACCESS_DENIED") {
+        return NextResponse.json(
+          { ok: false, error: "Free limit reached. Please subscribe." },
+          { status: 403 }
+        );
+      }
+      throw accessErr;
+    }
+
+    const openaiKey =
+      process.env.NEOLEARN_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+    if (!openaiKey) {
+      return NextResponse.json(
+        { ok: false, error: "OpenAI API key missing on server." },
+        { status: 500 }
+      );
+    }
+    const client = new OpenAI({ apiKey: openaiKey });
 
     const board = (body.board as string) || "CBSE";
     const classLevel = (body.classLevel as string) || "Class 6";
@@ -139,3 +165,9 @@ but DO NOT mention "NeoLearn" or "AI" in the script.
     );
   }
 }
+
+/*
+curl -X POST http://localhost:3004/api/generate-lesson \
+  -H "Content-Type: application/json" \
+  -d '{"studentMobile":"9999999999","board":"CBSE","classLevel":"Class 6","subject":"Mathematics","topic":"Fractions","language":"en"}'
+*/

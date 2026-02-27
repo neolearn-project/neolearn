@@ -11,6 +11,7 @@ type ChildRow = {
   child_mobile: string;
   board: string;
   class_number: number;
+  track?: "regular" | "competitive" | string;
 };
 
 export default function ChildSwitcher({ currentMobile }: { currentMobile: string }) {

@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 
   try {
     // 1) SUBJECTS
-    const { data: subjects, error: subjectsError } = await supabaseAdmin
+    const { data: subjects, error: subjectsError } = await supabaseAdmin()
       .from("subjects")
       .select(
         `
@@ -49,7 +49,7 @@ export async function GET(req: Request) {
     const subjectIds = subjects.map((s) => s.id);
 
     // 2) CHAPTERS
-    const { data: chapters, error: chaptersError } = await supabaseAdmin
+    const { data: chapters, error: chaptersError } = await supabaseAdmin()
       .from("chapters")
       .select(
         `
@@ -72,7 +72,7 @@ export async function GET(req: Request) {
     // 3) TOPICS
     let topics: any[] = [];
     if (chapterIds.length > 0) {
-      const { data: topicsData, error: topicsError } = await supabaseAdmin
+      const { data: topicsData, error: topicsError } = await supabaseAdmin()
         .from("topics")
         .select(
           `

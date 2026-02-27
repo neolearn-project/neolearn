@@ -12,6 +12,7 @@ interface ChildRow {
   child_mobile: string;
   board: string;
   class_number: number;
+  track?: "regular" | "competitive" | string;
   created_at: string;
 }
 
@@ -210,7 +211,7 @@ export default function ParentDashboardPage() {
                       {c.child_name}
                     </div>
                     <div className="text-[11px] text-gray-600">
-                      Class {c.class_number} • {c.board} • Mobile:{" "}
+                      Class {c.class_number} • {c.board} • {((c.track || "regular") === "competitive" ? "Competitive" : "Regular")} • Mobile:{" "}
                       <span className="font-mono">{c.child_mobile}</span>
                     </div>
                     <div className="mt-1 text-[11px] text-gray-500">

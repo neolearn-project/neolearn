@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { computeAccessSummary } from "@/lib/access/checkPolicy";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -20,12 +21,11 @@ export async function GET(req: NextRequest) {
       .select("topic_id")
       .eq("student_mobile", mobile);
 
-    const used = new Set((data || []).map((r: any) => r.topic_id)).size;
-    const limit = 5;
+    const { used, limit, allowed } = computeAccessSummary(data, 5);
 
     return NextResponse.json({
       ok: true,
-      allowed: used < limit,
+      allowed,
       used,
       limit,
     });

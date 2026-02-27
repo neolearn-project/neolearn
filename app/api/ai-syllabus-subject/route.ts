@@ -3,10 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 
-const openai = new OpenAI({
-  apiKey: process.env.NEOLEARN_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
-});
-
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
@@ -51,6 +47,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const openaiKey =
+      process.env.NEOLEARN_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+    if (!openaiKey) {
+      return NextResponse.json(
+        { ok: false, error: "OpenAI API key missing on server." },
+        { status: 500 }
+      );
+    }
+
+    const openai = new OpenAI({ apiKey: openaiKey });
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // -----------------------------

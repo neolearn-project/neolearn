@@ -1,13 +1,39 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-});
+import { requireAccessOrThrow } from "@/app/lib/accessGuard";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+    const studentMobile = String(body.studentMobile || body.mobile || "").trim();
+    if (!studentMobile) {
+      return NextResponse.json(
+        { ok: false, error: "studentMobile is required." },
+        { status: 400 }
+      );
+    }
+
+    try {
+      await requireAccessOrThrow({ mobile: studentMobile, feature: "tts" });
+    } catch (accessErr: any) {
+      if (accessErr?.message === "ACCESS_DENIED") {
+        return NextResponse.json(
+          { ok: false, error: "Free limit reached. Please subscribe." },
+          { status: 403 }
+        );
+      }
+      throw accessErr;
+    }
+
+    const openaiKey = process.env.OPENAI_API_KEY;
+    if (!openaiKey) {
+      return NextResponse.json(
+        { error: "OpenAI API key missing on server." },
+        { status: 500 }
+      );
+    }
+
+    const openai = new OpenAI({ apiKey: openaiKey });
     const text: string = (body.text || "").trim();
     const language: string = body.language || "English";
     const speed: string = body.speed || "Normal";
@@ -57,3 +83,9 @@ const instructions =
     );
   }
 }
+
+/*
+curl -X POST http://localhost:3004/api/lesson-audio \
+  -H "Content-Type: application/json" \
+  -d '{"studentMobile":"9999999999","text":"Hello students","language":"English","speed":"Normal"}'
+*/

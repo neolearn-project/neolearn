@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 export const revalidate = 0; // always fresh
 
 async function getBatches() {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin()
     .from("batches")
     .select("id,title,subject,class_label,capacity,created_at,enrollments(count)")
     .order("created_at", { ascending: false });
@@ -21,7 +21,7 @@ async function createBatch(formData: FormData) {
 
   if (!title) throw new Error("Title required");
 
-  const { error } = await supabaseAdmin.from("batches").insert({
+  const { error } = await supabaseAdmin().from("batches").insert({
     title,
     subject,
     class_label: classLabel,
@@ -32,7 +32,7 @@ async function createBatch(formData: FormData) {
 
 async function deleteBatch(id: string) {
   "use server";
-  const { error } = await supabaseAdmin.from("batches").delete().eq("id", id);
+  const { error } = await supabaseAdmin().from("batches").delete().eq("id", id);
   if (error) throw error;
 }
 

@@ -2,10 +2,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const client = new OpenAI({
-  apiKey: process.env.NEOLEARN_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
-});
-
 type TopicTestQuestion = {
   id: number;
   question: string;
@@ -16,6 +12,16 @@ type TopicTestQuestion = {
 
 export async function POST(req: NextRequest) {
   try {
+    const openaiKey =
+      process.env.NEOLEARN_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+    if (!openaiKey) {
+      return NextResponse.json(
+        { error: "OpenAI API key missing on server." },
+        { status: 500 }
+      );
+    }
+
+    const client = new OpenAI({ apiKey: openaiKey });
     const body = await req.json();
 
     const board = (body.board as string) || "CBSE";

@@ -2,12 +2,17 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(req: Request) {
   try {
+    const openaiKey = process.env.OPENAI_API_KEY;
+    if (!openaiKey) {
+      return NextResponse.json(
+        { error: "OpenAI API key missing on server." },
+        { status: 500 }
+      );
+    }
+
+    const client = new OpenAI({ apiKey: openaiKey });
     const body = await req.json().catch(() => ({}));
 
     const classLevel = body.classLevel || "Class 6";
