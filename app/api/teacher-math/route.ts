@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import Twilio from "twilio"; // (not used here, ignore if you don't want)
 import { createClient } from "@supabase/supabase-js";
@@ -89,7 +89,7 @@ try {
     const chapterDbId = String(body?.chapterDbId || "");
     const topicDbId = String(body?.topicDbId || "");
 
-    // ✅ Student identity
+    // âœ… Student identity
 const studentMobile = String(body?.studentMobile || "").trim();
 
 // Prefer Supabase Auth UID (recommended)
@@ -131,7 +131,7 @@ try {
 
 
     // ===============================
-// ✅ PERSONA ENGINE (Phase B)
+// âœ… PERSONA ENGINE (Phase B)
 // ===============================
 let profile: PersonaProfile | null = null;
 
@@ -180,9 +180,9 @@ const languageInstruction =
 
 
     // ------------------------
-    // ✅ 1) MEMORY SEARCH FIRST (if RPC exists + ids present)
+    // âœ… 1) MEMORY SEARCH FIRST (if RPC exists + ids present)
     // NOTE: Your RPC signature must match your DB function. If your current call works, keep it.
-    // If it fails, we’ll adjust separately.
+    // If it fails, weâ€™ll adjust separately.
     // ------------------------
     try {
       if (supabase && question && subjectDbId && chapterDbId && topicDbId) {
@@ -226,13 +226,13 @@ ${languageInstruction}
 Your job is to:
 - Restate the child's doubt in one simple line.
 - Explain step-by-step clearly.
-- Give 1–2 small worked examples related to ${chapter.title}.
+- Give 1â€“2 small worked examples related to ${chapter.title}.
 - Use short, simple sentences.
 - End with one follow-up question to check understanding.
 `.trim();
 
-// ✅ If confusion detected, mark topic as weak (best effort)
-// ✅ If confusion detected, mark topic as weak (best effort)
+// âœ… If confusion detected, mark topic as weak (best effort)
+// âœ… If confusion detected, mark topic as weak (best effort)
 try {
   if (supabase && decision.weakTopicAdd && (studentId || studentMobile)) {
   const { data: row } = studentId
@@ -308,7 +308,7 @@ Explain according to the syllabus of this class and board, focused on the given 
     }
 
     // ------------------------
-    // ✅ PHASE B: Persona Engine (UPDATE profile)
+    // âœ… PHASE B: Persona Engine (UPDATE profile)
     // ------------------------
     if (supabase && (studentId || studentMobile)) {
   try {
@@ -353,9 +353,9 @@ Explain according to the syllabus of this class and board, focused on the given 
           // IMPORTANT:
           // If your teacher_memory.subject_id/chapter_id/topic_id are TEXT (DB ids),
           // use subjectDbId/chapterDbId/topicDbId.
-          subject_id: subjectDbId || String(subjectId),
-          chapter_id: chapterDbId || String(chapterId),
-          topic_id: topicDbId || topicId || null,
+          subject_id: String(subjectDbId || subjectId || "").trim() || null,
+          chapter_id: String(chapterDbId || chapterId || "").trim() || null,
+          topic_id: String(topicDbId || topicId || "").trim() || null,
 
           question,
           answer,
@@ -422,3 +422,4 @@ const tts = await openai.audio.speech.create({
     );
   }
 }
+
