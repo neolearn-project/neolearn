@@ -1,5 +1,6 @@
 ﻿"use client";
 
+
 import Image from "next/image";
 import { getAvatarForSubject } from "../lib/teacherAvatar";
 
@@ -9,6 +10,8 @@ import { RealtimeTeacherClient } from "./realtimeTeacherClient";
 import jsPDF from "jspdf";
 
 type ClassId = "5" | "6" | "7" | "8" | "9";
+
+type NoteType = "full_exam_notes" | "quick_revision" | "important_qna" | "mcq_only";
 
 interface StudentInfo {
   name: string;
@@ -237,6 +240,12 @@ const [teacherAvatar, setTeacherAvatar] = useState<string>(
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("classroom");
 
+  // ---------------- Notes Engine (v1) ----------------
+const [noteType, setNoteType] = useState<NoteType>("full_exam_notes");
+  const [notesMarkdown, setNotesMarkdown] = useState<string>("");
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [notesError, setNotesError] = useState<string | null>(null);
+
  const [routine, setRoutine] = useState<WeeklyRoutine>(defaultRoutine());
   const [routineLoaded, setRoutineLoaded] = useState(false);
 
@@ -275,6 +284,7 @@ const [teacherAvatar, setTeacherAvatar] = useState<string>(
 
 const [savedSessions, setSavedSessions] = useState<StoredSession[]>([]);
 const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+
 
 const [classSession, setClassSession] = useState<ClassSession | null>(null);
 const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
@@ -376,7 +386,54 @@ const [dailyError, setDailyError] = useState<string | null>(null);
   const [selectedChapterId, setSelectedChapterId] = useState<number | null>(
     null
   );
-  const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
+  const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
+
+// ---------------- Notes Engine: Generate ----------------
+const handleGenerateNotes = useCallback(async () => {
+  if (!student || !currentSubject || !currentChapter) {
+    alert("Please select subject and chapter first.");
+    return;
+  }
+
+  setNotesLoading(true);
+  setNotesError(null);
+
+  try {
+    const res = await fetch("/api/notes/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mobile: student.mobile,
+        board: "cbse",
+        classId: String(student.classId),
+        courseType: "regular",
+        subjectId: String(currentSubject.id),
+        chapterId: String(currentChapter.id),
+        topicId: currentTopic?.id ? String(currentTopic.id) : null,
+        noteType,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({} as any));
+
+    if (!res.ok || !data?.ok) {
+      const msg =
+        data?.error ||
+        `Failed to generate notes (HTTP ${res.status}).`;
+      setNotesError(msg);
+      setNotesMarkdown("");
+      return;
+    }
+
+    setNotesMarkdown(String(data.content || ""));
+  } catch (e: any) {
+    setNotesError(e?.message || "Notes request failed.");
+    setNotesMarkdown("");
+  } finally {
+    setNotesLoading(false);
+  }
+}, [student, selectedSubjectId, selectedChapterId, selectedTopicId, noteType]);
+
 const getLangCode = (
   language: "English" | "Hindi" | "Bengali"
 ): "en" | "hi" | "bn" => {
@@ -1277,6 +1334,11 @@ if (!access.allowed) {
         sessions={savedSessions}
         selectedId={selectedSessionId}
         setSelectedId={setSelectedSessionId}
+        noteType={noteType}
+        setNoteType={setNoteType}
+        notesMarkdown={notesMarkdown}
+        notesLoading={notesLoading}
+        onGenerateNotes={handleGenerateNotes}
       />
     )}
 
@@ -1699,10 +1761,21 @@ function GalleryView({
   sessions,
   selectedId,
   setSelectedId,
+  noteType,
+  setNoteType,
+  notesMarkdown,
+  notesLoading,
+  onGenerateNotes,
 }: {
   sessions: StoredSession[];
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
+
+  noteType: NoteType;
+  setNoteType: (t: NoteType) => void;
+  notesMarkdown: string;
+  notesLoading: boolean;
+  onGenerateNotes: () => Promise<void> | void;
 }) {
   const selected = useMemo(
     () => sessions.find((s) => s.id === selectedId) || null,
@@ -2778,5 +2851,12 @@ const handleSubmitTopicTest = async () => {
     </>
   );
 }
+
+
+
+
+
+
+
 
 
