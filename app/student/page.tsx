@@ -1857,6 +1857,62 @@ function GalleryView({
         <div className="text-[11px] text-gray-500">
           Saved realtime classes (chapter-wise)
         </div>
+
+      {/* ---------------- Notes Engine (v1) ---------------- */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-3">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="text-sm font-semibold text-slate-800">Exam Notes Generator</div>
+            <div className="text-[11px] text-slate-500">
+              Generate chapter-wise notes (MCQ, 2-mark, 5-mark, case-based) in printable format.
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
+              value={noteType}
+              onChange={(e) => setNoteType(e.target.value as NoteType)}
+            >
+              <option value="full_exam_notes">Full Exam Notes</option>
+              <option value="quick_revision">Quick Revision</option>
+              <option value="important_qna">Important Q&amp;A</option>
+              <option value="mcq_only">MCQ Only</option>
+            </select>
+
+            <button
+              type="button"
+              onClick={onGenerateNotes}
+              disabled={notesLoading}
+              className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+            >
+              {notesLoading ? "Generating…" : "Generate Notes"}
+            </button>
+
+            {notesMarkdown?.trim() && (
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+              >
+                Print Notes
+              </button>
+            )}
+          </div>
+        </div>
+
+        {!notesMarkdown?.trim() && !notesLoading && (
+          <div className="mt-2 text-xs text-slate-600">
+            Select a note type and click <b>Generate Notes</b>.
+          </div>
+        )}
+
+        {notesMarkdown?.trim() && (
+          <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 whitespace-pre-wrap">
+            {notesMarkdown}
+          </div>
+        )}
+      </div>
       </div>
 
       {sessions.length === 0 ? (
@@ -2851,6 +2907,7 @@ const handleSubmitTopicTest = async () => {
     </>
   );
 }
+
 
 
 
