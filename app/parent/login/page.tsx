@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -76,7 +76,7 @@ export default function ParentLoginPage() {
       const res = await fetch("/api/auth/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mobile: trimmedMobile, code }),
+        body: JSON.stringify({ mobile: trimmedMobile, otp: code }),
       });
 
       const data = await res.json().catch(() => ({}));

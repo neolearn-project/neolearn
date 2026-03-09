@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import Twilio from "twilio";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const mobile = String(body?.mobile || "").trim();
-    const otp = String(body?.otp || "").trim();
+    const mobile = String(body?.mobile || "").replace(/\D/g, "").trim();
+    const otp = String(body?.otp || body?.code || "").replace(/\D/g, "").trim();
 
     // ✅ India mobile (10-digit)
     if (!/^\d{10}$/.test(mobile)) {
@@ -43,3 +43,6 @@ export async function POST(req: Request) {
     );
   }
 }
+
+
+
