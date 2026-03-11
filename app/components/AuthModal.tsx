@@ -20,10 +20,16 @@ export default function AuthModal({
 
   if (!open) return null;
 
+  const isSignup = mode === "signup";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl border border-slate-200">
-        <div className="flex items-center justify-between px-5 py-4 border-b">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-3 py-4 sm:px-4">
+      <div
+        className={`w-full rounded-2xl bg-white shadow-xl border border-slate-200 ${
+          isSignup ? "max-w-2xl" : "max-w-md"
+        } max-h-[92vh] overflow-hidden`}
+      >
+        <div className="flex items-center justify-between border-b px-5 py-4">
           <div>
             <div className="text-lg font-semibold">
               {mode === "login"
@@ -36,35 +42,35 @@ export default function AuthModal({
               {mode === "login"
                 ? "Access your NeoLearn account"
                 : mode === "signup"
-                ? "7-day free trial starts after signup"
+                ? "Create parent and student accounts in one signup"
                 : "Verify mobile OTP and set a new password"}
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="rounded-full border border-slate-200 w-9 h-9 flex items-center justify-center text-sm hover:bg-slate-50"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-sm hover:bg-slate-50"
             aria-label="Close"
           >
             ✕
           </button>
         </div>
 
-        <div className="px-5 py-5">
+        <div className="overflow-y-auto px-5 py-5 max-h-[calc(92vh-76px)]">
           {mode === "login" && (
             <>
               <LoginForm onDone={onClose} />
 
               <div className="mt-4 flex items-center justify-between text-sm">
                 <button
-                  className="text-blue-600 font-medium hover:underline"
+                  className="font-medium text-blue-600 hover:underline"
                   onClick={() => setMode("reset")}
                 >
                   Forgot password?
                 </button>
 
                 <button
-                  className="text-blue-600 font-medium hover:underline"
+                  className="font-medium text-blue-600 hover:underline"
                   onClick={() => setMode("signup")}
                 >
                   Sign up
@@ -74,25 +80,13 @@ export default function AuthModal({
           )}
 
           {mode === "signup" && (
-            <>
-              <SignupForm
-                onDone={() => {
-                  setMode("login");
-                  onClose();
-                }}
-                onSwitchToLogin={() => setMode("login")}
-              />
-
-              <p className="mt-4 text-center text-sm text-gray-600">
-                Already have an account?{" "}
-                <button
-                  className="text-blue-600 font-medium hover:underline"
-                  onClick={() => setMode("login")}
-                >
-                  Login
-                </button>
-              </p>
-            </>
+            <SignupForm
+              onDone={() => {
+                setMode("login");
+                onClose();
+              }}
+              onSwitchToLogin={() => setMode("login")}
+            />
           )}
 
           {mode === "reset" && (

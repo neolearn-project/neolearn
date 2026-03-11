@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { supabaseAnon } from "@/app/lib/supabaseAnon";
 
 export async function POST() {
@@ -10,3 +10,5 @@ export async function POST() {
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 }
+
+

@@ -1,0 +1,458 @@
+﻿diff --git a/app/components/SignupForm.tsx b/app/components/SignupForm.tsx
+index 013c2d0751f5c339aeeb6e15dfb39d2fadfb8d96..5280336bdf9b263ff9e3e7905cbce30a532f5908 100644
+--- a/app/components/SignupForm.tsx
++++ b/app/components/SignupForm.tsx
+@@ -1,191 +1,264 @@
+ "use client";
+ 
+ import { useState } from "react";
+ import { useRouter } from "next/navigation";
+ 
++const STUDENT_STORAGE_KEY = "neolearnStudent";
++
++type Step = "details" | "otp";
+ type Track = "regular" | "competitive";
+ 
++type FormState = {
++  name: string;
++  mobile: string;
++  username: string;
++  password: string;
++  board: string;
++  classId: string;
++  track: Track;
++};
++
+ export default function SignupForm({
+   onDone,
+   onSwitchToLogin,
+ }: {
+   onDone: () => void;
+   onSwitchToLogin?: () => void;
+ }) {
+   const router = useRouter();
++
++  const [step, setStep] = useState<Step>("details");
+   const [loading, setLoading] = useState(false);
+   const [msg, setMsg] = useState<string | null>(null);
++  const [otp, setOtp] = useState("");
++  const [otpToken, setOtpToken] = useState("");
+ 
+-  const [form, setForm] = useState({
+-    studentName: "",
+-    studentMobile: "",
+-    parentName: "",
+-    parentMobile: "",
++  const [form, setForm] = useState<FormState>({
++    name: "",
++    mobile: "",
++    username: "",
++    password: "",
+     board: "CBSE",
+-    classNumber: "6",
+-    country: "India",
+-    language: "English",
+-    track: "regular" as Track,
++    classId: "6",
++    track: "regular",
+   });
+ 
+-  async function createAccount() {
++  async function handleDetailsSubmit(e: React.FormEvent) {
++    e.preventDefault();
+     setMsg(null);
+ 
+-    if (!form.studentName.trim()) return setMsg("Enter student name.");
+-    if (!/^\d{10}$/.test(form.studentMobile.trim())) return setMsg("Enter valid student mobile (10 digits).");
+-    if (!form.parentName.trim()) return setMsg("Enter parent name.");
+-    if (!/^\d{10}$/.test(form.parentMobile.trim())) return setMsg("Enter valid parent WhatsApp mobile (10 digits).");
++    const trimmedName = form.name.trim();
++    const trimmedMobile = form.mobile.trim();
++    const trimmedUsername = form.username.trim().toLowerCase();
++
++    if (!trimmedName) return setMsg("Enter student name.");
++    if (!/^\d{10}$/.test(trimmedMobile)) return setMsg("Enter valid mobile (10 digits).");
++    if (!trimmedUsername) return setMsg("Enter User ID.");
++    if (trimmedUsername.length < 4) return setMsg("User ID must be at least 4 characters.");
++    if (!form.password.trim() || form.password.trim().length < 6) {
++      return setMsg("Password must be at least 6 characters.");
++    }
+ 
+     setLoading(true);
+     try {
+-      const res = await fetch("/api/parent/children", {
++      const res = await fetch("/api/auth/student-signup-start", {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+         body: JSON.stringify({
+-          parentMobile: form.parentMobile.trim(),
+-          parentName: form.parentName.trim(),
++          name: trimmedName,
++          mobile: trimmedMobile,
++          username: trimmedUsername,
++          classId: form.classId,
++        }),
++      });
++
++      const data = await res.json().catch(() => ({}));
++      if (!res.ok) throw new Error(data?.error || `Failed to send OTP (HTTP ${res.status})`);
++      if (!data?.otpToken) throw new Error("OTP token missing from response.");
++
++      setForm((prev) => ({ ...prev, username: trimmedUsername }));
++      setOtpToken(data.otpToken);
++      setStep("otp");
++      setMsg("OTP sent to your mobile.");
++    } catch (err: any) {
++      setMsg(err?.message || "Failed to start signup");
++    } finally {
++      setLoading(false);
++    }
++  }
+ 
+-          childName: form.studentName.trim(),
+-          childMobile: form.studentMobile.trim(),
++  async function handleOtpSubmit(e: React.FormEvent) {
++    e.preventDefault();
++    setMsg(null);
+ 
+-          board: form.board,
+-          classNumber: Number(form.classNumber || "6"),
+-          country: form.country,
+-          language: form.language,
++    if (!/^\d{4,8}$/.test(otp.trim())) return setMsg("Enter a valid OTP.");
+ 
+-          // NEW: track (preferred)
+-          track: form.track,
++    const payload = {
++      otpToken,
++      otp: otp.trim(),
++      name: form.name.trim(),
++      mobile: form.mobile.trim(),
++      classId: form.classId,
++      board: form.board,
++      username: form.username.trim().toLowerCase(),
++      password: form.password.trim(),
++    };
+ 
+-          // Backward compatibility if server still reads subjectType
+-          subjectType: form.track,
+-        }),
++    setLoading(true);
++    try {
++      const res = await fetch("/api/auth/student-signup-verify", {
++        method: "POST",
++        headers: { "Content-Type": "application/json" },
++        body: JSON.stringify(payload),
+       });
+ 
+-      const data = await res.json();
+-      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
++      const data = await res.json().catch(() => ({}));
++      if (!res.ok) throw new Error(data?.error || `Signup failed (HTTP ${res.status})`);
+ 
+-      setMsg("Account created ✅");
+-      onDone();
++      const storedStudent = {
++        name: form.name.trim(),
++        mobile: form.mobile.trim(),
++        classId: form.classId,
++        studentId: data?.userId || data?.user?.id,
++      };
+ 
+-      // You can adjust this route as per your app flow
+-      router.push("/parent/dashboard");
+-    } catch (e: any) {
+-      setMsg(e?.message || "Signup failed");
++      if (typeof window !== "undefined") {
++        window.localStorage.setItem(STUDENT_STORAGE_KEY, JSON.stringify(storedStudent));
++      }
++
++      onDone();
++      router.push("/student");
++    } catch (err: any) {
++      setMsg(err?.message || "OTP verification failed");
+     } finally {
+       setLoading(false);
+     }
+   }
+ 
+   return (
+     <div className="space-y-3">
+       {msg && <div className="text-sm text-slate-700">{msg}</div>}
+ 
+-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+-        <input
+-          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+-          placeholder="Student name"
+-          value={form.studentName}
+-          onChange={(e) => setForm((f) => ({ ...f, studentName: e.target.value }))}
+-        />
+-        <input
+-          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+-          placeholder="Student mobile (10 digits)"
+-          value={form.studentMobile}
+-          onChange={(e) => setForm((f) => ({ ...f, studentMobile: e.target.value }))}
+-        />
+-      </div>
+-
+-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+-        <input
+-          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+-          placeholder="Parent name"
+-          value={form.parentName}
+-          onChange={(e) => setForm((f) => ({ ...f, parentName: e.target.value }))}
+-        />
+-        <input
+-          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+-          placeholder="Parent WhatsApp mobile (10 digits)"
+-          value={form.parentMobile}
+-          onChange={(e) => setForm((f) => ({ ...f, parentMobile: e.target.value }))}
+-        />
+-      </div>
+-
+-      <div className="grid grid-cols-2 gap-2">
+-        <select
+-          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+-          value={form.board}
+-          onChange={(e) => setForm((f) => ({ ...f, board: e.target.value }))}
+-        >
+-          <option value="CBSE">CBSE</option>
+-          <option value="TBSE">TBSE</option>
+-          <option value="ICSE">ICSE</option>
+-        </select>
+-
+-        <select
+-          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+-          value={form.classNumber}
+-          onChange={(e) => setForm((f) => ({ ...f, classNumber: e.target.value }))}
+-        >
+-          {["5", "6", "7", "8", "9", "10", "11", "12"].map((c) => (
+-            <option key={c} value={c}>
+-              Class {c}
+-            </option>
+-          ))}
+-        </select>
+-      </div>
+-
+-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+-        <select
+-          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+-          value={form.country}
+-          onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
+-        >
+-          <option value="India">India</option>
+-          <option value="Bangladesh">Bangladesh</option>
+-          <option value="Nepal">Nepal</option>
+-        </select>
+-
+-        <select
+-          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+-          value={form.language}
+-          onChange={(e) => setForm((f) => ({ ...f, language: e.target.value }))}
+-        >
+-          <option value="English">English</option>
+-          <option value="Hindi">Hindi</option>
+-          <option value="Bengali">Bengali</option>
+-        </select>
+-
+-        <select
+-          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+-          value={form.track}
+-          onChange={(e) => setForm((f) => ({ ...f, track: e.target.value as Track }))}
+-        >
+-          <option value="regular">Regular (Class V–XII)</option>
+-          <option value="competitive">Competitive</option>
+-        </select>
+-      </div>
+-
+-      <button
+-        type="button"
+-        disabled={loading}
+-        className="btn btn-primary w-full"
+-        onClick={createAccount}
+-      >
+-        {loading ? "Creating..." : "Create account"}
+-      </button>
++      {step === "details" ? (
++        <form className="space-y-3" onSubmit={handleDetailsSubmit}>
++          <input
++            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
++            placeholder="Student name"
++            value={form.name}
++            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
++          />
++
++          <input
++            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
++            placeholder="Mobile (10 digits)"
++            value={form.mobile}
++            onChange={(e) => setForm((f) => ({ ...f, mobile: e.target.value }))}
++          />
++
++          <input
++            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
++            placeholder="User ID"
++            value={form.username}
++            onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
++          />
++
++          <input
++            type="password"
++            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
++            placeholder="Password"
++            value={form.password}
++            onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
++          />
++
++          <div className="grid grid-cols-2 gap-2">
++            <select
++              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
++              value={form.board}
++              onChange={(e) => setForm((f) => ({ ...f, board: e.target.value }))}
++            >
++              <option value="CBSE">CBSE</option>
++              <option value="TBSE">TBSE</option>
++              <option value="ICSE">ICSE</option>
++            </select>
++
++            <select
++              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
++              value={form.classId}
++              onChange={(e) => setForm((f) => ({ ...f, classId: e.target.value }))}
++            >
++              {[
++                "5",
++                "6",
++                "7",
++                "8",
++                "9",
++                "10",
++                "11",
++                "12",
++              ].map((c) => (
++                <option key={c} value={c}>
++                  Class {c}
++                </option>
++              ))}
++            </select>
++          </div>
++
++          <select
++            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
++            value={form.track}
++            onChange={(e) => setForm((f) => ({ ...f, track: e.target.value as Track }))}
++          >
++            <option value="regular">Regular (Class V–XII)</option>
++            <option value="competitive">Competitive</option>
++          </select>
++
++          <button type="submit" disabled={loading} className="btn btn-primary w-full">
++            {loading ? "Sending OTP..." : "Continue"}
++          </button>
++        </form>
++      ) : (
++        <form className="space-y-3" onSubmit={handleOtpSubmit}>
++          <div className="text-xs text-slate-600">
++            Enter the OTP sent to <span className="font-semibold">{form.mobile}</span>
++          </div>
++
++          <input
++            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
++            placeholder="Enter OTP"
++            value={otp}
++            onChange={(e) => setOtp(e.target.value)}
++          />
++
++          <button type="submit" disabled={loading} className="btn btn-primary w-full">
++            {loading ? "Verifying..." : "Verify & Create Account"}
++          </button>
++
++          <button
++            type="button"
++            className="w-full rounded-xl border border-slate-300 py-2 text-sm hover:bg-slate-50"
++            onClick={() => {
++              setStep("details");
++              setOtp("");
++              setMsg(null);
++            }}
++          >
++            Edit details
++          </button>
++        </form>
++      )}
+ 
+       {onSwitchToLogin && (
+         <div className="text-center text-sm text-slate-600">
+           Already have an account?{" "}
+           <button
+             type="button"
+             className="font-semibold text-blue-600 hover:underline"
+             onClick={onSwitchToLogin}
+           >
+             Login
+           </button>
+         </div>
+       )}
+     </div>
+   );
+-}
+\ No newline at end of file
++}
+diff --git a/app/parent/login/page.tsx b/app/parent/login/page.tsx
+index 472a185f584319d358c38e174b045a1ab38e83e7..a7c59d2527bcdbe69ad3d82c587e91b4248f426b 100644
+--- a/app/parent/login/page.tsx
++++ b/app/parent/login/page.tsx
+@@ -54,51 +54,51 @@ export default function ParentLoginPage() {
+       setLoading(false);
+     }
+   };
+ 
+   const handleOtpSubmit = async (e: React.FormEvent) => {
+     e.preventDefault();
+     setError(null);
+ 
+     const trimmedMobile = mobile.trim();
+     const code = otp.trim();
+ 
+     if (!/^\d{10}$/.test(trimmedMobile)) {
+       setError("Please enter a valid 10-digit mobile number.");
+       return;
+     }
+     if (!/^\d{4,8}$/.test(code)) {
+       setError("Please enter the OTP you received.");
+       return;
+     }
+ 
+     setLoading(true);
+     try {
+       const res = await fetch("/api/auth/verify-otp", {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+-        body: JSON.stringify({ mobile: trimmedMobile, code }),
++        body: JSON.stringify({ mobile: trimmedMobile, otp: code }),
+       });
+ 
+       const data = await res.json().catch(() => ({}));
+       if (!res.ok) {
+         throw new Error(data?.error || `OTP verify failed (HTTP ${res.status})`);
+       }
+ 
+       // ✅ Parent dashboard reads this key
+       if (typeof window !== "undefined") {
+         window.localStorage.setItem(PARENT_STORAGE_KEY, trimmedMobile);
+       }
+ 
+       router.replace("/parent/dashboard");
+     } catch (e: any) {
+       setError(e?.message || "OTP verification failed");
+     } finally {
+       setLoading(false);
+     }
+   };
+ 
+   return (
+     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+       <div className="w-full max-w-sm rounded-2xl bg-white shadow-sm border border-slate-200 p-5 text-sm">
+         <div className="mb-3 text-center">
+           <div className="text-xs font-semibold text-gray-500 uppercase">
+

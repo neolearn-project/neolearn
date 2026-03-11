@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { supabaseAnon } from "@/app/lib/supabaseAnon";
-import { supabaseAdmin } from "@/app/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 function usernameToEmail(username: string) {
   return `${username.toLowerCase()}@neolearn.in`;
@@ -60,3 +60,5 @@ const prof = await supabaseAdminClient
     return NextResponse.json({ error: "Login failed." }, { status: 500 });
   }
 }
+
+

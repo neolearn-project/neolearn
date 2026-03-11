@@ -1,35 +1,26 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-const PARENT_STORAGE_KEY = "neolearnParentMobile";
+const PARENT_STORAGE_KEY = "neolearn_parent_mobile";
 
 export default function ParentLoginPage() {
   const router = useRouter();
-  const [step, setStep] = useState<"mobile" | "otp">("mobile");
+
   const [mobile, setMobile] = useState("");
   const [otp, setOtp] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState<"mobile" | "otp">("mobile");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // If already logged in → go directly to dashboard
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const existing = window.localStorage.getItem(PARENT_STORAGE_KEY);
-    if (existing) {
-      router.replace("/parent/dashboard");
-    }
-  }, [router]);
-
-  const handleMobileSubmit = async (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    const trimmed = mobile.trim();
+    const trimmedMobile = mobile.trim();
 
-    // basic validation (India 10-digit)
-    if (!/^\d{10}$/.test(trimmed)) {
+    if (!/^\d{10}$/.test(trimmedMobile)) {
       setError("Please enter a valid 10-digit mobile number.");
       return;
     }
@@ -39,17 +30,17 @@ export default function ParentLoginPage() {
       const res = await fetch("/api/auth/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mobile: trimmed }),
+        body: JSON.stringify({ mobile: trimmedMobile }),
       });
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.error || `Failed to send OTP (HTTP ${res.status})`);
+        throw new Error(data?.error || `OTP send failed (HTTP ${res.status})`);
       }
 
       setStep("otp");
     } catch (e: any) {
-      setError(e?.message || "Failed to send OTP");
+      setError(e?.message || "Failed to send OTP.");
     } finally {
       setLoading(false);
     }
@@ -66,7 +57,7 @@ export default function ParentLoginPage() {
       setError("Please enter a valid 10-digit mobile number.");
       return;
     }
-    if (!/^\d{4,8}$/.test(code)) {
+    if (!/^\d{4,10}$/.test(code)) {
       setError("Please enter the OTP you received.");
       return;
     }
@@ -84,7 +75,6 @@ export default function ParentLoginPage() {
         throw new Error(data?.error || `OTP verify failed (HTTP ${res.status})`);
       }
 
-      // ✅ Parent dashboard reads this key
       if (typeof window !== "undefined") {
         window.localStorage.setItem(PARENT_STORAGE_KEY, trimmedMobile);
       }
@@ -101,83 +91,63 @@ export default function ParentLoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-sm rounded-2xl bg-white shadow-sm border border-slate-200 p-5 text-sm">
         <div className="mb-3 text-center">
-          <div className="text-xs font-semibold text-gray-500 uppercase">
-            NeoLearn
-          </div>
-          <h1 className="text-lg font-semibold mt-1">Parent Login</h1>
-          <p className="text-[11px] text-gray-500 mt-1">
-            Use your WhatsApp number to see your child&apos;s progress.
-            <br />
-            OTP will be sent to your mobile for verification.
+          <div className="text-xs font-semibold text-gray-500 uppercase">NeoLearn</div>
+          <h1 className="mt-1 text-xl font-bold text-slate-900">Parent Login</h1>
+          <p className="mt-1 text-slate-600">
+            Login with your registered parent mobile number.
           </p>
         </div>
 
-        {step === "mobile" && (
-          <form onSubmit={handleMobileSubmit} className="space-y-3">
-            <div>
-              <label className="block text-[11px] font-medium text-gray-600 mb-1">
-                Parent mobile number
-              </label>
-              <input
-                type="tel"
-                value={mobile}
-                onChange={(e) => setMobile(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="10-digit WhatsApp number"
-              />
-            </div>
-
-            {error && <p className="text-[11px] text-red-500">{error}</p>}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-xl bg-blue-600 text-white text-sm font-semibold py-2 hover:bg-blue-700 disabled:opacity-60"
-            >
-              {loading ? "Sending OTP…" : "Continue"}
-            </button>
-          </form>
+        {error && (
+          <div className="mb-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </div>
         )}
 
-        {step === "otp" && (
-          <form onSubmit={handleOtpSubmit} className="space-y-3">
-            <div className="text-[11px] text-gray-600 mb-1">
-              We sent an OTP to <span className="font-semibold">{mobile}</span>.
+        {step === "mobile" ? (
+          <form className="space-y-3" onSubmit={handleSendOtp}>
+            <input
+              inputMode="numeric"
+              maxLength={10}
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Parent mobile (10 digits)"
+              value={mobile}
+              onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
+            />
+
+            <button type="submit" disabled={loading} className="btn btn-primary w-full">
+              {loading ? "Sending OTP..." : "Send OTP"}
+            </button>
+          </form>
+        ) : (
+          <form className="space-y-3" onSubmit={handleOtpSubmit}>
+            <div className="text-xs text-slate-600">
+              Enter the OTP sent to <span className="font-semibold">{mobile}</span>
             </div>
 
-            <div>
-              <label className="block text-[11px] font-medium text-gray-600 mb-1">
-                Enter OTP
-              </label>
-              <input
-                type="text"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter OTP"
-              />
-            </div>
+            <input
+              inputMode="numeric"
+              maxLength={10}
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter OTP"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+            />
 
-            {error && <p className="text-[11px] text-red-500">{error}</p>}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-xl bg-blue-600 text-white text-sm font-semibold py-2 hover:bg-blue-700 disabled:opacity-60"
-            >
-              {loading ? "Verifying…" : "Verify & Continue"}
+            <button type="submit" disabled={loading} className="btn btn-primary w-full">
+              {loading ? "Verifying..." : "Verify OTP"}
             </button>
 
             <button
               type="button"
+              className="w-full rounded-xl border border-slate-300 py-2 text-sm hover:bg-slate-50"
               onClick={() => {
                 setStep("mobile");
                 setOtp("");
                 setError(null);
               }}
-              className="w-full rounded-xl border border-slate-300 text-[11px] py-2 mt-1 hover:bg-slate-100"
             >
-              Edit mobile number
+              Change mobile number
             </button>
           </form>
         )}

@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/app/lib/supabaseAdmin";
+﻿import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(req: Request) {
   try {
@@ -63,3 +63,4 @@ const { data: created, error: createErr } = await supabase.auth.admin.createUser
     return NextResponse.json({ error: e?.message || "Register failed" }, { status: 500 });
   }
 }
+

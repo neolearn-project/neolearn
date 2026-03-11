@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import twilio from "twilio";
-import { supabaseAdmin } from "@/app/lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 function usernameToEmail(username: string) {
   return `${username.toLowerCase()}@neolearn.in`;
@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     const otpToken = String(body?.otpToken || "").trim(); // phone in E.164
-    const otp = String(body?.otp || "").trim();
+    const otp = String(body?.otp || body?.code || "").replace(/\D/g, "").trim();
 
     const name = String(body?.name || "").trim();
     const mobile = String(body?.mobile || "").trim();
@@ -26,10 +26,15 @@ export async function POST(req: Request) {
     }
 
     // 1) Verify OTP via Twilio
-    const accountSid = process.env.TWILIO_ACCOUNT_SID!;
-    const authToken = process.env.TWILIO_AUTH_TOKEN!;
-    const verifySid = process.env.TWILIO_VERIFY_SERVICE_SID!;
-    const client = twilio(accountSid, authToken);
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+const verifySid = process.env.TWILIO_VERIFY_SERVICE_SID;
+
+if (!accountSid || !authToken || !verifySid) {
+  return NextResponse.json({ error: "Twilio config missing in env." }, { status: 500 });
+}
+
+const client = twilio(accountSid, authToken);
 
     const check = await client.verify.v2
       .services(verifySid)
@@ -102,6 +107,10 @@ const up = await supabase.from("student_profile").upsert(
     );
   } catch (err: any) {
     console.error("student-signup-verify error:", err);
-    return NextResponse.json({ error: "Signup verification failed." }, { status: 500 });
+    return NextResponse.json({ error: err?.message || "Signup verification failed." }, { status: 500 });
   }
 }
+
+
+
+
