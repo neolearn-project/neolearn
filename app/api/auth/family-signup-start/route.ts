@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import twilio from "twilio";
-import { supabaseAdmin } from "@/app/lib/supabaseAdmin";
 
 type Track = "regular" | "competitive";
 
@@ -98,41 +97,6 @@ export async function POST(req: Request) {
       if (!isAllowedCompetitiveExam(competitiveExam)) {
         return NextResponse.json({ error: "Invalid competitive exam selected." }, { status: 400 });
       }
-    }
-
-    const admin = supabaseAdmin();
-
-    const studentEmail = `${studentUserId}@neolearn.in`;
-    const parentEmail = `parent_${parentMobile.replace(/\D/g, "")}@neolearn.in`;
-
-    const existingStudentAuth = await admin.auth.admin.listUsers({
-      page: 1,
-      perPage: 1000,
-    });
-
-    if (existingStudentAuth.error) {
-      return NextResponse.json(
-        { error: `Failed to validate student account availability. (${existingStudentAuth.error.message})` },
-        { status: 500 }
-      );
-    }
-
-    const users = existingStudentAuth.data?.users || [];
-    const duplicateParent = users.find((u) => u.email?.toLowerCase() === parentEmail.toLowerCase());
-    const duplicateStudent = users.find((u) => u.email?.toLowerCase() === studentEmail.toLowerCase());
-
-    if (duplicateParent) {
-      return NextResponse.json(
-        { error: "Parent mobile is already registered. Please login or use forgot password." },
-        { status: 409 }
-      );
-    }
-
-    if (duplicateStudent) {
-      return NextResponse.json(
-        { error: "Student User ID is already taken. Please choose another one." },
-        { status: 409 }
-      );
     }
 
     const accountSid = process.env.TWILIO_ACCOUNT_SID;

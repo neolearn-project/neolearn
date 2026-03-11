@@ -37,6 +37,21 @@ function isAllowedCompetitiveExam(value: string | null) {
   return !!value && allowed.includes(value);
 }
 
+function toProfileLanguage(value: string) {
+  const v = String(value || "").trim().toLowerCase();
+  if (v === "english") return "en";
+  if (v === "hindi") return "hi";
+  if (v === "bengali") return "bn";
+  return "en";
+}
+
+function titleCase(value: string) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function tableError(table: string, err: any) {
   const message = err?.message || "Unknown error";
   return `Failed writing ${table}. Ensure table exists with expected columns. (${message})`;
@@ -127,10 +142,6 @@ export async function POST(req: Request) {
       }
     }
 
-    const normalizedBoard = track === "regular" ? board : null;
-    const normalizedClassNumber = track === "regular" ? classNumber : null;
-    const normalizedCompetitiveExam = track === "competitive" ? competitiveExam : null;
-
     const expectedPhone = toE164India(parentMobile);
     if (otpToken !== expectedPhone) {
       return NextResponse.json({ error: "OTP session mismatch. Please start signup again." }, { status: 400 });
@@ -189,6 +200,47 @@ export async function POST(req: Request) {
       );
     }
 
+    const existingStudentRow = await admin
+      .from("students")
+      .select("id, phone, username")
+      .or(`phone.eq.${studentMobile},username.eq.${studentUserId}`)
+      .limit(1);
+
+    if (existingStudentRow.error) {
+      return NextResponse.json(
+        { error: `Failed to validate students table. (${existingStudentRow.error.message})` },
+        { status: 500 }
+      );
+    }
+
+    if ((existingStudentRow.data || []).length > 0) {
+      return NextResponse.json(
+        { error: "Student mobile or User ID already exists in student records." },
+        { status: 409 }
+      );
+    }
+
+    const existingChildRow = await admin
+      .from("children")
+      .select("id")
+      .eq("parent_mobile", parentMobile)
+      .eq("child_mobile", studentMobile)
+      .limit(1);
+
+    if (existingChildRow.error) {
+      return NextResponse.json(
+        { error: `Failed to validate children table. (${existingChildRow.error.message})` },
+        { status: 500 }
+      );
+    }
+
+    if ((existingChildRow.data || []).length > 0) {
+      return NextResponse.json(
+        { error: "This parent and child mobile combination already exists." },
+        { status: 409 }
+      );
+    }
+
     const parentCreate = await admin.auth.admin.createUser({
       email: parentEmail,
       password: parentPassword,
@@ -218,10 +270,6 @@ export async function POST(req: Request) {
         username: studentUserId,
         name: studentName,
         mobile: studentMobile,
-        classId: normalizedClassNumber,
-        board: normalizedBoard,
-        track,
-        competitiveExam: normalizedCompetitiveExam,
       },
     });
 
@@ -255,40 +303,52 @@ export async function POST(req: Request) {
       throw new Error(tableError("parent_profile", parentProfile.error));
     }
 
+    const studentsInsert = await admin.from("students").insert({
+      id: studentUser.id,
+      name: titleCase(studentName),
+      full_name: studentName,
+      class_label: track === "regular" ? `Class ${classNumber}` : competitiveExam,
+      class: track === "regular" ? `Class ${classNumber}` : competitiveExam,
+      phone: studentMobile,
+      source: "family_signup",
+      guardian_name: parentName,
+      guardian_phone: parentMobile,
+      user_id: studentUser.id,
+      username: studentUserId,
+      phone_verified: false,
+    });
+
+    if (studentsInsert.error) {
+      throw new Error(tableError("students", studentsInsert.error));
+    }
+
     const studentProfile = await admin.from("student_profile").upsert(
       {
-        user_id: studentUser.id,
-        parent_user_id: parentUser.id,
-        username: studentUserId,
-        full_name: studentName,
+        student_id: studentUser.id,
         mobile: studentMobile,
-        class_id: normalizedClassNumber,
-        board: normalizedBoard,
-        track,
-        competitive_exam: normalizedCompetitiveExam,
-        country,
-        preferred_language: preferredLanguage,
+        name: studentName,
+        preferred_language: toProfileLanguage(preferredLanguage),
       },
-      { onConflict: "user_id" }
+      { onConflict: "student_id" }
     );
 
     if (studentProfile.error) {
       throw new Error(tableError("student_profile", studentProfile.error));
     }
 
-    const parentChildMap = await admin.from("parent_children").upsert(
-      {
-        parent_user_id: parentUser.id,
-        child_user_id: studentUser.id,
-        parent_mobile: parentMobile,
-        child_mobile: studentMobile,
-        child_name: studentName,
-      },
-      { onConflict: "parent_user_id,child_user_id" }
-    );
+    const childRow = await admin.from("children").insert({
+      parent_mobile: parentMobile,
+      child_name: studentName,
+      child_mobile: studentMobile,
+      board: track === "regular" ? board : competitiveExam,
+      class_number: track === "regular" ? Number(classNumber) : null,
+      country,
+      language: preferredLanguage,
+      subject_type: track === "regular" ? "regular" : "competitive",
+    });
 
-    if (parentChildMap.error) {
-      throw new Error(tableError("parent_children", parentChildMap.error));
+    if (childRow.error) {
+      throw new Error(tableError("children", childRow.error));
     }
 
     return NextResponse.json(
