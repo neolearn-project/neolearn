@@ -1,4 +1,13 @@
-export function computeAccessSummary(rows, limit = 5, override = null) {
+export type AccessOverride = {
+  is_active?: boolean;
+  expires_at?: string | null;
+} | null | undefined;
+
+export function computeAccessSummary(
+  rows: Array<{ topic_id?: string | number | null }> = [],
+  limit = 5,
+  override?: AccessOverride
+) {
   const uniqueTopicIds = new Set(
     (rows || []).map((row) => row?.topic_id).filter(Boolean)
   );
