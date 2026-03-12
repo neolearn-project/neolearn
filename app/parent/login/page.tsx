@@ -2,78 +2,51 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabaseBrowser } from "@/app/lib/supabaseBrowser";
 
 const PARENT_STORAGE_KEY = "neolearn_parent_mobile";
+
+function parentMobileToEmail(mobile: string) {
+  return `parent_${mobile.replace(/\D/g, "")}@neolearn.in`;
+}
 
 export default function ParentLoginPage() {
   const router = useRouter();
 
   const [mobile, setMobile] = useState("");
-  const [otp, setOtp] = useState("");
-  const [step, setStep] = useState<"mobile" | "otp">("mobile");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSendOtp = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     const trimmedMobile = mobile.trim();
+    const trimmedPassword = password.trim();
 
     if (!/^\d{10}$/.test(trimmedMobile)) {
       setError("Please enter a valid 10-digit mobile number.");
       return;
     }
 
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auth/send-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mobile: trimmedMobile }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.error || `OTP send failed (HTTP ${res.status})`);
-      }
-
-      setStep("otp");
-    } catch (e: any) {
-      setError(e?.message || "Failed to send OTP.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleOtpSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    const trimmedMobile = mobile.trim();
-    const code = otp.trim();
-
-    if (!/^\d{10}$/.test(trimmedMobile)) {
-      setError("Please enter a valid 10-digit mobile number.");
-      return;
-    }
-    if (!/^\d{4,10}$/.test(code)) {
-      setError("Please enter the OTP you received.");
+    if (!trimmedPassword) {
+      setError("Please enter password.");
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mobile: trimmedMobile, otp: code }),
+      const email = parentMobileToEmail(trimmedMobile);
+
+      const { data, error } = await supabaseBrowser.auth.signInWithPassword({
+        email,
+        password: trimmedPassword,
       });
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.error || `OTP verify failed (HTTP ${res.status})`);
-      }
+      if (error) throw new Error(error.message);
+      if (!data.user) throw new Error("Parent login failed.");
 
       if (typeof window !== "undefined") {
         window.localStorage.setItem(PARENT_STORAGE_KEY, trimmedMobile);
@@ -81,7 +54,7 @@ export default function ParentLoginPage() {
 
       router.replace("/parent/dashboard");
     } catch (e: any) {
-      setError(e?.message || "OTP verification failed");
+      setError(e?.message || "Parent login failed.");
     } finally {
       setLoading(false);
     }
@@ -94,7 +67,7 @@ export default function ParentLoginPage() {
           <div className="text-xs font-semibold text-gray-500 uppercase">NeoLearn</div>
           <h1 className="mt-1 text-xl font-bold text-slate-900">Parent Login</h1>
           <p className="mt-1 text-slate-600">
-            Login with your registered parent mobile number.
+            Login with your registered parent mobile number and password.
           </p>
         </div>
 
@@ -104,53 +77,37 @@ export default function ParentLoginPage() {
           </div>
         )}
 
-        {step === "mobile" ? (
-          <form className="space-y-3" onSubmit={handleSendOtp}>
+        <form className="space-y-3" onSubmit={handleLogin}>
+          <input
+            inputMode="numeric"
+            maxLength={10}
+            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Parent mobile (10 digits)"
+            value={mobile}
+            onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
+          />
+
+          <div className="relative">
             <input
-              inputMode="numeric"
-              maxLength={10}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Parent mobile (10 digits)"
-              value={mobile}
-              onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
+              type={showPassword ? "text" : "password"}
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 pr-16 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
-
-            <button type="submit" disabled={loading} className="btn btn-primary w-full">
-              {loading ? "Sending OTP..." : "Send OTP"}
-            </button>
-          </form>
-        ) : (
-          <form className="space-y-3" onSubmit={handleOtpSubmit}>
-            <div className="text-xs text-slate-600">
-              Enter the OTP sent to <span className="font-semibold">{mobile}</span>
-            </div>
-
-            <input
-              inputMode="numeric"
-              maxLength={10}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter OTP"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-            />
-
-            <button type="submit" disabled={loading} className="btn btn-primary w-full">
-              {loading ? "Verifying..." : "Verify OTP"}
-            </button>
-
             <button
               type="button"
-              className="w-full rounded-xl border border-slate-300 py-2 text-sm hover:bg-slate-50"
-              onClick={() => {
-                setStep("mobile");
-                setOtp("");
-                setError(null);
-              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-blue-600 hover:text-blue-700"
+              onClick={() => setShowPassword((s) => !s)}
             >
-              Change mobile number
+              {showPassword ? "Hide" : "Show"}
             </button>
-          </form>
-        )}
+          </div>
+
+          <button type="submit" disabled={loading} className="btn btn-primary w-full">
+            {loading ? "Logging in..." : "Login"}
+          </button>
+        </form>
       </div>
     </div>
   );
