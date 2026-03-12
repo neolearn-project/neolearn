@@ -1,15 +1,14 @@
-// app/admin/layout.tsx
 import React from "react";
 import Link from "next/link";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-slate-50">
       <header className="border-b bg-white">
         <div className="container mx-auto flex items-center justify-between py-3">
           <div className="font-semibold">NeoLearn Admin Console</div>
 
-          <nav className="flex items-center gap-4 text-sm">
+          <nav className="flex flex-wrap items-center gap-4 text-sm">
             <Link href="/admin/leads" className="hover:underline">
               Leads
             </Link>
@@ -18,7 +17,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               Batches
             </Link>
 
-            {/* 🔹 New: AI Auto Syllabus page */}
             <Link href="/admin/syllabus" className="hover:underline">
               AI Syllabus
             </Link>
@@ -27,11 +25,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               Dashboard
             </Link>
 
-            {/* simple “logout”: just go back to site root for now */}
-            <Link
-              href="/"
-              className="bg-black text-white px-3 py-1 rounded-md"
-            >
+            <Link href="/admin/users" className="hover:underline">
+              Users
+            </Link>
+
+            <Link href="/" className="bg-black text-white px-3 py-1 rounded-md">
               Logout
             </Link>
           </nav>
