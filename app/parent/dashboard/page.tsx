@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-const PARENT_STORAGE_KEY = "neolearnParentMobile";
+const PARENT_STORAGE_KEY = "neolearn_parent_mobile";
 
 interface ChildRow {
   id: number;
