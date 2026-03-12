@@ -49,7 +49,15 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const summary = computeAccessSummary(progressRows || [], 5, overrideRow || null);
+   const override =
+  overrideRow && typeof overrideRow === "object"
+    ? {
+        is_active: overrideRow.is_active,
+        expires_at: overrideRow.expires_at,
+      }
+    : undefined;
+
+const summary = computeAccessSummary(progressRows || [], 5, override);
 
     return NextResponse.json({
       ok: true,
