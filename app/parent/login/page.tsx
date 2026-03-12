@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/app/lib/supabaseBrowser";
 
@@ -108,6 +109,12 @@ export default function ParentLoginPage() {
             {loading ? "Logging in..." : "Login"}
           </button>
         </form>
+
+        <div className="mt-4 text-center text-sm">
+          <Link href="/parent/reset-password" className="font-medium text-blue-600 hover:underline">
+            Forgot password?
+          </Link>
+        </div>
       </div>
     </div>
   );
