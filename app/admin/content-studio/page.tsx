@@ -28,9 +28,12 @@ export default function AdminContentStudioPage() {
 
   const [loadingScript, setLoadingScript] = useState(false);
   const [loadingScenes, setLoadingScenes] = useState(false);
+  const [loadingAudio, setLoadingAudio] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [script, setScript] = useState("");
   const [scenes, setScenes] = useState<Scene[]>([]);
+  const [audioUrl, setAudioUrl] = useState("");
+  const [jobId, setJobId] = useState<number | null>(null);
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -41,6 +44,8 @@ export default function AdminContentStudioPage() {
     setLoadingScript(true);
     setScript("");
     setScenes([]);
+    setAudioUrl("");
+    setJobId(null);
 
     try {
       const res = await fetch("/api/admin/content-studio/script", {
@@ -65,6 +70,7 @@ export default function AdminContentStudioPage() {
       }
 
       setScript(data.script || "");
+      setJobId(data.jobId || null);
       setMsg("Script generated.");
     } catch (e: any) {
       setMsg(e?.message || "Failed to generate script.");
@@ -76,6 +82,7 @@ export default function AdminContentStudioPage() {
   async function handleGenerateScenes() {
     setMsg(null);
     setLoadingScenes(true);
+    setAudioUrl("");
 
     try {
       const res = await fetch("/api/admin/content-studio/scenes", {
@@ -108,6 +115,36 @@ export default function AdminContentStudioPage() {
     }
   }
 
+  async function handleGenerateAudio() {
+    setMsg(null);
+    setLoadingAudio(true);
+
+    try {
+      const res = await fetch("/api/admin/content-studio/audio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobId,
+          topic: form.topic.trim(),
+          language: form.language,
+          scenes,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || "Failed to generate audio.");
+      }
+
+      setAudioUrl(data.audioUrl || "");
+      setMsg("Audio generated.");
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to generate audio.");
+    } finally {
+      setLoadingAudio(false);
+    }
+  }
+
   return (
     <section className="space-y-6">
       <div>
@@ -127,103 +164,55 @@ export default function AdminContentStudioPage() {
         <h2 className="text-lg font-semibold">Video Inputs</h2>
 
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          <select
-            value={form.board}
-            onChange={(e) => update("board", e.target.value)}
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
-          >
+          <select value={form.board} onChange={(e) => update("board", e.target.value)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm">
             <option value="CBSE">CBSE</option>
             <option value="TBSE">TBSE</option>
             <option value="ICSE">ICSE</option>
           </select>
 
-          <select
-            value={form.classId}
-            onChange={(e) => update("classId", e.target.value)}
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
-          >
+          <select value={form.classId} onChange={(e) => update("classId", e.target.value)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm">
             {["6", "7", "8", "9", "10", "11", "12"].map((c) => (
-              <option key={c} value={c}>
-                Class {c}
-              </option>
+              <option key={c} value={c}>Class {c}</option>
             ))}
           </select>
 
-          <input
-            value={form.subject}
-            onChange={(e) => update("subject", e.target.value)}
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
-            placeholder="Subject"
-          />
+          <input value={form.subject} onChange={(e) => update("subject", e.target.value)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder="Subject" />
 
-          <input
-            value={form.topic}
-            onChange={(e) => update("topic", e.target.value)}
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2"
-            placeholder="Topic"
-          />
+          <input value={form.topic} onChange={(e) => update("topic", e.target.value)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2" placeholder="Topic" />
 
-          <select
-            value={form.language}
-            onChange={(e) => update("language", e.target.value)}
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
-          >
+          <select value={form.language} onChange={(e) => update("language", e.target.value)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm">
             <option value="English">English</option>
             <option value="Hindi">Hindi</option>
             <option value="Bengali">Bengali</option>
           </select>
 
-          <select
-            value={form.durationSec}
-            onChange={(e) => update("durationSec", e.target.value)}
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
-          >
+          <select value={form.durationSec} onChange={(e) => update("durationSec", e.target.value)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm">
             <option value="30">30 sec</option>
             <option value="60">60 sec</option>
             <option value="120">120 sec</option>
           </select>
 
-          <select
-            value={form.videoStyle}
-            onChange={(e) => update("videoStyle", e.target.value)}
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
-          >
+          <select value={form.videoStyle} onChange={(e) => update("videoStyle", e.target.value)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm">
             <option value="whiteboard">Whiteboard</option>
             <option value="premium-slide">Premium Slide</option>
           </select>
 
-          <input
-            value={form.thumbnailTitle}
-            onChange={(e) => update("thumbnailTitle", e.target.value)}
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
-            placeholder="Thumbnail title"
-          />
+          <input value={form.thumbnailTitle} onChange={(e) => update("thumbnailTitle", e.target.value)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder="Thumbnail title" />
 
-          <input
-            value={form.ctaText}
-            onChange={(e) => update("ctaText", e.target.value)}
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2"
-            placeholder="CTA text"
-          />
+          <input value={form.ctaText} onChange={(e) => update("ctaText", e.target.value)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2" placeholder="CTA text" />
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={handleGenerateScript}
-            disabled={loadingScript}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
-          >
+          <button type="button" onClick={handleGenerateScript} disabled={loadingScript} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white">
             {loadingScript ? "Generating script..." : "Generate Script"}
           </button>
 
-          <button
-            type="button"
-            onClick={handleGenerateScenes}
-            disabled={loadingScenes || !script.trim()}
-            className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-          >
+          <button type="button" onClick={handleGenerateScenes} disabled={loadingScenes || !script.trim()} className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
             {loadingScenes ? "Generating scenes..." : "Generate Scenes"}
+          </button>
+
+          <button type="button" onClick={handleGenerateAudio} disabled={loadingAudio || scenes.length === 0} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+            {loadingAudio ? "Generating audio..." : "Generate Audio"}
           </button>
         </div>
       </div>
@@ -246,6 +235,21 @@ export default function AdminContentStudioPage() {
           </pre>
         </div>
       </div>
+
+      {audioUrl && (
+        <div className="rounded-2xl border bg-white p-4 shadow-sm space-y-3">
+          <h2 className="text-lg font-semibold">Generated Audio</h2>
+          <audio controls className="w-full" src={audioUrl} />
+          <a
+            href={audioUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+          >
+            Open Audio File
+          </a>
+        </div>
+      )}
     </section>
   );
 }
