@@ -39,11 +39,16 @@ export async function POST(req: Request) {
       );
     }
 
-    const narrationText = scenes
-      .filter((scene) => scene?.type !== "brand-intro")
-      .map((scene) => String(scene?.voiceover || "").trim())
-      .filter(Boolean)
-      .join("\n\n");
+   type StudioScene = {
+  type?: string;
+  voiceover?: string;
+};
+
+const narrationText = (scenes as StudioScene[])
+  .filter((scene: StudioScene) => scene?.type !== "brand-intro")
+  .map((scene: StudioScene) => String(scene?.voiceover || "").trim())
+  .filter(Boolean)
+  .join("\n\n");
 
     if (!narrationText) {
       return NextResponse.json(
