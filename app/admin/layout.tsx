@@ -1,3 +1,4 @@
+"use client";
 import React from "react";
 import Link from "next/link";
 
@@ -27,6 +28,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
             <Link href="/admin/users" className="hover:underline">
               Users
+            </Link>
+
+            <Link href="/admin/content-studio" className="hover:underline">
+              Content Studio
             </Link>
 
             <Link href="/" className="bg-black text-white px-3 py-1 rounded-md">
