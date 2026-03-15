@@ -141,6 +141,43 @@ export const SceneSlide: React.FC<{
           </div>
         );
 
+      case "triangle-labels":
+        return (
+          <div style={cardStyle}>
+            <svg width="440" height="250" viewBox="0 0 440 250">
+              <polygon points="220,30 90,210 350,210" fill="white" stroke={style.primary} strokeWidth="7" />
+              <text x="210" y="22" fontSize="20" fill={style.primary} fontWeight="800">A</text>
+              <text x="70" y="225" fontSize="20" fill={style.primary} fontWeight="800">B</text>
+              <text x="355" y="225" fontSize="20" fill={style.primary} fontWeight="800">C</text>
+              <text x="145" y="125" fontSize="18" fill={style.secondary} fontWeight="700">Side</text>
+              <text x="280" y="125" fontSize="18" fill={style.secondary} fontWeight="700">Side</text>
+              <text x="205" y="230" fontSize="18" fill={style.secondary} fontWeight="700">Base</text>
+            </svg>
+            {chipRow}
+          </div>
+        );
+
+      case "triangle-compare":
+        return (
+          <div style={{ ...cardStyle, width: 520 }}>
+            <div style={{ display: "flex", gap: 16 }}>
+              {[
+                { title: "Equal sides", pts: "70,20 20,120 120,120" },
+                { title: "Two equal", pts: "70,20 30,120 110,120" },
+                { title: "All different", pts: "65,18 20,120 115,110" },
+              ].map((item, i) => (
+                <div key={i} style={{ flex: 1, textAlign: "center" }}>
+                  <svg width="130" height="120" viewBox="0 0 140 130">
+                    <polygon points={item.pts} fill={style.soft} stroke={style.primary} strokeWidth="6" />
+                  </svg>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: style.primary }}>{item.title}</div>
+                </div>
+              ))}
+            </div>
+            {chipRow}
+          </div>
+        );
+
       case "symmetry-line":
         return (
           <div style={cardStyle}>
@@ -234,6 +271,83 @@ export const SceneSlide: React.FC<{
           </div>
         );
 
+      case "circle-parts":
+        return (
+          <div style={cardStyle}>
+            <svg width="420" height="240" viewBox="0 0 420 240">
+              <circle cx="210" cy="120" r="78" fill="white" stroke={style.primary} strokeWidth="6" />
+              <line x1="210" y1="120" x2="288" y2="120" stroke={style.secondary} strokeWidth="5" />
+              <line x1="132" y1="120" x2="288" y2="120" stroke={style.primary} strokeWidth="4" strokeDasharray="7 6" />
+              <text x="290" y="114" fontSize="18" fill={style.secondary} fontWeight="700">Radius</text>
+              <text x="158" y="145" fontSize="18" fill={style.primary} fontWeight="700">Diameter</text>
+              <circle cx="210" cy="120" r="6" fill={style.primary} />
+            </svg>
+            {chipRow}
+          </div>
+        );
+
+      case "circle-sectors":
+        return (
+          <div style={cardStyle}>
+            <div
+              style={{
+                width: 300,
+                height: 300,
+                margin: "0 auto",
+                borderRadius: 9999,
+                background: `conic-gradient(${style.primary} 0deg 110deg, ${style.secondary} 110deg 220deg, ${style.soft} 220deg 360deg)`,
+              }}
+            />
+            {chipRow}
+          </div>
+        );
+
+      case "shape-diagram":
+        return (
+          <div style={cardStyle}>
+            <div style={{ display: "flex", gap: 18, justifyContent: "space-between" }}>
+              <div style={{ width: 90, height: 90, borderRadius: 16, background: style.soft, border: `6px solid ${style.primary}` }} />
+              <div style={{ width: 100, height: 90, background: "white", border: `6px solid ${style.primary}` }} />
+              <div
+                style={{
+                  width: 100,
+                  height: 90,
+                  clipPath: "polygon(50% 0%, 100% 100%, 0% 100%)",
+                  background: style.soft,
+                  borderBottom: `6px solid ${style.primary}`,
+                }}
+              />
+            </div>
+            {chipRow}
+          </div>
+        );
+
+      case "shape-example":
+      case "shape-compare":
+        return (
+          <div style={{ ...cardStyle, width: 520 }}>
+            <div style={{ display: "flex", gap: 16 }}>
+              {["Square", "Rectangle", "Triangle"].map((name, i) => (
+                <div key={name} style={{ flex: 1, textAlign: "center" }}>
+                  <div
+                    style={{
+                      width: 100,
+                      height: 100,
+                      margin: "0 auto 10px",
+                      background: i === 2 ? style.soft : "white",
+                      border: `6px solid ${style.primary}`,
+                      borderRadius: i === 0 ? 16 : 6,
+                      clipPath: i === 2 ? "polygon(50% 0%, 100% 100%, 0% 100%)" : "none",
+                    }}
+                  />
+                  <div style={{ fontSize: 16, fontWeight: 800, color: style.primary }}>{name}</div>
+                </div>
+              ))}
+            </div>
+            {chipRow}
+          </div>
+        );
+
       case "fraction-model":
         return (
           <div style={cardStyle}>
@@ -289,6 +403,29 @@ export const SceneSlide: React.FC<{
           </div>
         );
 
+      case "fraction-compare":
+        return (
+          <div style={{ ...cardStyle, width: 520 }}>
+            <div style={{ display: "flex", gap: 18 }}>
+              {["1/2", "1/3", "1/4"].map((f, i) => (
+                <div key={f} style={{ flex: 1, textAlign: "center" }}>
+                  <div
+                    style={{
+                      height: 120,
+                      borderRadius: 18,
+                      background: i === 0 ? `${style.primary}` : `${style.soft}`,
+                      opacity: i === 0 ? 1 : 0.85,
+                      marginBottom: 10,
+                    }}
+                  />
+                  <div style={{ fontSize: 22, fontWeight: 800, color: style.primary }}>{f}</div>
+                </div>
+              ))}
+            </div>
+            {chipRow}
+          </div>
+        );
+
       case "equation-balance":
         return (
           <div style={cardStyle}>
@@ -333,6 +470,30 @@ export const SceneSlide: React.FC<{
           </div>
         );
 
+      case "algebra-rules":
+        return (
+          <div style={cardStyle}>
+            <div style={{ display: "grid", gap: 12 }}>
+              {["Like terms", "Balance both sides", "Simplify step by step"].map((rule) => (
+                <div
+                  key={rule}
+                  style={{
+                    padding: "16px 18px",
+                    borderRadius: 18,
+                    background: style.soft,
+                    fontSize: 24,
+                    fontWeight: 800,
+                    color: style.primary,
+                  }}
+                >
+                  {rule}
+                </div>
+              ))}
+            </div>
+            {chipRow}
+          </div>
+        );
+
       case "leaf-process":
       case "photosynthesis-flow":
       case "process-flow":
@@ -352,6 +513,19 @@ export const SceneSlide: React.FC<{
           </div>
         );
 
+      case "biology-cycle":
+        return (
+          <div style={cardStyle}>
+            <svg width="420" height="240" viewBox="0 0 420 240">
+              <circle cx="120" cy="120" r="40" fill={style.soft} stroke={style.primary} strokeWidth="5" />
+              <circle cx="300" cy="120" r="40" fill="white" stroke={style.secondary} strokeWidth="5" />
+              <path d="M160 95 C210 55, 250 55, 285 95" fill="none" stroke={style.primary} strokeWidth="5" />
+              <path d="M280 145 C235 185, 185 185, 140 145" fill="none" stroke={style.secondary} strokeWidth="5" />
+            </svg>
+            {chipRow}
+          </div>
+        );
+
       case "cell-parts":
         return (
           <div style={cardStyle}>
@@ -363,6 +537,51 @@ export const SceneSlide: React.FC<{
               <circle cx="150" cy="150" r="10" fill={style.secondary} />
               <circle cx="235" cy="150" r="10" fill={style.secondary} />
             </svg>
+            {chipRow}
+          </div>
+        );
+
+      case "cell-zoom":
+        return (
+          <div style={cardStyle}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <svg width="160" height="160" viewBox="0 0 160 160">
+                <circle cx="80" cy="80" r="52" fill={style.soft} stroke={style.primary} strokeWidth="6" />
+                <circle cx="80" cy="80" r="18" fill="white" stroke={style.secondary} strokeWidth="4" />
+              </svg>
+              <div style={{ fontSize: 38, fontWeight: 900, color: style.secondary }}>→</div>
+              <svg width="160" height="160" viewBox="0 0 160 160">
+                <circle cx="80" cy="80" r="58" fill="white" stroke={style.primary} strokeWidth="6" />
+                <circle cx="80" cy="80" r="22" fill={style.soft} stroke={style.secondary} strokeWidth="4" />
+                <circle cx="48" cy="56" r="8" fill={style.primary} />
+                <circle cx="112" cy="58" r="8" fill={style.primary} />
+              </svg>
+            </div>
+            {chipRow}
+          </div>
+        );
+
+      case "cell-recap":
+      case "biology-example":
+        return (
+          <div style={cardStyle}>
+            <div style={{ display: "grid", gap: 12 }}>
+              {["Membrane", "Nucleus", "Cell parts work together"].map((t) => (
+                <div
+                  key={t}
+                  style={{
+                    padding: "16px 18px",
+                    borderRadius: 18,
+                    background: style.soft,
+                    fontSize: 24,
+                    fontWeight: 800,
+                    color: style.primary,
+                  }}
+                >
+                  {t}
+                </div>
+              ))}
+            </div>
             {chipRow}
           </div>
         );
@@ -393,6 +612,30 @@ export const SceneSlide: React.FC<{
           </div>
         );
 
+      case "physics-laws":
+        return (
+          <div style={cardStyle}>
+            <div style={{ display: "grid", gap: 12 }}>
+              {["Force changes motion", "More force, more effect", "Observe direction"].map((t) => (
+                <div
+                  key={t}
+                  style={{
+                    padding: "16px 18px",
+                    borderRadius: 18,
+                    background: style.soft,
+                    fontSize: 24,
+                    fontWeight: 800,
+                    color: style.primary,
+                  }}
+                >
+                  {t}
+                </div>
+              ))}
+            </div>
+            {chipRow}
+          </div>
+        );
+
       case "atom-model":
         return (
           <div style={cardStyle}>
@@ -414,6 +657,32 @@ export const SceneSlide: React.FC<{
               <div style={{ fontSize: 34, fontWeight: 900, color: style.primary }}>A + B</div>
               <div style={{ fontSize: 46, fontWeight: 900, color: style.secondary }}>→</div>
               <div style={{ fontSize: 34, fontWeight: 900, color: style.primary }}>C</div>
+            </div>
+            {chipRow}
+          </div>
+        );
+
+      case "chemistry-compare":
+        return (
+          <div style={cardStyle}>
+            <div style={{ display: "flex", gap: 16 }}>
+              {["Element", "Compound", "Mixture"].map((x) => (
+                <div
+                  key={x}
+                  style={{
+                    flex: 1,
+                    padding: "20px 10px",
+                    borderRadius: 18,
+                    background: style.soft,
+                    fontSize: 22,
+                    textAlign: "center",
+                    fontWeight: 800,
+                    color: style.primary,
+                  }}
+                >
+                  {x}
+                </div>
+              ))}
             </div>
             {chipRow}
           </div>
@@ -470,6 +739,30 @@ export const SceneSlide: React.FC<{
           </div>
         );
 
+      case "grammar-rules":
+        return (
+          <div style={cardStyle}>
+            <div style={{ display: "grid", gap: 12 }}>
+              {["Identify the main word", "See its role", "Use it correctly"].map((x) => (
+                <div
+                  key={x}
+                  style={{
+                    padding: "16px 18px",
+                    borderRadius: 18,
+                    background: style.soft,
+                    fontSize: 24,
+                    fontWeight: 800,
+                    color: style.primary,
+                  }}
+                >
+                  {x}
+                </div>
+              ))}
+            </div>
+            {chipRow}
+          </div>
+        );
+
       case "timeline":
         return (
           <div style={cardStyle}>
@@ -487,17 +780,140 @@ export const SceneSlide: React.FC<{
         );
 
       case "history-cards":
-      case "map-concept":
-      case "landform-cards":
+        return (
+          <div style={cardStyle}>
+            <div style={{ display: "flex", gap: 16 }}>
+              {["Event", "Cause", "Effect"].map((x) => (
+                <div
+                  key={x}
+                  style={{
+                    flex: 1,
+                    padding: "20px 10px",
+                    borderRadius: 18,
+                    background: style.soft,
+                    fontSize: 22,
+                    textAlign: "center",
+                    fontWeight: 800,
+                    color: style.primary,
+                  }}
+                >
+                  {x}
+                </div>
+              ))}
+            </div>
+            {chipRow}
+          </div>
+        );
+
       case "history-summary":
+        return (
+          <div style={cardStyle}>
+            <div style={{ display: "grid", gap: 12 }}>
+              {["Time period", "Main event", "Why it matters"].map((x) => (
+                <div
+                  key={x}
+                  style={{
+                    padding: "16px 18px",
+                    borderRadius: 18,
+                    background: style.soft,
+                    fontSize: 24,
+                    fontWeight: 800,
+                    color: style.primary,
+                  }}
+                >
+                  {x}
+                </div>
+              ))}
+            </div>
+            {chipRow}
+          </div>
+        );
+
+      case "map-concept":
+        return (
+          <div style={cardStyle}>
+            <svg width="420" height="240" viewBox="0 0 420 240">
+              <path d="M60 80 L120 50 L190 70 L260 45 L340 80 L330 170 L240 190 L160 170 L80 190 Z" fill={style.soft} stroke={style.primary} strokeWidth="6" />
+              <circle cx="170" cy="110" r="8" fill={style.primary} />
+              <circle cx="250" cy="125" r="8" fill={style.secondary} />
+              <line x1="170" y1="110" x2="130" y2="85" stroke={style.primary} strokeWidth="3" />
+              <line x1="250" y1="125" x2="290" y2="95" stroke={style.secondary} strokeWidth="3" />
+            </svg>
+            {chipRow}
+          </div>
+        );
+
+      case "landform-cards":
+        return (
+          <div style={cardStyle}>
+            <div style={{ display: "flex", gap: 16 }}>
+              {["Mountain", "Plateau", "Plain"].map((x) => (
+                <div
+                  key={x}
+                  style={{
+                    flex: 1,
+                    padding: "20px 10px",
+                    borderRadius: 18,
+                    background: style.soft,
+                    fontSize: 20,
+                    textAlign: "center",
+                    fontWeight: 800,
+                    color: style.primary,
+                  }}
+                >
+                  {x}
+                </div>
+              ))}
+            </div>
+            {chipRow}
+          </div>
+        );
+
       case "geography-summary":
-      case "chemistry-compare":
-      case "physics-laws":
-      case "grammar-rules":
-      case "algebra-rules":
-      case "fraction-compare":
-      case "triangle-compare":
-      case "shape-compare":
+        return (
+          <div style={cardStyle}>
+            <div style={{ display: "grid", gap: 12 }}>
+              {["Location", "Features", "Importance"].map((x) => (
+                <div
+                  key={x}
+                  style={{
+                    padding: "16px 18px",
+                    borderRadius: 18,
+                    background: style.soft,
+                    fontSize: 24,
+                    fontWeight: 800,
+                    color: style.primary,
+                  }}
+                >
+                  {x}
+                </div>
+              ))}
+            </div>
+            {chipRow}
+          </div>
+        );
+
+      case "brand-cta":
+        return (
+          <div
+            style={{
+              ...cardStyle,
+              height: 300,
+              background: `linear-gradient(135deg, ${style.primary}, ${style.secondary})`,
+              color: "white",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              textAlign: "center",
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 56, fontWeight: 900, lineHeight: 1.05 }}>NeoLearn</div>
+              <div style={{ fontSize: 24, marginTop: 14, opacity: 0.95 }}>Learn • Practice • Progress</div>
+            </div>
+          </div>
+        );
+
       case "concept-card":
       case "example-card":
       case "recap-chips":
@@ -728,6 +1144,6 @@ export const SceneSlide: React.FC<{
           {renderDiagram()}
         </div>
       </div>
- </FullScreen>
+    </FullScreen>
   );
 };

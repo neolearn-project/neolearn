@@ -117,14 +117,17 @@ function normalizeScene(params: {
 
   const title =
     typeof raw?.title === "string" && raw.title.trim() ? raw.title.trim() : defaults.title;
+
   const subtitle =
     typeof raw?.subtitle === "string" && raw.subtitle.trim() ? raw.subtitle.trim() : defaults.subtitle;
+
   const voiceover =
     typeof raw?.voiceover === "string" && raw.voiceover.trim()
       ? raw.voiceover.trim()
       : type === "cta"
         ? defaultCtaVoice(language, ctaText)
         : "";
+
   const onscreenText = Array.isArray(raw?.onscreenText)
     ? raw.onscreenText
         .filter((x: unknown) => typeof x === "string")
@@ -133,25 +136,31 @@ function normalizeScene(params: {
         .slice(0, 3)
     : defaults.lines;
 
+  const diagramType =
+    typeof raw?.visualIntent?.diagramType === "string" && raw.visualIntent.diagramType.trim()
+      ? raw.visualIntent.diagramType.trim()
+      : diagramForScene({ family, topic, subject, type, title, subtitle });
+
+  const labels = Array.isArray(raw?.visualIntent?.labels)
+    ? raw.visualIntent.labels
+        .filter((x: unknown) => typeof x === "string")
+        .map((x: string) => x.trim())
+        .filter(Boolean)
+        .slice(0, 4)
+    : onscreenText;
+
+  const emphasisWords = Array.isArray(raw?.visualIntent?.emphasisWords)
+    ? raw.visualIntent.emphasisWords
+        .filter((x: unknown) => typeof x === "string")
+        .map((x: string) => x.trim())
+        .filter(Boolean)
+        .slice(0, 4)
+    : [topic, subject];
+
   const visualIntent: VisualIntent = {
-    diagramType:
-      typeof raw?.visualIntent?.diagramType === "string" && raw.visualIntent.diagramType.trim()
-        ? raw.visualIntent.diagramType.trim()
-        : diagramForScene({ family, topic, subject, type, title, subtitle }),
-    labels: Array.isArray(raw?.visualIntent?.labels)
-      ? raw.visualIntent.labels
-          .filter((x: unknown) => typeof x === "string")
-          .map((x: string) => x.trim())
-          .filter(Boolean)
-          .slice(0, 4)
-      : onscreenText,
-    emphasisWords: Array.isArray(raw?.visualIntent?.emphasisWords)
-      ? raw.visualIntent.emphasisWords
-          .filter((x: unknown) => typeof x === "string")
-          .map((x: string) => x.trim())
-          .filter(Boolean)
-          .slice(0, 4)
-      : [topic],
+    diagramType,
+    labels,
+    emphasisWords,
     animationStyle:
       raw?.visualIntent?.animationStyle === "build" ||
       raw?.visualIntent?.animationStyle === "highlight" ||
@@ -208,8 +217,6 @@ function buildFallbackScenes(params: {
   const contentScenes: Scene[] = ["title", "concept", "example", "recap", "cta"].map((type, index) =>
     normalizeScene({
       raw: {
-        title: undefined,
-        subtitle: undefined,
         voiceover:
           type === "title"
             ? language.toLowerCase() === "hindi"
@@ -219,7 +226,7 @@ function buildFallbackScenes(params: {
                 : `Today we will learn ${topic} in a simple, visual and easy way.`
             : type === "concept"
               ? language.toLowerCase() === "hindi"
-                ? `${topic} को समझने के लिए पहले इसके मूल विचार को साफ़ तरीके से समझना ज़रूरी है।`
+                ? `${topic} को समझने के लिए पहले इसके मूल विचार को स्पष्ट रूप से समझना ज़रूरी है।`
                 : language.toLowerCase() === "bengali"
                   ? `${topic} ভালোভাবে শিখতে হলে আগে এর মূল ধারণা পরিষ্কারভাবে বুঝতে হবে।`
                   : `${topic} becomes easier when the main idea is explained clearly step by step.`
@@ -272,7 +279,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Topic and script are required." }, { status: 400 });
     }
 
-    const family = detectTopicFamily(subject, topic);
+    const family = detectTopicFamily(subject, topic, script);
 
     const systemPrompt = `
 You are creating 5 short-form educational video scenes for NeoLearn.
@@ -319,7 +326,8 @@ Rules:
 - labels max 4 short items.
 - emphasisWords max 4 short items.
 - animationStyle only one of: build, highlight, transform, flow.
-- For diagrams, prefer topic-specific visuals over generic cards.
+- Prefer topic-specific visuals over generic placeholders.
+- Use stronger hook wording for short-form video.
 `.trim();
 
     const userPrompt = `
@@ -341,6 +349,7 @@ ${script}
       });
 
       const raw = (response.output_text || "").trim();
+
       try {
         aiScenes = JSON.parse(raw);
       } catch {

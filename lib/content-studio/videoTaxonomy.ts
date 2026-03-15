@@ -29,41 +29,81 @@ export function detectTopicFamily(subject?: string, topic?: string, extraText = 
   if (
     has(
       text,
-      /triangle|triangles|symmetry|line of symmetry|reflection|mirror|angle|angles|polygon|circle|quadrilateral|perimeter|area|geometry|shape|shapes/
+      /triangle|triangles|symmetry|line of symmetry|reflection|mirror|angle|angles|polygon|circle|quadrilateral|perimeter|area|geometry|shape|shapes|parallel|perpendicular|solid shape|2d|3d/
     )
   ) {
     return "geometry";
   }
 
-  if (has(text, /fraction|fractions|numerator|denominator|equivalent fraction|half|quarter|part of a whole/)) {
+  if (
+    has(
+      text,
+      /fraction|fractions|numerator|denominator|equivalent fraction|half|quarter|part of a whole|improper fraction|mixed number|decimal fraction/
+    )
+  ) {
     return "fractions";
   }
 
-  if (has(text, /algebra|equation|linear equation|expression|variable|polynomial|factor|solve for x/)) {
+  if (
+    has(
+      text,
+      /algebra|equation|linear equation|expression|variable|polynomial|factor|solve for x|identity|term|coefficient/
+    )
+  ) {
     return "algebra";
   }
 
-  if (has(text, /photosynthesis|respiration|cell|cells|plant|plants|leaf|leaf|digestive|circulatory|biology/)) {
+  if (
+    has(
+      text,
+      /photosynthesis|respiration|cell|cells|plant|plants|leaf|digestive|circulatory|biology|human body|nutrition|reproduction|microorganism/
+    )
+  ) {
     return "biology";
   }
 
-  if (has(text, /force|motion|speed|velocity|acceleration|gravity|friction|energy|physics/)) {
+  if (
+    has(
+      text,
+      /force|motion|speed|velocity|acceleration|gravity|friction|energy|physics|work|power|light|sound|electricity|magnet/
+    )
+  ) {
     return "physics";
   }
 
-  if (has(text, /atom|molecule|element|compound|acid|base|salt|reaction|periodic|chemistry/)) {
+  if (
+    has(
+      text,
+      /atom|molecule|element|compound|acid|base|salt|reaction|periodic|chemistry|mixture|solution|metal|non-metal/
+    )
+  ) {
     return "chemistry";
   }
 
-  if (has(text, /noun|pronoun|verb|adjective|adverb|tense|sentence|grammar|english|parts of speech/)) {
+  if (
+    has(
+      text,
+      /noun|pronoun|verb|adjective|adverb|tense|sentence|grammar|english|parts of speech|subject predicate|preposition|conjunction/
+    )
+  ) {
     return "grammar";
   }
 
-  if (has(text, /history|empire|civilization|revolt|revolution|freedom|medieval|ancient|timeline/)) {
+  if (
+    has(
+      text,
+      /history|empire|civilization|revolt|revolution|freedom|medieval|ancient|timeline|war|kingdom|dynasty|movement/
+    )
+  ) {
     return "history";
   }
 
-  if (has(text, /map|river|mountain|plateau|plain|climate|continent|latitude|longitude|geography/)) {
+  if (
+    has(
+      text,
+      /map|river|mountain|plateau|plain|climate|continent|latitude|longitude|geography|desert|soil|monsoon|globe/
+    )
+  ) {
     return "geography";
   }
 
@@ -217,7 +257,7 @@ export function diagramForScene(params: {
       if (params.type === "example") return "triangle-labels";
       if (params.type === "recap") return "triangle-compare";
     }
-    if (has(text, /circle/)) {
+    if (has(text, /circle|radius|diameter|arc|chord/)) {
       if (params.type === "concept") return "circle-parts";
       if (params.type === "example") return "circle-sectors";
       if (params.type === "recap") return "shape-compare";
@@ -229,7 +269,7 @@ export function diagramForScene(params: {
     if (params.type === "concept") return "fraction-model";
     if (params.type === "example") return "fraction-example";
     if (params.type === "recap") return "fraction-compare";
-    return "fraction-hook";
+    return "fractions-hook";
   }
 
   if (params.family === "algebra") {
@@ -245,7 +285,7 @@ export function diagramForScene(params: {
       if (params.type === "example") return "photosynthesis-flow";
       if (params.type === "recap") return "biology-cycle";
     }
-    if (has(text, /cell/)) {
+    if (has(text, /cell|cells/)) {
       if (params.type === "concept") return "cell-parts";
       if (params.type === "example") return "cell-zoom";
       if (params.type === "recap") return "cell-recap";
