@@ -1,0 +1,72 @@
+{
+  "topic": "Fractions",
+  "ctaText": "Give your child a smarter way to learn with NeoLearn",
+  "audioUrl": null,
+  "bgMusicUrl": "/audio/bg-edtech-soft.mp3",
+  "scenes": [
+    {
+      "sceneNo": 0,
+      "type": "brand-intro",
+      "title": "NeoLearn",
+      "subtitle": "The Future of Learning",
+      "voiceover": "",
+      "onscreenText": ["NeoLearn", "The Future of Learning", "AI Teachers for Every Child"],
+      "durationMs": 6200,
+      "visualStyle": "premium-slide"
+    },
+    {
+      "sceneNo": 1,
+      "type": "title",
+      "title": "Fractions Made Simple",
+      "subtitle": "A clear and easy explanation for young learners",
+      "voiceover": "Today we will learn fractions in a very simple and easy way.",
+      "onscreenText": ["What is a fraction?", "Part of a whole", "Easy to understand"],
+      "durationMs": 6500,
+      "visualStyle": "premium-slide",
+      "visualKind": "hook"
+    },
+    {
+      "sceneNo": 2,
+      "type": "concept",
+      "title": "What Does a Fraction Mean?",
+      "subtitle": "Fractions show equal parts of one whole object",
+      "voiceover": "A fraction tells us how many equal parts we take from a whole.",
+      "onscreenText": ["Whole divided equally", "Top number = taken parts", "Bottom number = total parts"],
+      "durationMs": 7500,
+      "visualStyle": "premium-slide",
+      "visualKind": "concept"
+    },
+    {
+      "sceneNo": 3,
+      "type": "example",
+      "title": "Pizza Example",
+      "subtitle": "A real-life way to understand it quickly",
+      "voiceover": "If a pizza is cut into four equal parts and you take one part, that is one by four.",
+      "onscreenText": ["Pizza cut into 4 pieces", "You take 1 piece", "Fraction = 1/4"],
+      "durationMs": 7000,
+      "visualStyle": "premium-slide",
+      "visualKind": "example"
+    },
+    {
+      "sceneNo": 4,
+      "type": "recap",
+      "title": "Quick Recap",
+      "subtitle": "Remember this simple idea",
+      "voiceover": "Fractions are easy when the whole is divided into equal parts.",
+      "onscreenText": ["Equal parts matter", "Fraction = part of a whole", "Useful in daily life"],
+      "durationMs": 6500,
+      "visualStyle": "premium-slide",
+      "visualKind": "recap"
+    },
+    {
+      "sceneNo": 5,
+      "type": "cta",
+      "title": "Learn More",
+      "subtitle": "NeoLearn",
+      "voiceover": "Start learning smarter with NeoLearn.",
+      "onscreenText": ["Learn", "Practice", "Track Progress"],
+      "durationMs": 5500,
+      "visualStyle": "premium-slide"
+    }
+  ]
+}
