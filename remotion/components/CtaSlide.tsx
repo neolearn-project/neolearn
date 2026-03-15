@@ -1,6 +1,6 @@
 import React from "react";
-import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
-
+import { interpolate, useCurrentFrame } from "remotion";
+import { FullScreen } from "./FullScreen";
 export const CtaSlide: React.FC<{ ctaText: string }> = ({ ctaText }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -17,7 +17,7 @@ export const CtaSlide: React.FC<{ ctaText: string }> = ({ ctaText }) => {
   });
 
   return (
-    <AbsoluteFill
+    <FullScreen
       style={{
         background:
           "radial-gradient(circle at 50% 30%, rgba(37,99,235,0.42), rgba(15,23,42,1) 60%)",
@@ -100,6 +100,6 @@ export const CtaSlide: React.FC<{ ctaText: string }> = ({ ctaText }) => {
           Start Free Trial
         </div>
       </div>
-    </AbsoluteFill>
+    </FullScreen>
   );
 };

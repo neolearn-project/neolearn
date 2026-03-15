@@ -1,5 +1,6 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { interpolate, useCurrentFrame } from "remotion";
+import { FullScreen } from "./FullScreen";
 
 export const NeoIntro: React.FC = () => {
   const frame = useCurrentFrame();
@@ -15,7 +16,7 @@ export const NeoIntro: React.FC = () => {
   });
 
   return (
-    <AbsoluteFill
+    <FullScreen
       style={{
         background: "linear-gradient(180deg, #eef6ff 0%, #f8fbff 35%, #eef2ff 100%)",
         alignItems: "center",
@@ -57,6 +58,6 @@ export const NeoIntro: React.FC = () => {
           The Future of Learning
         </div>
       </div>
-    </AbsoluteFill>
+    </FullScreen>
   );
 };

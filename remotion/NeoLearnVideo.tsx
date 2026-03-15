@@ -1,11 +1,11 @@
 import React from "react";
 import {
-  AbsoluteFill,
   Audio,
   Sequence,
   staticFile,
   useCurrentFrame,
 } from "remotion";
+import { FullScreen } from "./components/FullScreen";
 import { NeoIntro } from "./components/NeoIntro";
 import { SceneSlide } from "./components/SceneSlide";
 import { CtaSlide } from "./components/CtaSlide";
@@ -80,7 +80,7 @@ export const NeoLearnVideo: React.FC<{
   const bgMusicSrc = getSafeStaticFile(data.bgMusicUrl);
 
   return (
-    <AbsoluteFill>
+   <FullScreen>
       {narrationSrc ? (
         <Sequence from={voiceStartFrame}>
           <Audio src={narrationSrc} volume={1} />
@@ -134,6 +134,6 @@ export const NeoLearnVideo: React.FC<{
           </Sequence>
         );
       })}
-    </AbsoluteFill>
+    </FullScreen>
   );
 };

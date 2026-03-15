@@ -1,11 +1,11 @@
 import React from "react";
 import {
-  AbsoluteFill,
   interpolate,
   spring,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { FullScreen } from "./FullScreen";
 import { getTopicStyle } from "../../lib/content-studio/videoTaxonomy";
 
 type VisualIntent = {
@@ -539,7 +539,7 @@ export const SceneSlide: React.FC<{
   };
 
   return (
-    <AbsoluteFill
+    <FullScreen
       style={{
         background: `linear-gradient(180deg, ${style.bgTop} 0%, #f8fbff 35%, ${style.bgBottom} 100%)`,
         fontFamily: "Arial, sans-serif",
@@ -727,6 +727,6 @@ export const SceneSlide: React.FC<{
           {renderDiagram()}
         </div>
       </div>
-    </AbsoluteFill>
+ </FullScreen>
   );
 };
