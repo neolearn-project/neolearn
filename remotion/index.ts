@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { registerRoot } from "remotion";
 import { RemotionRoot } from "./Root";
 

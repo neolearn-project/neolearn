@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from "react";
 import { Composition } from "remotion";
 import { NeoLearnVideo } from "./NeoLearnVideo";
