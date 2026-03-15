@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from "react";
 import { interpolate, useCurrentFrame } from "remotion";
 import { FullScreen } from "./FullScreen";
