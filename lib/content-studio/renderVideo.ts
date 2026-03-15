@@ -28,12 +28,14 @@ export async function renderNeoLearnVideo(input: RenderInput) {
   const { bundle } = await import("@remotion/bundler");
   const { renderMedia, selectComposition } = await import("@remotion/renderer");
 
-  const remotionRoot = path.join(process.cwd(), "remotion");
-  const outDir = path.join(process.cwd(), "public", "generated", "video");
+  const projectRoot = process.cwd();
+  const entryPoint = path.join(projectRoot, "remotion", "index.ts");
+  const outDir = path.join(projectRoot, "public", "generated", "video");
   ensureDir(outDir);
 
   const bundled = await bundle({
-    entryPoint: path.join(remotionRoot, "index.ts"),
+    entryPoint,
+    rootDir: projectRoot,
     webpackOverride: (config: any) => config,
   });
 
