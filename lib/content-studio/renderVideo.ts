@@ -25,19 +25,11 @@ function toSafeSlug(value: string) {
 
 export async function renderNeoLearnVideo(input: RenderInput) {
   const { bundle } = await import("@remotion/bundler");
-  const {
-    ensureFfmpeg,
-    ensureFfprobe,
-    renderMedia,
-    selectComposition,
-  } = await import("@remotion/renderer");
+  const { renderMedia, selectComposition } = await import("@remotion/renderer");
 
   const remotionRoot = path.join(process.cwd(), "remotion");
   const outDir = path.join(process.cwd(), "public", "generated", "video");
   ensureDir(outDir);
-
-  await ensureFfmpeg();
-  await ensureFfprobe();
 
   const bundled = await bundle({
     entryPoint: path.join(remotionRoot, "index.ts"),
