@@ -34,11 +34,17 @@ export const SceneSlide: React.FC<{
   const { fps } = useVideoConfig();
 
   const style = getTopicStyle(title, subtitle, points);
-  const titleIn = spring({ frame, fps, config: { damping: 14, stiffness: 120, mass: 0.8 } });
+  const titleIn = spring({
+    frame,
+    fps,
+    config: { damping: 14, stiffness: 120, mass: 0.8 },
+  });
+
   const bgDrift = interpolate(frame, [0, 180], [0, 80], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+
   const panelIn = spring({
     frame: Math.max(0, frame - 8),
     fps,
@@ -46,15 +52,21 @@ export const SceneSlide: React.FC<{
   });
 
   const diagramType = visualIntent?.diagramType || "concept-card";
-  const labels = visualIntent?.labels?.length ? visualIntent.labels.slice(0, 4) : points.slice(0, 4);
+  const labels = visualIntent?.labels?.length
+    ? visualIntent.labels.slice(0, 4)
+    : points.slice(0, 4);
+
   const emphasisWords = visualIntent?.emphasisWords?.length
     ? visualIntent.emphasisWords.slice(0, 4)
     : [title || "NeoLearn"];
+
   const pulse = 1 + Math.sin(frame / 10) * 0.02;
   const slideX = interpolate(frame, [0, 20], [20, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+
+  const textBlob = `${title || ""} ${subtitle || ""} ${labels.join(" ")}`;
 
   const cardStyle: React.CSSProperties = {
     width: 500,
@@ -85,26 +97,93 @@ export const SceneSlide: React.FC<{
     </div>
   );
 
-  const hookCard = (
-    <div
-      style={{
-        ...cardStyle,
-        height: 300,
-        background: `linear-gradient(135deg, ${style.primary}, ${style.secondary})`,
-        color: "white",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        textAlign: "center",
-        transform: `scale(${pulse})`,
-      }}
-    >
-      <div>
-        <div style={{ fontSize: 48, fontWeight: 900, lineHeight: 1.05 }}>{title}</div>
-        {subtitle ? <div style={{ fontSize: 24, marginTop: 14, opacity: 0.95 }}>{subtitle}</div> : null}
+  const hookCard =
+    diagramType === "geometry-hook" &&
+    /triangle|triangles|त्रिभुज|ত্রিভুজ/i.test(textBlob) ? (
+      <div
+        style={{
+          ...cardStyle,
+          height: 300,
+          background: `linear-gradient(135deg, ${style.primary}, ${style.secondary})`,
+          color: "white",
+          position: "relative",
+          overflow: "hidden",
+          transform: `scale(${pulse})`,
+        }}
+      >
+        <svg
+          width="100%"
+          height="100%"
+          viewBox="0 0 500 300"
+          style={{ position: "absolute", inset: 0, opacity: 0.18 }}
+        >
+          <polygon points="250,40 130,230 370,230" fill="white" />
+          <polygon points="120,85 55,230 205,230" fill="white" opacity="0.7" />
+          <polygon points="380,95 305,230 455,230" fill="white" opacity="0.55" />
+        </svg>
+        <div
+          style={{
+            position: "relative",
+            zIndex: 2,
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            padding: 28,
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 48, fontWeight: 900, lineHeight: 1.05 }}>
+              {title}
+            </div>
+            {subtitle ? (
+              <div style={{ fontSize: 24, marginTop: 14, opacity: 0.95 }}>
+                {subtitle}
+              </div>
+            ) : null}
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    ) : (
+      <div
+        style={{
+          ...cardStyle,
+          height: 300,
+          background: `linear-gradient(135deg, ${style.primary}, ${style.secondary})`,
+          color: "white",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          textAlign: "center",
+          transform: `scale(${pulse})`,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 48, fontWeight: 900, lineHeight: 1.05 }}>
+            {title}
+          </div>
+          {subtitle ? (
+            <div style={{ fontSize: 24, marginTop: 14, opacity: 0.95 }}>
+              {subtitle}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+
+  const genericHeading =
+    type === "example"
+      ? /हिंदी|त्रिभुज|उदाहरण/i.test(textBlob)
+        ? "उदाहरण"
+        : /বাংলা|উদাহরণ|ত্রিভুজ/i.test(textBlob)
+          ? "উদাহরণ"
+          : "Worked Example"
+      : /हिंदी|त्रिभुज|क्या है|समझ/i.test(textBlob)
+        ? "दृश्य समझ"
+        : /বাংলা|কী|বোঝো|ধারণা/i.test(textBlob)
+          ? "ভিজ্যুয়াল ধারণা"
+          : "Concept Visual";
 
   const renderDiagram = () => {
     switch (diagramType) {
@@ -122,7 +201,12 @@ export const SceneSlide: React.FC<{
 
       case "triangle-types":
         return (
-          <div style={cardStyle}>
+          <div
+            style={{
+              ...cardStyle,
+              transform: `translateX(${slideX * 0.35}px) scale(${pulse})`,
+            }}
+          >
             <div style={{ display: "flex", gap: 12 }}>
               {[
                 { name: "Equilateral", pts: "75,20 20,120 130,120" },
@@ -131,9 +215,22 @@ export const SceneSlide: React.FC<{
               ].map((item) => (
                 <div key={item.name} style={{ flex: 1, textAlign: "center" }}>
                   <svg width="140" height="140" viewBox="0 0 150 140">
-                    <polygon points={item.pts} fill={style.soft} stroke={style.primary} strokeWidth="6" />
+                    <polygon
+                      points={item.pts}
+                      fill={style.soft}
+                      stroke={style.primary}
+                      strokeWidth="6"
+                    />
                   </svg>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: style.primary }}>{item.name}</div>
+                  <div
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 800,
+                      color: style.primary,
+                    }}
+                  >
+                    {item.name}
+                  </div>
                 </div>
               ))}
             </div>
@@ -143,15 +240,32 @@ export const SceneSlide: React.FC<{
 
       case "triangle-labels":
         return (
-          <div style={cardStyle}>
+          <div style={{ ...cardStyle, transform: `scale(${pulse})` }}>
             <svg width="440" height="250" viewBox="0 0 440 250">
-              <polygon points="220,30 90,210 350,210" fill="white" stroke={style.primary} strokeWidth="7" />
-              <text x="210" y="22" fontSize="20" fill={style.primary} fontWeight="800">A</text>
-              <text x="70" y="225" fontSize="20" fill={style.primary} fontWeight="800">B</text>
-              <text x="355" y="225" fontSize="20" fill={style.primary} fontWeight="800">C</text>
-              <text x="145" y="125" fontSize="18" fill={style.secondary} fontWeight="700">Side</text>
-              <text x="280" y="125" fontSize="18" fill={style.secondary} fontWeight="700">Side</text>
-              <text x="205" y="230" fontSize="18" fill={style.secondary} fontWeight="700">Base</text>
+              <polygon
+                points="220,30 90,210 350,210"
+                fill="white"
+                stroke={style.primary}
+                strokeWidth="7"
+              />
+              <text x="210" y="22" fontSize="20" fill={style.primary} fontWeight="800">
+                A
+              </text>
+              <text x="70" y="225" fontSize="20" fill={style.primary} fontWeight="800">
+                B
+              </text>
+              <text x="355" y="225" fontSize="20" fill={style.primary} fontWeight="800">
+                C
+              </text>
+              <text x="145" y="125" fontSize="18" fill={style.secondary} fontWeight="700">
+                Side
+              </text>
+              <text x="280" y="125" fontSize="18" fill={style.secondary} fontWeight="700">
+                Side
+              </text>
+              <text x="205" y="230" fontSize="18" fill={style.secondary} fontWeight="700">
+                Base
+              </text>
             </svg>
             {chipRow}
           </div>
@@ -159,7 +273,13 @@ export const SceneSlide: React.FC<{
 
       case "triangle-compare":
         return (
-          <div style={{ ...cardStyle, width: 520 }}>
+          <div
+            style={{
+              ...cardStyle,
+              width: 520,
+              transform: `translateX(${slideX * 0.25}px)`,
+            }}
+          >
             <div style={{ display: "flex", gap: 16 }}>
               {[
                 { title: "Equal sides", pts: "70,20 20,120 120,120" },
@@ -168,9 +288,22 @@ export const SceneSlide: React.FC<{
               ].map((item, i) => (
                 <div key={i} style={{ flex: 1, textAlign: "center" }}>
                   <svg width="130" height="120" viewBox="0 0 140 130">
-                    <polygon points={item.pts} fill={style.soft} stroke={style.primary} strokeWidth="6" />
+                    <polygon
+                      points={item.pts}
+                      fill={style.soft}
+                      stroke={style.primary}
+                      strokeWidth="6"
+                    />
                   </svg>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: style.primary }}>{item.title}</div>
+                  <div
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 800,
+                      color: style.primary,
+                    }}
+                  >
+                    {item.title}
+                  </div>
                 </div>
               ))}
             </div>
@@ -193,8 +326,25 @@ export const SceneSlide: React.FC<{
               }}
             >
               <svg width="340" height="220" viewBox="0 0 340 220">
-                <rect x="80" y="35" width="180" height="150" rx="16" fill="white" stroke={style.primary} strokeWidth="6" />
-                <line x1="170" y1="20" x2="170" y2="200" stroke={style.secondary} strokeWidth="6" strokeDasharray="10 8" />
+                <rect
+                  x="80"
+                  y="35"
+                  width="180"
+                  height="150"
+                  rx="16"
+                  fill="white"
+                  stroke={style.primary}
+                  strokeWidth="6"
+                />
+                <line
+                  x1="170"
+                  y1="20"
+                  x2="170"
+                  y2="200"
+                  stroke={style.secondary}
+                  strokeWidth="6"
+                  strokeDasharray="10 8"
+                />
                 <circle cx="125" cy="80" r="10" fill={style.primary} />
                 <circle cx="215" cy="80" r="10" fill={style.primary} />
                 <circle cx="125" cy="140" r="10" fill={style.primary} />
@@ -223,7 +373,15 @@ export const SceneSlide: React.FC<{
               }}
             >
               <svg width="340" height="220" viewBox="0 0 340 220">
-                <line x1="170" y1="20" x2="170" y2="200" stroke={style.secondary} strokeWidth="6" strokeDasharray="10 8" />
+                <line
+                  x1="170"
+                  y1="20"
+                  x2="170"
+                  y2="200"
+                  stroke={style.secondary}
+                  strokeWidth="6"
+                  strokeDasharray="10 8"
+                />
                 <path
                   d="M170 50 C150 35, 120 45, 120 80 C120 110, 145 128, 170 145"
                   fill="none"
@@ -252,18 +410,78 @@ export const SceneSlide: React.FC<{
         return (
           <div style={{ ...cardStyle, width: 520 }}>
             <div style={{ display: "flex", gap: 18 }}>
-              <div style={{ flex: 1, borderRadius: 22, background: style.soft, padding: 16, textAlign: "center" }}>
-                <div style={{ fontSize: 18, fontWeight: 800, color: style.primary, marginBottom: 8 }}>Symmetric</div>
+              <div
+                style={{
+                  flex: 1,
+                  borderRadius: 22,
+                  background: style.soft,
+                  padding: 16,
+                  textAlign: "center",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 800,
+                    color: style.primary,
+                    marginBottom: 8,
+                  }}
+                >
+                  Symmetric
+                </div>
                 <svg width="180" height="160" viewBox="0 0 180 160">
-                  <line x1="90" y1="15" x2="90" y2="145" stroke={style.secondary} strokeWidth="5" strokeDasharray="8 6" />
-                  <polygon points="90,20 35,120 145,120" fill="white" stroke={style.primary} strokeWidth="6" />
+                  <line
+                    x1="90"
+                    y1="15"
+                    x2="90"
+                    y2="145"
+                    stroke={style.secondary}
+                    strokeWidth="5"
+                    strokeDasharray="8 6"
+                  />
+                  <polygon
+                    points="90,20 35,120 145,120"
+                    fill="white"
+                    stroke={style.primary}
+                    strokeWidth="6"
+                  />
                 </svg>
               </div>
-              <div style={{ flex: 1, borderRadius: 22, background: "#fff7ed", padding: 16, textAlign: "center" }}>
-                <div style={{ fontSize: 18, fontWeight: 800, color: "#c2410c", marginBottom: 8 }}>Not symmetric</div>
+              <div
+                style={{
+                  flex: 1,
+                  borderRadius: 22,
+                  background: "#fff7ed",
+                  padding: 16,
+                  textAlign: "center",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 800,
+                    color: "#c2410c",
+                    marginBottom: 8,
+                  }}
+                >
+                  Not symmetric
+                </div>
                 <svg width="180" height="160" viewBox="0 0 180 160">
-                  <line x1="90" y1="15" x2="90" y2="145" stroke="#fb923c" strokeWidth="5" strokeDasharray="8 6" />
-                  <polygon points="70,25 28,122 142,108" fill="white" stroke="#ea580c" strokeWidth="6" />
+                  <line
+                    x1="90"
+                    y1="15"
+                    x2="90"
+                    y2="145"
+                    stroke="#fb923c"
+                    strokeWidth="5"
+                    strokeDasharray="8 6"
+                  />
+                  <polygon
+                    points="70,25 28,122 142,108"
+                    fill="white"
+                    stroke="#ea580c"
+                    strokeWidth="6"
+                  />
                 </svg>
               </div>
             </div>
@@ -275,11 +493,37 @@ export const SceneSlide: React.FC<{
         return (
           <div style={cardStyle}>
             <svg width="420" height="240" viewBox="0 0 420 240">
-              <circle cx="210" cy="120" r="78" fill="white" stroke={style.primary} strokeWidth="6" />
-              <line x1="210" y1="120" x2="288" y2="120" stroke={style.secondary} strokeWidth="5" />
-              <line x1="132" y1="120" x2="288" y2="120" stroke={style.primary} strokeWidth="4" strokeDasharray="7 6" />
-              <text x="290" y="114" fontSize="18" fill={style.secondary} fontWeight="700">Radius</text>
-              <text x="158" y="145" fontSize="18" fill={style.primary} fontWeight="700">Diameter</text>
+              <circle
+                cx="210"
+                cy="120"
+                r="78"
+                fill="white"
+                stroke={style.primary}
+                strokeWidth="6"
+              />
+              <line
+                x1="210"
+                y1="120"
+                x2="288"
+                y2="120"
+                stroke={style.secondary}
+                strokeWidth="5"
+              />
+              <line
+                x1="132"
+                y1="120"
+                x2="288"
+                y2="120"
+                stroke={style.primary}
+                strokeWidth="4"
+                strokeDasharray="7 6"
+              />
+              <text x="290" y="114" fontSize="18" fill={style.secondary} fontWeight="700">
+                Radius
+              </text>
+              <text x="158" y="145" fontSize="18" fill={style.primary} fontWeight="700">
+                Diameter
+              </text>
               <circle cx="210" cy="120" r="6" fill={style.primary} />
             </svg>
             {chipRow}
@@ -306,8 +550,23 @@ export const SceneSlide: React.FC<{
         return (
           <div style={cardStyle}>
             <div style={{ display: "flex", gap: 18, justifyContent: "space-between" }}>
-              <div style={{ width: 90, height: 90, borderRadius: 16, background: style.soft, border: `6px solid ${style.primary}` }} />
-              <div style={{ width: 100, height: 90, background: "white", border: `6px solid ${style.primary}` }} />
+              <div
+                style={{
+                  width: 90,
+                  height: 90,
+                  borderRadius: 16,
+                  background: style.soft,
+                  border: `6px solid ${style.primary}`,
+                }}
+              />
+              <div
+                style={{
+                  width: 100,
+                  height: 90,
+                  background: "white",
+                  border: `6px solid ${style.primary}`,
+                }}
+              />
               <div
                 style={{
                   width: 100,
@@ -340,7 +599,15 @@ export const SceneSlide: React.FC<{
                       clipPath: i === 2 ? "polygon(50% 0%, 100% 100%, 0% 100%)" : "none",
                     }}
                   />
-                  <div style={{ fontSize: 16, fontWeight: 800, color: style.primary }}>{name}</div>
+                  <div
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 800,
+                      color: style.primary,
+                    }}
+                  >
+                    {name}
+                  </div>
                 </div>
               ))}
             </div>
@@ -351,7 +618,16 @@ export const SceneSlide: React.FC<{
       case "fraction-model":
         return (
           <div style={cardStyle}>
-            <div style={{ fontSize: 28, fontWeight: 800, color: style.primary, marginBottom: 18 }}>Fraction Model</div>
+            <div
+              style={{
+                fontSize: 28,
+                fontWeight: 800,
+                color: style.primary,
+                marginBottom: 18,
+              }}
+            >
+              Fraction Visual
+            </div>
             <div style={{ display: "flex", gap: 14 }}>
               {[0, 1, 2, 3].map((i) => (
                 <div
@@ -418,7 +694,15 @@ export const SceneSlide: React.FC<{
                       marginBottom: 10,
                     }}
                   />
-                  <div style={{ fontSize: 22, fontWeight: 800, color: style.primary }}>{f}</div>
+                  <div
+                    style={{
+                      fontSize: 22,
+                      fontWeight: 800,
+                      color: style.primary,
+                    }}
+                  >
+                    {f}
+                  </div>
                 </div>
               ))}
             </div>
@@ -429,7 +713,16 @@ export const SceneSlide: React.FC<{
       case "equation-balance":
         return (
           <div style={cardStyle}>
-            <div style={{ fontSize: 28, fontWeight: 800, color: style.primary, marginBottom: 18 }}>Equation Balance</div>
+            <div
+              style={{
+                fontSize: 28,
+                fontWeight: 800,
+                color: style.primary,
+                marginBottom: 18,
+              }}
+            >
+              Equation Balance
+            </div>
             <div
               style={{
                 minHeight: 220,
@@ -440,7 +733,9 @@ export const SceneSlide: React.FC<{
                 justifyContent: "center",
               }}
             >
-              <div style={{ fontSize: 56, fontWeight: 900, color: style.primary }}>x + 3 = 8</div>
+              <div style={{ fontSize: 56, fontWeight: 900, color: style.primary }}>
+                x + 3 = 8
+              </div>
             </div>
             {chipRow}
           </div>
@@ -501,13 +796,45 @@ export const SceneSlide: React.FC<{
           <div style={cardStyle}>
             <svg width="430" height="230" viewBox="0 0 430 230">
               <circle cx="60" cy="55" r="24" fill="#facc15" />
-              <path d="M140 140 C170 60, 270 60, 300 140 C260 190, 180 190, 140 140Z" fill={style.soft} stroke={style.primary} strokeWidth="6" />
-              <line x1="60" y1="80" x2="150" y2="120" stroke={style.secondary} strokeWidth="5" />
-              <line x1="90" y1="180" x2="170" y2="150" stroke="#38bdf8" strokeWidth="5" />
-              <line x1="320" y1="100" x2="395" y2="65" stroke="#22c55e" strokeWidth="5" />
-              <text x="18" y="24" fontSize="18" fill={style.primary} fontWeight="800">Sunlight</text>
-              <text x="10" y="210" fontSize="18" fill={style.primary} fontWeight="800">Water</text>
-              <text x="338" y="55" fontSize="18" fill={style.primary} fontWeight="800">Food/O₂</text>
+              <path
+                d="M140 140 C170 60, 270 60, 300 140 C260 190, 180 190, 140 140Z"
+                fill={style.soft}
+                stroke={style.primary}
+                strokeWidth="6"
+              />
+              <line
+                x1="60"
+                y1="80"
+                x2="150"
+                y2="120"
+                stroke={style.secondary}
+                strokeWidth="5"
+              />
+              <line
+                x1="90"
+                y1="180"
+                x2="170"
+                y2="150"
+                stroke="#38bdf8"
+                strokeWidth="5"
+              />
+              <line
+                x1="320"
+                y1="100"
+                x2="395"
+                y2="65"
+                stroke="#22c55e"
+                strokeWidth="5"
+              />
+              <text x="18" y="24" fontSize="18" fill={style.primary} fontWeight="800">
+                Sunlight
+              </text>
+              <text x="10" y="210" fontSize="18" fill={style.primary} fontWeight="800">
+                Water
+              </text>
+              <text x="338" y="55" fontSize="18" fill={style.primary} fontWeight="800">
+                Food/O₂
+              </text>
             </svg>
             {chipRow}
           </div>
@@ -517,10 +844,34 @@ export const SceneSlide: React.FC<{
         return (
           <div style={cardStyle}>
             <svg width="420" height="240" viewBox="0 0 420 240">
-              <circle cx="120" cy="120" r="40" fill={style.soft} stroke={style.primary} strokeWidth="5" />
-              <circle cx="300" cy="120" r="40" fill="white" stroke={style.secondary} strokeWidth="5" />
-              <path d="M160 95 C210 55, 250 55, 285 95" fill="none" stroke={style.primary} strokeWidth="5" />
-              <path d="M280 145 C235 185, 185 185, 140 145" fill="none" stroke={style.secondary} strokeWidth="5" />
+              <circle
+                cx="120"
+                cy="120"
+                r="40"
+                fill={style.soft}
+                stroke={style.primary}
+                strokeWidth="5"
+              />
+              <circle
+                cx="300"
+                cy="120"
+                r="40"
+                fill="white"
+                stroke={style.secondary}
+                strokeWidth="5"
+              />
+              <path
+                d="M160 95 C210 55, 250 55, 285 95"
+                fill="none"
+                stroke={style.primary}
+                strokeWidth="5"
+              />
+              <path
+                d="M280 145 C235 185, 185 185, 140 145"
+                fill="none"
+                stroke={style.secondary}
+                strokeWidth="5"
+              />
             </svg>
             {chipRow}
           </div>
@@ -530,8 +881,23 @@ export const SceneSlide: React.FC<{
         return (
           <div style={cardStyle}>
             <svg width="380" height="240" viewBox="0 0 380 240">
-              <ellipse cx="190" cy="120" rx="120" ry="80" fill={style.soft} stroke={style.primary} strokeWidth="6" />
-              <circle cx="190" cy="120" r="34" fill="white" stroke={style.secondary} strokeWidth="5" />
+              <ellipse
+                cx="190"
+                cy="120"
+                rx="120"
+                ry="80"
+                fill={style.soft}
+                stroke={style.primary}
+                strokeWidth="6"
+              />
+              <circle
+                cx="190"
+                cy="120"
+                r="34"
+                fill="white"
+                stroke={style.secondary}
+                strokeWidth="5"
+              />
               <circle cx="130" cy="95" r="12" fill={style.primary} />
               <circle cx="245" cy="100" r="12" fill={style.primary} />
               <circle cx="150" cy="150" r="10" fill={style.secondary} />
@@ -544,15 +910,51 @@ export const SceneSlide: React.FC<{
       case "cell-zoom":
         return (
           <div style={cardStyle}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
               <svg width="160" height="160" viewBox="0 0 160 160">
-                <circle cx="80" cy="80" r="52" fill={style.soft} stroke={style.primary} strokeWidth="6" />
-                <circle cx="80" cy="80" r="18" fill="white" stroke={style.secondary} strokeWidth="4" />
+                <circle
+                  cx="80"
+                  cy="80"
+                  r="52"
+                  fill={style.soft}
+                  stroke={style.primary}
+                  strokeWidth="6"
+                />
+                <circle
+                  cx="80"
+                  cy="80"
+                  r="18"
+                  fill="white"
+                  stroke={style.secondary}
+                  strokeWidth="4"
+                />
               </svg>
-              <div style={{ fontSize: 38, fontWeight: 900, color: style.secondary }}>→</div>
+              <div style={{ fontSize: 38, fontWeight: 900, color: style.secondary }}>
+                →
+              </div>
               <svg width="160" height="160" viewBox="0 0 160 160">
-                <circle cx="80" cy="80" r="58" fill="white" stroke={style.primary} strokeWidth="6" />
-                <circle cx="80" cy="80" r="22" fill={style.soft} stroke={style.secondary} strokeWidth="4" />
+                <circle
+                  cx="80"
+                  cy="80"
+                  r="58"
+                  fill="white"
+                  stroke={style.primary}
+                  strokeWidth="6"
+                />
+                <circle
+                  cx="80"
+                  cy="80"
+                  r="22"
+                  fill={style.soft}
+                  stroke={style.secondary}
+                  strokeWidth="4"
+                />
                 <circle cx="48" cy="56" r="8" fill={style.primary} />
                 <circle cx="112" cy="58" r="8" fill={style.primary} />
               </svg>
@@ -590,10 +992,33 @@ export const SceneSlide: React.FC<{
         return (
           <div style={cardStyle}>
             <svg width="420" height="220" viewBox="0 0 420 220">
-              <rect x="145" y="90" width="120" height="70" rx="14" fill={style.soft} stroke={style.primary} strokeWidth="6" />
-              <line x1="70" y1="125" x2="145" y2="125" stroke={style.secondary} strokeWidth="6" />
+              <rect
+                x="145"
+                y="90"
+                width="120"
+                height="70"
+                rx="14"
+                fill={style.soft}
+                stroke={style.primary}
+                strokeWidth="6"
+              />
+              <line
+                x1="70"
+                y1="125"
+                x2="145"
+                y2="125"
+                stroke={style.secondary}
+                strokeWidth="6"
+              />
               <polygon points="145,125 127,115 127,135" fill={style.secondary} />
-              <line x1="265" y1="125" x2="350" y2="125" stroke={style.primary} strokeWidth="6" />
+              <line
+                x1="265"
+                y1="125"
+                x2="350"
+                y2="125"
+                stroke={style.primary}
+                strokeWidth="6"
+              />
               <polygon points="350,125 332,115 332,135" fill={style.primary} />
             </svg>
             {chipRow}
@@ -606,7 +1031,12 @@ export const SceneSlide: React.FC<{
             <svg width="420" height="240" viewBox="0 0 420 240">
               <line x1="50" y1="190" x2="370" y2="190" stroke="#64748b" strokeWidth="4" />
               <line x1="50" y1="30" x2="50" y2="190" stroke="#64748b" strokeWidth="4" />
-              <polyline points="50,170 130,150 210,120 290,80 360,50" fill="none" stroke={style.primary} strokeWidth="7" />
+              <polyline
+                points="50,170 130,150 210,120 290,80 360,50"
+                fill="none"
+                stroke={style.primary}
+                strokeWidth="7"
+              />
             </svg>
             {chipRow}
           </div>
@@ -641,9 +1071,35 @@ export const SceneSlide: React.FC<{
           <div style={cardStyle}>
             <svg width="380" height="240" viewBox="0 0 380 240">
               <circle cx="190" cy="120" r="20" fill={style.primary} />
-              <ellipse cx="190" cy="120" rx="110" ry="45" fill="none" stroke={style.secondary} strokeWidth="4" />
-              <ellipse cx="190" cy="120" rx="110" ry="45" fill="none" stroke={style.secondary} strokeWidth="4" transform="rotate(60 190 120)" />
-              <ellipse cx="190" cy="120" rx="110" ry="45" fill="none" stroke={style.secondary} strokeWidth="4" transform="rotate(-60 190 120)" />
+              <ellipse
+                cx="190"
+                cy="120"
+                rx="110"
+                ry="45"
+                fill="none"
+                stroke={style.secondary}
+                strokeWidth="4"
+              />
+              <ellipse
+                cx="190"
+                cy="120"
+                rx="110"
+                ry="45"
+                fill="none"
+                stroke={style.secondary}
+                strokeWidth="4"
+                transform="rotate(60 190 120)"
+              />
+              <ellipse
+                cx="190"
+                cy="120"
+                rx="110"
+                ry="45"
+                fill="none"
+                stroke={style.secondary}
+                strokeWidth="4"
+                transform="rotate(-60 190 120)"
+              />
               <circle cx="298" cy="120" r="8" fill="#0f172a" />
             </svg>
             {chipRow}
@@ -653,10 +1109,23 @@ export const SceneSlide: React.FC<{
       case "reaction-flow":
         return (
           <div style={cardStyle}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 220 }}>
-              <div style={{ fontSize: 34, fontWeight: 900, color: style.primary }}>A + B</div>
-              <div style={{ fontSize: 46, fontWeight: 900, color: style.secondary }}>→</div>
-              <div style={{ fontSize: 34, fontWeight: 900, color: style.primary }}>C</div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                minHeight: 220,
+              }}
+            >
+              <div style={{ fontSize: 34, fontWeight: 900, color: style.primary }}>
+                A + B
+              </div>
+              <div style={{ fontSize: 46, fontWeight: 900, color: style.secondary }}>
+                →
+              </div>
+              <div style={{ fontSize: 34, fontWeight: 900, color: style.primary }}>
+                C
+              </div>
             </div>
             {chipRow}
           </div>
@@ -715,7 +1184,16 @@ export const SceneSlide: React.FC<{
       case "word-breakdown":
         return (
           <div style={cardStyle}>
-            <div style={{ fontSize: 40, fontWeight: 900, color: style.primary, marginBottom: 18 }}>beautifully</div>
+            <div
+              style={{
+                fontSize: 40,
+                fontWeight: 900,
+                color: style.primary,
+                marginBottom: 18,
+              }}
+            >
+              beautifully
+            </div>
             <div style={{ display: "flex", gap: 12 }}>
               {["beauty", "ful", "ly"].map((s) => (
                 <div
@@ -767,11 +1245,36 @@ export const SceneSlide: React.FC<{
         return (
           <div style={cardStyle}>
             <div style={{ position: "relative", minHeight: 220 }}>
-              <div style={{ position: "absolute", top: 110, left: 30, right: 30, height: 6, background: style.soft }} />
+              <div
+                style={{
+                  position: "absolute",
+                  top: 110,
+                  left: 30,
+                  right: 30,
+                  height: 6,
+                  background: style.soft,
+                }}
+              />
               {["Early", "Middle", "Later"].map((item, i) => (
                 <div key={item} style={{ position: "absolute", left: 45 + i * 120, top: 70 }}>
-                  <div style={{ width: 22, height: 22, borderRadius: 9999, background: style.primary, margin: "0 auto 12px" }} />
-                  <div style={{ fontSize: 20, fontWeight: 800, color: style.primary }}>{item}</div>
+                  <div
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: 9999,
+                      background: style.primary,
+                      margin: "0 auto 12px",
+                    }}
+                  />
+                  <div
+                    style={{
+                      fontSize: 20,
+                      fontWeight: 800,
+                      color: style.primary,
+                    }}
+                  >
+                    {item}
+                  </div>
                 </div>
               ))}
             </div>
@@ -833,11 +1336,30 @@ export const SceneSlide: React.FC<{
         return (
           <div style={cardStyle}>
             <svg width="420" height="240" viewBox="0 0 420 240">
-              <path d="M60 80 L120 50 L190 70 L260 45 L340 80 L330 170 L240 190 L160 170 L80 190 Z" fill={style.soft} stroke={style.primary} strokeWidth="6" />
+              <path
+                d="M60 80 L120 50 L190 70 L260 45 L340 80 L330 170 L240 190 L160 170 L80 190 Z"
+                fill={style.soft}
+                stroke={style.primary}
+                strokeWidth="6"
+              />
               <circle cx="170" cy="110" r="8" fill={style.primary} />
               <circle cx="250" cy="125" r="8" fill={style.secondary} />
-              <line x1="170" y1="110" x2="130" y2="85" stroke={style.primary} strokeWidth="3" />
-              <line x1="250" y1="125" x2="290" y2="95" stroke={style.secondary} strokeWidth="3" />
+              <line
+                x1="170"
+                y1="110"
+                x2="130"
+                y2="85"
+                stroke={style.primary}
+                strokeWidth="3"
+              />
+              <line
+                x1="250"
+                y1="125"
+                x2="290"
+                y2="95"
+                stroke={style.secondary}
+                strokeWidth="3"
+              />
             </svg>
             {chipRow}
           </div>
@@ -908,8 +1430,12 @@ export const SceneSlide: React.FC<{
             }}
           >
             <div>
-              <div style={{ fontSize: 56, fontWeight: 900, lineHeight: 1.05 }}>NeoLearn</div>
-              <div style={{ fontSize: 24, marginTop: 14, opacity: 0.95 }}>Learn • Practice • Progress</div>
+              <div style={{ fontSize: 56, fontWeight: 900, lineHeight: 1.05 }}>
+                NeoLearn
+              </div>
+              <div style={{ fontSize: 24, marginTop: 14, opacity: 0.95 }}>
+                Learn • Practice • Progress
+              </div>
             </div>
           </div>
         );
@@ -920,8 +1446,15 @@ export const SceneSlide: React.FC<{
       default:
         return (
           <div style={cardStyle}>
-            <div style={{ fontSize: 30, fontWeight: 800, color: style.primary, marginBottom: 18 }}>
-              {type === "example" ? "Worked Example" : "Concept Visual"}
+            <div
+              style={{
+                fontSize: 30,
+                fontWeight: 800,
+                color: style.primary,
+                marginBottom: 18,
+              }}
+            >
+              {genericHeading}
             </div>
             <div
               style={{
@@ -1000,7 +1533,9 @@ export const SceneSlide: React.FC<{
           justifyContent: "space-between",
         }}
       >
-        <div style={{ fontSize: 30, fontWeight: 800, color: style.primary }}>NeoLearn</div>
+        <div style={{ fontSize: 30, fontWeight: 800, color: style.primary }}>
+          NeoLearn
+        </div>
         <div
           style={{
             padding: "10px 18px",
