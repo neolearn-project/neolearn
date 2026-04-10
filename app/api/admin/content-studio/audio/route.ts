@@ -23,6 +23,14 @@ function ensureDir(dirPath: string) {
   }
 }
 
+function toSafeSlug(value: string) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -39,16 +47,16 @@ export async function POST(req: Request) {
       );
     }
 
-   type StudioScene = {
-  type?: string;
-  voiceover?: string;
-};
+    type StudioScene = {
+      type?: string;
+      voiceover?: string;
+    };
 
-const narrationText = (scenes as StudioScene[])
-  .filter((scene: StudioScene) => scene?.type !== "brand-intro")
-  .map((scene: StudioScene) => String(scene?.voiceover || "").trim())
-  .filter(Boolean)
-  .join("\n\n");
+    const narrationText = (scenes as StudioScene[])
+      .filter((scene: StudioScene) => scene?.type !== "brand-intro")
+      .map((scene: StudioScene) => String(scene?.voiceover || "").trim())
+      .filter(Boolean)
+      .join("\n\n");
 
     if (!narrationText) {
       return NextResponse.json(
@@ -57,27 +65,29 @@ const narrationText = (scenes as StudioScene[])
       );
     }
 
-    const instructions =
-      language.toLowerCase() === "hindi"
-        ? "Speak clearly in simple Hindi for Indian school students. Warm teacher voice."
-        : language.toLowerCase() === "bengali"
-        ? "Speak clearly in simple Bengali for Indian school students. Warm teacher voice."
-        : "Speak clearly in simple English for Indian school students. Warm teacher voice.";
+    const lowerLang = language.toLowerCase();
 
-    const speech = await openai.audio.speech.create({
-      model: "gpt-4o-mini-tts",
-      voice: "alloy",
-      response_format: "mp3",
-      input: narrationText,
-      instructions,
-    });
+    const instructions =
+  language.toLowerCase() === "hindi"
+    ? "Speak clearly in simple Hindi for Indian school students. Use a warm, catchy female teacher voice with natural Indian classroom style."
+    : language.toLowerCase() === "bengali"
+      ? "Speak clearly in simple Bengali for Indian school students. Use a warm, catchy female teacher voice with natural Indian classroom style."
+      : "Speak clearly in simple Indian English for school students in India. Use a warm, catchy female teacher voice with clear pronunciation, friendly teaching tone, and natural Indian accent.";
+
+const speech = await openai.audio.speech.create({
+  model: "gpt-4o-mini-tts",
+  voice: "shimmer",
+  response_format: "mp3",
+  input: narrationText,
+  instructions,
+});
 
     const buffer = Buffer.from(await speech.arrayBuffer());
 
     const outDir = path.join(process.cwd(), "public", "generated", "audio");
     ensureDir(outDir);
 
-    const safeTopic = topic.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const safeTopic = toSafeSlug(topic || "topic");
     const fileName = `content-studio-${jobId || Date.now()}-${safeTopic}.mp3`;
     const filePath = path.join(outDir, fileName);
 

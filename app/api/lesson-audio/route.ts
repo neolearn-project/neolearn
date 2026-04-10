@@ -8,9 +8,37 @@ const openai = new OpenAI({
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const text: string = (body.text || "").trim();
-    const language: string = body.language || "English";
-    const speed: string = body.speed || "Normal";
+const mobile = String(body.mobile || "").trim();
+const text: string = String(body.text || body.lessonText || "").trim();
+const language: string = body.language || "English";
+const speed: string = body.speed || "Normal";
+
+if (!mobile) {
+  return NextResponse.json(
+    { error: "Missing mobile field for lesson audio." },
+    { status: 400 }
+  );
+}
+
+const entitlementRes = await fetch(
+  `${new URL(req.url).origin}/api/student/entitlements?mobile=${encodeURIComponent(mobile)}`,
+  { cache: "no-store" }
+);
+const ent = await entitlementRes.json();
+
+if (!entitlementRes.ok || !ent?.ok) {
+  return NextResponse.json(
+    { error: "Unable to verify entitlement for lesson audio." },
+    { status: 500 }
+  );
+}
+
+if (!ent.features?.lessonAudio) {
+  return NextResponse.json(
+    { error: "Full lesson audio is available for paid or override access only." },
+    { status: 403 }
+  );
+}
 
     if (!text) {
       return NextResponse.json(

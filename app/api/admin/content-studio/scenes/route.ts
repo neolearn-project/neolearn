@@ -45,187 +45,151 @@ type Scene = {
   visualIntent?: VisualIntent;
 };
 
-const lower = (v?: string) => String(v || "").toLowerCase();
-
-function isHindi(language: string) {
-  return lower(language) === "hindi";
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
 }
 
-function isBengali(language: string) {
-  return lower(language) === "bengali";
+function countWords(text?: string) {
+  return String(text || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
 }
 
-function tr(language: string, en: string, hi: string, bn: string) {
-  if (isHindi(language)) return hi;
-  if (isBengali(language)) return bn;
-  return en;
-}
+function estimateVoiceoverDurationMs(text?: string, type?: SceneType) {
+  const words = countWords(text);
 
-function topicContains(topic: string, patterns: RegExp) {
-  return patterns.test(lower(topic));
-}
-
-function fixedDiagramType(params: {
-  family: TopicFamily;
-  topic: string;
-  type: Exclude<SceneType, "brand-intro">;
-  title?: string;
-  subtitle?: string;
-  subject: string;
-}) {
-  const { family, topic, type, title, subtitle, subject } = params;
-  const text = `${subject} ${topic} ${title || ""} ${subtitle || ""}`.toLowerCase();
-
-  if (family === "geometry") {
-    if (/triangle|triangles/.test(text)) {
-      if (type === "title") return "geometry-hook";
-      if (type === "concept") return "triangle-types";
-      if (type === "example") return "triangle-labels";
-      if (type === "recap") return "triangle-compare";
-      return "brand-cta";
-    }
-
-    if (/symmetry|line of symmetry|reflection|mirror/.test(text)) {
-      if (type === "title") return "geometry-hook";
-      if (type === "concept") return "symmetry-line";
-      if (type === "example") return "mirror-half";
-      if (type === "recap") return "symmetric-vs-not";
-      return "brand-cta";
-    }
-
-    if (/circle/.test(text)) {
-      if (type === "title") return "geometry-hook";
-      if (type === "concept") return "circle-parts";
-      if (type === "example") return "circle-sectors";
-      if (type === "recap") return "shape-compare";
-      return "brand-cta";
-    }
+  if (!words) {
+    if (type === "title") return 4800;
+    if (type === "concept") return 7600;
+    if (type === "example") return 8200;
+    if (type === "recap") return 6200;
+    if (type === "cta") return 5200;
+    return 4200;
   }
 
-  return diagramForScene({ family, topic, subject, type, title, subtitle });
+  const msPerWord = 430;
+  const basePause =
+    type === "title"
+      ? 1500
+      : type === "concept"
+        ? 1800
+        : type === "example"
+          ? 1900
+          : type === "recap"
+            ? 1700
+            : type === "cta"
+              ? 1600
+              : 1500;
+
+  const estimated = words * msPerWord + basePause;
+
+  const minDuration =
+    type === "title"
+      ? 4800
+      : type === "concept"
+        ? 7000
+        : type === "example"
+          ? 7600
+          : type === "recap"
+            ? 5600
+            : type === "cta"
+              ? 4800
+              : 4200;
+
+  const maxDuration =
+    type === "title"
+      ? 9000
+      : type === "concept"
+        ? 15000
+        : type === "example"
+          ? 16000
+          : type === "recap"
+            ? 11000
+            : type === "cta"
+              ? 9000
+              : 8000;
+
+  return clamp(Math.round(estimated), minDuration, maxDuration);
 }
 
-function localizedSceneDefaults(
-  type: Exclude<SceneType, "brand-intro">,
-  topic: string,
-  language: string,
-  family: TopicFamily
-) {
+function stretchScenesToTarget(scenes: Scene[], durationSec: number) {
+  const targetTotalMs = Math.max(30000, durationSec * 1000);
+  const currentTotalMs = scenes.reduce((sum, scene) => sum + scene.durationMs, 0);
+
+  if (currentTotalMs >= targetTotalMs) {
+    return scenes;
+  }
+
+  const extraNeeded = targetTotalMs - currentTotalMs;
+
+  const weights: Record<SceneType, number> = {
+    "brand-intro": 0.2,
+    title: 0.9,
+    concept: 1.5,
+    example: 1.8,
+    recap: 1.1,
+    cta: 0.8,
+  };
+
+  const totalWeight = scenes.reduce((sum, scene) => sum + (weights[scene.type] || 1), 0);
+
+  let distributed = 0;
+
+  return scenes.map((scene, index) => {
+    const rawAdd = Math.round((extraNeeded * (weights[scene.type] || 1)) / totalWeight);
+    const add =
+      index === scenes.length - 1 ? extraNeeded - distributed : rawAdd;
+
+    distributed += add;
+
+    return {
+      ...scene,
+      durationMs: scene.durationMs + add,
+    };
+  });
+}
+
+function sceneDefaults(type: Exclude<SceneType, "brand-intro">, topic: string, language: string) {
   if (type === "title") {
     return {
       title: topic,
       subtitle: hookSubtitle(language),
-      lines: [
-        topic,
-        tr(language, "Easy explanation", "आसान समझ", "সহজ ব্যাখ্যা"),
-        tr(language, "Quick understanding", "जल्दी समझें", "দ্রুত বোঝো"),
-      ],
-      durationMs: 4200,
+      lines: [topic, "Easy explanation", "Quick understanding"],
+      durationMs: 5200,
       visualKind: "hook" as const,
       animationStyle: "build" as const,
     };
   }
 
   if (type === "concept") {
-    if (family === "geometry" && /triangle|triangles/.test(lower(topic))) {
-      return {
-        title: tr(language, `What are ${topic}?`, `${topic} क्या हैं?`, `${topic} কী?`),
-        subtitle: tr(
-          language,
-          "See how triangles differ by sides",
-          "देखें, भुजाओं के आधार पर त्रिभुज कैसे अलग होते हैं",
-          "দেখো, বাহুর ভিত্তিতে ত্রিভুজ কীভাবে আলাদা হয়"
-        ),
-        lines: [
-          tr(language, "Three-sided shape", "तीन भुजाओं वाली आकृति", "তিন বাহুর আকার"),
-          tr(language, "Sides can be equal or different", "भुजाएँ समान या अलग हो सकती हैं", "বাহু সমান বা ভিন্ন হতে পারে"),
-          tr(language, "Type depends on shape", "प्रकार आकार पर निर्भर करता है", "ধরন আকারের উপর নির্ভর করে"),
-        ],
-        durationMs: 6200,
-        visualKind: "concept" as const,
-        animationStyle: "highlight" as const,
-      };
-    }
-
     return {
-      title: tr(language, `What is ${topic}?`, `${topic} क्या है?`, `${topic} কী?`),
-      subtitle: tr(language, "Understand the core idea", "मूल विचार समझें", "মূল ধারণা বুঝো"),
-      lines: [
-        tr(language, "Core idea", "मुख्य विचार", "মূল ধারণা"),
-        tr(language, "Simple steps", "सरल चरण", "সহজ ধাপ"),
-        tr(language, "Clear understanding", "स्पष्ट समझ", "স্পষ্ট বোঝাপড়া"),
-      ],
-      durationMs: 6200,
+      title: `What is ${topic}?`,
+      subtitle: "Understand the core idea",
+      lines: ["Core idea", "Simple steps", "Clear understanding"],
+      durationMs: 7600,
       visualKind: "concept" as const,
       animationStyle: "highlight" as const,
     };
   }
 
   if (type === "example") {
-    if (family === "geometry" && /triangle|triangles/.test(lower(topic))) {
-      return {
-        title: tr(language, "Triangle Example", "त्रिभुज उदाहरण", "ত্রিভুজ উদাহরণ"),
-        subtitle: tr(
-          language,
-          "Label the sides and base clearly",
-          "भुजाओं और आधार को साफ़ देखें",
-          "বাহু ও ভিত্তি পরিষ্কারভাবে দেখো"
-        ),
-        lines: [
-          tr(language, "Top vertex", "ऊपरी शीर्ष", "উপরের শীর্ষবিন্দু"),
-          tr(language, "Two slant sides", "दो तिरछी भुजाएँ", "দুই ঢালু বাহু"),
-          tr(language, "Bottom base", "नीचे आधार", "নিচের ভিত্তি"),
-        ],
-        durationMs: 6800,
-        visualKind: "example" as const,
-        animationStyle: "transform" as const,
-      };
-    }
-
     return {
-      title: tr(language, "Example", "उदाहरण", "উদাহরণ"),
-      subtitle: tr(language, "See it with a quick example", "इसे एक आसान उदाहरण से देखें", "সহজ উদাহরণে দেখো"),
-      lines: [
-        tr(language, "Simple example", "सरल उदाहरण", "সহজ উদাহরণ"),
-        tr(language, "Step by step", "चरण दर चरण", "ধাপে ধাপে"),
-        tr(language, "Easy to remember", "आसानी से याद रखें", "সহজে মনে রাখো"),
-      ],
-      durationMs: 6800,
+      title: "Example",
+      subtitle: "See it with a quick example",
+      lines: ["Simple example", "Step by step", "Easy to remember"],
+      durationMs: 8200,
       visualKind: "example" as const,
       animationStyle: "transform" as const,
     };
   }
 
   if (type === "recap") {
-    if (family === "geometry" && /triangle|triangles/.test(lower(topic))) {
-      return {
-        title: tr(language, "Quick Recap", "झटपट पुनरावृत्ति", "দ্রুত রিভিশন"),
-        subtitle: tr(
-          language,
-          "Compare triangle types quickly",
-          "त्रिभुज के प्रकार जल्दी से दोहराएँ",
-          "ত্রিভুজের ধরন দ্রুত মিলিয়ে দেখো"
-        ),
-        lines: [
-          tr(language, "All equal sides", "सभी भुजाएँ समान", "সব বাহু সমান"),
-          tr(language, "Two equal sides", "दो भुजाएँ समान", "দুই বাহু সমান"),
-          tr(language, "All sides different", "सभी भुजाएँ अलग", "সব বাহু ভিন্ন"),
-        ],
-        durationMs: 5200,
-        visualKind: "recap" as const,
-        animationStyle: "highlight" as const,
-      };
-    }
-
     return {
-      title: tr(language, "Quick Recap", "झटपट पुनरावृत्ति", "দ্রুত রিভিশন"),
-      subtitle: tr(language, "Remember the key points", "मुख्य बातें याद रखें", "মূল পয়েন্ট মনে রাখো"),
-      lines: [
-        tr(language, "Understand", "समझें", "বোঝো"),
-        tr(language, "See example", "उदाहरण देखें", "উদাহরণ দেখো"),
-        tr(language, "Practice", "अभ्यास करें", "অনুশীলন করো"),
-      ],
-      durationMs: 5200,
+      title: "Quick Recap",
+      subtitle: "Remember the key points",
+      lines: ["Understand", "See example", "Practice"],
+      durationMs: 6200,
       visualKind: "recap" as const,
       animationStyle: "highlight" as const,
     };
@@ -233,13 +197,9 @@ function localizedSceneDefaults(
 
   return {
     title: "NeoLearn",
-    subtitle: tr(language, "Learn Smarter", "स्मार्ट तरीके से सीखें", "স্মার্টভাবে শেখো"),
-    lines: [
-      tr(language, "Learn", "सीखें", "শিখো"),
-      tr(language, "Practice", "अभ्यास", "অনুশীলন"),
-      tr(language, "Track Progress", "प्रगति देखें", "অগ্রগতি দেখো"),
-    ],
-    durationMs: 3600,
+    subtitle: "Learn Smarter",
+    lines: ["Learn", "Practice", "Track Progress"],
+    durationMs: 5200,
     visualKind: "recap" as const,
     animationStyle: "build" as const,
   };
@@ -256,9 +216,10 @@ function normalizeScene(params: {
   videoStyle: "whiteboard" | "premium-slide";
 }): Scene {
   const { raw, index, topic, subject, language, ctaText, family, videoStyle } = params;
+
   const order: Exclude<SceneType, "brand-intro">[] = ["title", "concept", "example", "recap", "cta"];
   const type = order[index];
-  const defaults = localizedSceneDefaults(type, topic, language, family);
+  const defaults = sceneDefaults(type, topic, language);
 
   const title =
     typeof raw?.title === "string" && raw.title.trim() ? raw.title.trim() : defaults.title;
@@ -281,14 +242,10 @@ function normalizeScene(params: {
         .slice(0, 3)
     : defaults.lines;
 
-  const diagramType = fixedDiagramType({
-    family,
-    topic,
-    type,
-    title,
-    subtitle,
-    subject,
-  });
+  const diagramType =
+    typeof raw?.visualIntent?.diagramType === "string" && raw.visualIntent.diagramType.trim()
+      ? raw.visualIntent.diagramType.trim()
+      : diagramForScene({ family, topic, subject, type, title, subtitle });
 
   const labels = Array.isArray(raw?.visualIntent?.labels)
     ? raw.visualIntent.labels
@@ -305,6 +262,12 @@ function normalizeScene(params: {
         .filter(Boolean)
         .slice(0, 4)
     : [topic, subject];
+
+  const estimatedDurationMs = estimateVoiceoverDurationMs(voiceover, type);
+  const rawDurationMs =
+    Number.isFinite(Number(raw?.durationMs)) && Number(raw.durationMs) > 0
+      ? Number(raw.durationMs)
+      : 0;
 
   const visualIntent: VisualIntent = {
     diagramType,
@@ -326,10 +289,7 @@ function normalizeScene(params: {
     subtitle,
     voiceover,
     onscreenText: onscreenText.length ? onscreenText : defaults.lines,
-    durationMs:
-      Number.isFinite(Number(raw?.durationMs)) && Number(raw.durationMs) > 0
-        ? Number(raw.durationMs)
-        : defaults.durationMs,
+    durationMs: Math.max(defaults.durationMs, rawDurationMs, estimatedDurationMs),
     visualStyle: videoStyle,
     visualKind: defaults.visualKind,
     visualIntent,
@@ -343,8 +303,9 @@ function buildFallbackScenes(params: {
   videoStyle: "whiteboard" | "premium-slide";
   language: string;
   family: TopicFamily;
+  durationSec: number;
 }) {
-  const { subject, topic, ctaText, videoStyle, language, family } = params;
+  const { subject, topic, ctaText, videoStyle, language, family, durationSec } = params;
 
   const introScene: Scene = {
     sceneNo: 0,
@@ -353,7 +314,7 @@ function buildFallbackScenes(params: {
     subtitle: "The Future of Learning",
     voiceover: "",
     onscreenText: ["NeoLearn", "The Future of Learning", "AI Teachers for Every Child"],
-    durationMs: 2200,
+    durationMs: 2600,
     visualStyle: videoStyle,
     visualIntent: {
       diagramType: "brand-intro",
@@ -368,33 +329,29 @@ function buildFallbackScenes(params: {
       raw: {
         voiceover:
           type === "title"
-            ? tr(
-                language,
-                `Today we will learn ${topic} in a simple and visual way.`,
-                `आज हम ${topic} को आसान और दृश्य तरीके से समझेंगे।`,
-                `আজ আমরা ${topic} সহজ এবং ভিজ্যুয়াল পদ্ধতিতে শিখব।`
-              )
+            ? language.toLowerCase() === "hindi"
+              ? `आज हम ${topic} को आसान और दृश्य तरीके से समझेंगे।`
+              : language.toLowerCase() === "bengali"
+                ? `আজ আমরা ${topic} সহজ এবং ভিজ্যুয়াল পদ্ধতিতে শিখব।`
+                : `Today we will learn ${topic} in a simple, visual and easy way.`
             : type === "concept"
-              ? tr(
-                  language,
-                  `${topic} becomes easier when the main idea is explained clearly step by step.`,
-                  `${topic} को समझने के लिए पहले इसके मूल विचार को स्पष्ट रूप से समझना ज़रूरी है।`,
-                  `${topic} ভালোভাবে শিখতে হলে আগে এর মূল ধারণা পরিষ্কারভাবে বুঝতে হবে।`
-                )
+              ? language.toLowerCase() === "hindi"
+                ? `${topic} को समझने के लिए पहले इसके मूल विचार को स्पष्ट रूप से समझना ज़रूरी है।`
+                : language.toLowerCase() === "bengali"
+                  ? `${topic} ভালোভাবে শিখতে হলে আগে এর মূল ধারণা পরিষ্কারভাবে বুঝতে হবে।`
+                  : `${topic} becomes easier when the main idea is explained clearly step by step.`
               : type === "example"
-                ? tr(
-                    language,
-                    `Now let us look at a simple example so that ${topic} becomes easier to understand and remember.`,
-                    `अब एक आसान उदाहरण देखते हैं जिससे ${topic} और अच्छी तरह समझ आए।`,
-                    `এবার একটি সহজ উদাহরণ দেখি যাতে ${topic} আরও পরিষ্কারভাবে বোঝা যায়।`
-                  )
+                ? language.toLowerCase() === "hindi"
+                  ? `अब एक आसान उदाहरण देखते हैं जिससे ${topic} और अच्छी तरह समझ आए।`
+                  : language.toLowerCase() === "bengali"
+                    ? `এবার একটি সহজ উদাহরণ দেখি যাতে ${topic} আরও পরিষ্কারভাবে বোঝা যায়।`
+                    : `Now let us look at a simple example so that ${topic} becomes easier to understand and remember.`
                 : type === "recap"
-                  ? tr(
-                      language,
-                      `To learn ${topic}, first understand the idea, then see an example, and finally practice it well.`,
-                      `${topic} सीखने के लिए विचार समझना, उदाहरण देखना और अभ्यास करना ज़रूरी है।`,
-                      `${topic} শিখতে হলে ধারণা, উদাহরণ আর অনুশীলন — এই ধাপগুলো গুরুত্বপূর্ণ।`
-                    )
+                  ? language.toLowerCase() === "hindi"
+                    ? `${topic} सीखने के लिए विचार समझना, उदाहरण देखना और अभ्यास करना ज़रूरी है।`
+                    : language.toLowerCase() === "bengali"
+                      ? `${topic} শিখতে হলে ধারণা, উদাহরণ আর অনুশীলন — এই ধাপগুলো গুরুত্বপূর্ণ।`
+                      : `To learn ${topic}, first understand the idea, then see an example, and finally practice it well.`
                   : defaultCtaVoice(language, ctaText),
       },
       index,
@@ -407,7 +364,7 @@ function buildFallbackScenes(params: {
     })
   );
 
-  return [introScene, ...contentScenes];
+  return stretchScenesToTarget([introScene, ...contentScenes], durationSec);
 }
 
 export async function POST(req: Request) {
@@ -429,7 +386,10 @@ export async function POST(req: Request) {
     const script = String(body?.script || "").trim();
 
     if (!topic || !script) {
-      return NextResponse.json({ ok: false, error: "Topic and script are required." }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: "Topic and script are required." },
+        { status: 400 }
+      );
     }
 
     const family = detectTopicFamily(subject, topic, script);
@@ -474,14 +434,15 @@ Rules:
 - Concept scene must explain clearly.
 - Example scene must be visual and practical.
 - Recap scene must be punchy.
+- CTA must feel premium and clean.
 - Keep voiceover natural for teacher narration.
 - Keep onscreenText to exactly 3 short lines.
 - labels max 4 short items.
 - emphasisWords max 4 short items.
 - animationStyle only one of: build, highlight, transform, flow.
 - Prefer topic-specific visuals over generic placeholders.
-- For geometry topics, choose specific geometry diagram types.
-- For triangle topics, use triangle-specific visuals, not generic concept cards.
+- Use stronger hook wording for short-form video.
+- Give realistic durationMs based on voiceover so the video does not end too early.
 `.trim();
 
     const userPrompt = `
@@ -520,7 +481,7 @@ ${script}
       subtitle: "The Future of Learning",
       voiceover: "",
       onscreenText: ["NeoLearn", "The Future of Learning", "AI Teachers for Every Child"],
-      durationMs: 2200,
+      durationMs: 2600,
       visualStyle: videoStyle,
       visualIntent: {
         diagramType: "brand-intro",
@@ -551,9 +512,10 @@ ${script}
             videoStyle,
             language,
             family,
+            durationSec,
           }).slice(1);
 
-    const finalScenes: Scene[] = [introScene, ...contentScenes];
+    const finalScenes = stretchScenesToTarget([introScene, ...contentScenes], durationSec);
 
     const supabase = getSupabase();
     if (supabase) {

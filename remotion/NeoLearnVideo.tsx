@@ -52,26 +52,14 @@ const getSafeStaticFile = (url?: string | null) => {
 
 const getIntroFrames = (scenes: Scene[]) => {
   const introScene = scenes.find((scene) => scene.type === "brand-intro");
-  return introScene ? toFrames(introScene.durationMs) : toFrames(2200);
+  return introScene ? toFrames(introScene.durationMs) : toFrames(2600);
 };
 
 const buildCaptionText = (scene: Scene, ctaText: string, fallbackTopic: string) => {
-  if (scene.type === "cta") {
-    return ctaText || "Start learning smarter with NeoLearn.";
-  }
-
-  if (scene.voiceover && scene.voiceover.trim()) {
-    return scene.voiceover.trim();
-  }
-
-  if (scene.subtitle && scene.subtitle.trim()) {
-    return scene.subtitle.trim();
-  }
-
-  if (scene.title && scene.title.trim()) {
-    return scene.title.trim();
-  }
-
+  if (scene.type === "cta") return ctaText || "Start learning smarter with NeoLearn.";
+  if (scene.voiceover && scene.voiceover.trim()) return scene.voiceover.trim();
+  if (scene.subtitle && scene.subtitle.trim()) return scene.subtitle.trim();
+  if (scene.title && scene.title.trim()) return scene.title.trim();
   return fallbackTopic;
 };
 
@@ -79,15 +67,11 @@ const splitCaption = (text: string) => {
   const clean = String(text || "").replace(/\s+/g, " ").trim();
   if (!clean) return [""];
 
-  if (clean.length <= 58) return [clean];
+  if (clean.length <= 60) return [clean];
 
   const mid = Math.floor(clean.length / 2);
   let splitAt = clean.lastIndexOf(" ", mid);
-
-  if (splitAt < 20) {
-    splitAt = clean.indexOf(" ", mid);
-  }
-
+  if (splitAt < 20) splitAt = clean.indexOf(" ", mid);
   if (splitAt === -1) return [clean];
 
   return [clean.slice(0, splitAt).trim(), clean.slice(splitAt + 1).trim()].filter(Boolean);
@@ -101,7 +85,6 @@ const BackgroundMusic: React.FC<{
   const frame = useCurrentFrame();
 
   let volume = 0.08;
-
   if (frame < introFrames) {
     volume = 0.06;
   } else if (frame >= voiceStartFrame) {
@@ -111,9 +94,7 @@ const BackgroundMusic: React.FC<{
   return <Audio src={src} volume={volume} />;
 };
 
-const CaptionOverlay: React.FC<{
-  text: string;
-}> = ({ text }) => {
+const CaptionOverlay: React.FC<{ text: string }> = ({ text }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -136,7 +117,7 @@ const CaptionOverlay: React.FC<{
         position: "absolute",
         left: 70,
         right: 70,
-        bottom: 38,
+        bottom: 22,
         display: "flex",
         justifyContent: "center",
         pointerEvents: "none",
@@ -146,7 +127,7 @@ const CaptionOverlay: React.FC<{
     >
       <div
         style={{
-          maxWidth: 860,
+          maxWidth: 900,
           padding: "18px 26px",
           borderRadius: 24,
           background: "rgba(15,23,42,0.72)",
@@ -176,19 +157,16 @@ const CaptionOverlay: React.FC<{
   );
 };
 
-export const NeoLearnVideo: React.FC<{
-  data: VideoData;
-}> = ({ data }) => {
+export const NeoLearnVideo: React.FC<{ data: VideoData }> = ({ data }) => {
   const introFrames = getIntroFrames(data.scenes);
-  const narrationGapFrames = 8;
-  const contentStartFrame = introFrames + narrationGapFrames;
-  const voiceStartFrame = contentStartFrame;
+  const narrationGapFrames = 12;
+  const voiceStartFrame = introFrames + narrationGapFrames;
 
   const introMusicSrc = getSafeStaticFile("/audio/neolearn-intro.mp3");
   const narrationSrc = getSafeStaticFile(data.audioUrl);
   const bgMusicSrc = getSafeStaticFile(data.bgMusicUrl);
 
-  let currentFrame = 0;
+  let timelineCursor = 0;
 
   return (
     <FullScreen style={{ background: "#f8fbff" }}>
@@ -213,10 +191,8 @@ export const NeoLearnVideo: React.FC<{
       ) : null}
 
       {data.scenes.map((scene, idx) => {
-        const durationInFrames = toFrames(scene.durationMs);
-
         if (scene.type === "brand-intro") {
-          currentFrame = introFrames;
+          timelineCursor = introFrames;
           return (
             <Sequence key={idx} from={0} durationInFrames={introFrames}>
               <NeoIntro />
@@ -224,8 +200,9 @@ export const NeoLearnVideo: React.FC<{
           );
         }
 
-        const from = currentFrame + narrationGapFrames;
-        currentFrame += durationInFrames;
+        const durationInFrames = toFrames(scene.durationMs);
+        const from = timelineCursor + narrationGapFrames;
+        timelineCursor = from + durationInFrames;
 
         const captionText = buildCaptionText(scene, data.ctaText, data.topic);
 

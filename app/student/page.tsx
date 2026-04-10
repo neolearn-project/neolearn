@@ -1,5 +1,10 @@
 ﻿"use client";
 
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 import Image from "next/image";
 import { getAvatarForSubject } from "../lib/teacherAvatar";
@@ -18,7 +23,7 @@ interface StudentInfo {
   mobile: string;
   classId: ClassId;
 
-  // âœ… Supabase Auth user id (needed for Persona Engine)
+  // Supabase Auth user id (needed for Persona Engine)
   studentId?: string;
 }
 
@@ -45,7 +50,7 @@ interface TopicRow {
   content: any;
   is_active: boolean;
 
-  // âœ… added for UI (even if backend does not send it sometimes)
+  // Added for UI (even if backend does not send it sometimes)
   status?: "completed" | "in_progress" | "needs_revision" | "not_started" | string;
 }
 
@@ -108,10 +113,10 @@ type StoredSession = {
 };
 
 const TOPIC_STATUS_UI: Record<string, string> = {
-  completed: "âœ… Completed",
-  in_progress: "ðŸŸ¡ In Progress",
-  needs_revision: "âš ï¸ Needs Revision",
-  not_started: "âŒ Not Started",
+  completed: "Completed",
+  in_progress: "In Progress",
+  needs_revision: "Needs Revision",
+  not_started: "Not Started",
 };
 
 const SESSION_HISTORY_KEY = "neolearnSessionHistory";
@@ -237,6 +242,11 @@ const [teacherAvatar, setTeacherAvatar] = useState<string>(
 
   const [student, setStudent] = useState<StudentInfo | null>(null);
   const [loadingStudent, setLoadingStudent] = useState(true);
+const [payingPlanCode, setPayingPlanCode] = useState<string | null>(null);
+const [upgradeOpen, setUpgradeOpen] = useState(false);
+const [upgradeReason, setUpgradeReason] = useState<
+  "realtime_voice" | "topic_test" | "lesson_generation" | "qa" | null
+>(null);
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("classroom");
 
@@ -288,7 +298,7 @@ const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
 const [classSession, setClassSession] = useState<ClassSession | null>(null);
 const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
-// ðŸ”¹ Store the full realtime transcript for this class session
+// Store the full realtime transcript for this class session
 const [sessionTranscript, setSessionTranscript] = useState<string>("");
 
   const handleLogout = () => {
@@ -303,7 +313,7 @@ const printSession = () => {
   window.print();
 };
 
-// ðŸ”¹ DEV: Start a live class session (temporary)
+// DEV: Start a live class session (temporary)
 const startClassSession = () => {
   const now = Date.now();
   const durationMinutes = 40;
@@ -336,7 +346,7 @@ function saveSessionHistory(item: StoredSession) {
   window.localStorage.setItem(SESSION_HISTORY_KEY, JSON.stringify(next));
 }
 
-// ðŸ”¹ End class session + save transcript chapter-wise
+// End class session + save transcript chapter-wise
 const endClassSession = () => {
   if (!classSession || !student) return;
 
@@ -369,7 +379,7 @@ const endClassSession = () => {
 const [weeklyRows, setWeeklyRows] = useState<WeeklyProgressRow[]>([]);
   const [weeklyLoading, setWeeklyLoading] = useState(false);
   const [weeklyError, setWeeklyError] = useState<string | null>(null);
-// âœ… Daily progress (Today)
+// Daily progress (Today)
 const [daily, setDaily] = useState<{
   date: string;
   topicsCompleted: number;
@@ -386,7 +396,7 @@ const [dailyError, setDailyError] = useState<string | null>(null);
   const [selectedChapterId, setSelectedChapterId] = useState<number | null>(
     null
   );
-  const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
+  const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
 
 // ---------------- Notes Engine: Generate ----------------
 const handleGenerateNotes = useCallback(async () => {
@@ -442,6 +452,8 @@ const getLangCode = (
   return "en";
 };
 
+
+
 const getSpeedCode = (
   speed: "Slow" | "Normal" | "Fast"
 ): "slow" | "normal" | "fast" => {
@@ -449,6 +461,57 @@ const getSpeedCode = (
   if (speed === "Fast") return "fast";
   return "normal";
 };
+
+const loadEntitlements = useCallback(async () => {
+  const mobile = student?.mobile;
+  if (!mobile) return null;
+
+  try {
+    const res = await fetch(
+      `/api/student/entitlements?mobile=${encodeURIComponent(mobile)}`
+    );
+    const data = await res.json();
+
+    if (res.ok && data?.ok) {
+      setEntitlements(data);
+      return data;
+    }
+  } catch (err) {
+    console.error("loadEntitlements error:", err);
+  }
+
+  return null;
+}, [student]);
+
+const loadPlans = useCallback(async () => {
+  setPlansLoading(true);
+  setPlansError(null);
+
+  try {
+    const res = await fetch("/api/admin/plans");
+    const data = await res.json();
+
+    if (!res.ok || !data?.ok) {
+      setPlansError(data?.error || "Failed to load plans.");
+      setPlans([]);
+      return;
+    }
+
+    const activePlans = Array.isArray(data.plans)
+      ? data.plans.filter((p: any) => p?.is_active)
+      : [];
+
+    setPlans(activePlans);
+  } catch (err: any) {
+    console.error("loadPlans error:", err);
+    setPlansError(err?.message || "Failed to load plans.");
+    setPlans([]);
+  } finally {
+    setPlansLoading(false);
+  }
+}, []);
+
+
   // conversation + audio
 const [messages, setMessages] = useState<ChatMessage[]>([]);
 const [question, setQuestion] = useState("");
@@ -458,6 +521,22 @@ const [audioUrl, setAudioUrl] = useState<string | null>(null);
 
 const [audioError, setAudioError] = useState<string | null>(null);
 const [qaError, setQaError] = useState<string | null>(null);
+const [entitlements, setEntitlements] = useState<any>(null);
+
+const [plans, setPlans] = useState<
+  Array<{
+    id: number;
+    code: string;
+    name: string;
+    track: string;
+    price: number;
+    validity_days: number;
+    is_active: boolean;
+    sort_order?: number;
+  }>
+>([]);
+const [plansLoading, setPlansLoading] = useState(false);
+const [plansError, setPlansError] = useState<string | null>(null);
 
 const [language, setLanguage] = useState<"English" | "Hindi" | "Bengali">(
   "English"
@@ -473,12 +552,129 @@ useEffect(() => {
   const audio = document.getElementById("lesson-audio") as HTMLAudioElement | null;
   if (!audio) return;
 
-  audio
-    .play()
-    .catch(() => {
-      // ignore autoplay error; user can press play manually
-    });
+  try {
+    audio.load();
+  } catch {}
+
+  audio.play().catch(() => {
+    // ignore autoplay error; user can press play manually
+  });
 }, [audioUrl]);
+
+useEffect(() => {
+  loadEntitlements();
+}, [loadEntitlements]);
+
+useEffect(() => {
+  loadPlans();
+}, [loadPlans]);
+
+
+useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  const existing = document.getElementById("razorpay-checkout-js");
+  if (existing) return;
+
+  const script = document.createElement("script");
+  script.id = "razorpay-checkout-js";
+  script.src = "https://checkout.razorpay.com/v1/checkout.js";
+  script.async = true;
+  document.body.appendChild(script);
+}, []);
+
+const handleBuyPlan = async (planCode: string) => {
+  try {
+    const studentMobile = student?.mobile;
+
+    if (!studentMobile) {
+      alert("Student mobile not found. Please login again.");
+      return;
+    }
+
+    setPayingPlanCode(planCode);
+
+    const createRes = await fetch("/api/razorpay/create-order", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        studentMobile,
+        planCode,
+      }),
+    });
+
+    const createData = await createRes.json();
+
+    if (!createRes.ok || !createData?.ok) {
+      throw new Error(createData?.error || "Failed to create payment order.");
+    }
+
+    const { keyId, order, plan } = createData;
+
+    if (!window.Razorpay) {
+      throw new Error("Razorpay SDK not loaded.");
+    }
+
+    const rz = new window.Razorpay({
+      key: keyId,
+      amount: order.amount,
+      currency: order.currency,
+      name: "NeoLearn",
+      description: plan?.name || "NeoLearn Subscription",
+      order_id: order.id,
+      handler: async function (response: any) {
+        try {
+          const verifyRes = await fetch("/api/razorpay/verify", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              studentMobile,
+              planCode,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            }),
+          });
+
+          const verifyData = await verifyRes.json();
+
+          if (!verifyRes.ok || !verifyData?.ok) {
+            throw new Error(verifyData?.error || "Payment verification failed.");
+          }
+
+          await loadEntitlements();
+          alert("Payment successful. Subscription activated.");
+        } catch (err: any) {
+          console.error("verify payment error:", err);
+          alert(err?.message || "Payment verification failed.");
+        } finally {
+          setPayingPlanCode(null);
+        }
+      },
+      prefill: {
+        contact: studentMobile,
+      },
+      theme: {
+        color: "#0f172a",
+      },
+      modal: {
+        ondismiss: function () {
+          setPayingPlanCode(null);
+        },
+      },
+    });
+
+    rz.open();
+  } catch (err: any) {
+    console.error("handleBuyPlan error:", err);
+    alert(err?.message || "Payment failed.");
+    setPayingPlanCode(null);
+  }
+};
 
   // Load student from localStorage
   useEffect(() => {
@@ -558,7 +754,9 @@ useEffect(() => {
           setSubjects(fallback.subjects);
           setChapters(fallback.chapters);
           setTopics(fallback.topics);
-          setSelectedSubjectId(fallback.subjects[0]?.id ?? null);
+          setSelectedSubjectId(null);
+          setSelectedChapterId(null);
+          setSelectedTopicId(null);
           setSyllabusError(null);
           return;
         }
@@ -567,15 +765,17 @@ useEffect(() => {
         setChapters(data.data.chapters || []);
         setTopics(data.data.topics || []);
 
-        if (data.data.subjects.length > 0) {
-          setSelectedSubjectId(data.data.subjects[0].id);
-        }
+        setSelectedSubjectId(null);
+        setSelectedChapterId(null);
+        setSelectedTopicId(null);
       } catch (err: any) {
         const fallback = getFallbackSyllabus(classId);
         setSubjects(fallback.subjects);
         setChapters(fallback.chapters);
         setTopics(fallback.topics);
-        setSelectedSubjectId(fallback.subjects[0]?.id ?? null);
+        setSelectedSubjectId(null);
+        setSelectedChapterId(null);
+        setSelectedTopicId(null);
         setSyllabusError(null);
       } finally {
         setSyllabusLoading(false);
@@ -589,7 +789,7 @@ useEffect(() => {
 useEffect(() => {
   if (!student) return;
 
-  const mobile = student.mobile; // âœ… TS-safe snapshot
+  const mobile = student.mobile; // TS-safe snapshot
 
   async function loadWeekly() {
     setWeeklyLoading(true);
@@ -620,11 +820,11 @@ useEffect(() => {
 }, [student]);
 
 
-// âœ… Fetch DAILY progress (Today â€“ IST)
+// Fetch DAILY progress (Today – IST)
 useEffect(() => {
   if (!student) return;
 
-  const mobile = student.mobile; // âœ… TS-safe snapshot
+  const mobile = student.mobile; // TS-safe snapshot
 
   async function loadDaily() {
     setDailyLoading(true);
@@ -674,27 +874,15 @@ useEffect(() => {
     return topics.filter((t) => t.chapter_id === selectedChapterId);
   }, [topics, selectedChapterId]);
 
-  // Auto-select first chapter when subject changes
+  // Reset dependent selections when parent changes
   useEffect(() => {
-    if (filteredChapters.length === 0) {
-      setSelectedChapterId(null);
-      return;
-    }
-    if (!selectedChapterId) {
-      setSelectedChapterId(filteredChapters[0].id);
-    }
-  }, [filteredChapters, selectedChapterId]);
+    setSelectedChapterId(null);
+    setSelectedTopicId(null);
+  }, [selectedSubjectId]);
 
-  // Auto-select first topic when chapter changes
   useEffect(() => {
-    if (filteredTopics.length === 0) {
-      setSelectedTopicId(null);
-      return;
-    }
-    if (!selectedTopicId) {
-      setSelectedTopicId(filteredTopics[0].id);
-    }
-  }, [filteredTopics, selectedTopicId]);
+    setSelectedTopicId(null);
+  }, [selectedChapterId]);
 
   const currentSubject = useMemo(
     () => subjects.find((s) => s.id === selectedSubjectId) || null,
@@ -735,9 +923,9 @@ useEffect(() => {
           id: messageIdRef.current++,
           author: "Teacher",
           text:
-            "Hi! I am your NeoLearn Maths teacher. " +
-            "Select your topic, then click â€œStart Lesson (beta)â€ to hear a short explanation. " +
-            "You can also ask me questions anytime.",
+            'Hi! I am your NeoLearn Maths teacher. ' +
+            'Select your subject, chapter, and topic, then click "Start Lesson" to hear a short explanation. ' +
+            'You can also ask me questions anytime.',
           ts: new Date().toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
@@ -772,7 +960,7 @@ useEffect(() => {
     []
   );
 
-// ðŸ”¹ Countdown timer for live class
+// Countdown timer for live class
 useEffect(() => {
   if (!classSession?.isLive) return;
 
@@ -829,21 +1017,16 @@ const handleStartLesson = useCallback(async () => {
   setAudioError(null);
   setQaError(null);
 
-const mobile = student?.mobile;
-if (!mobile) {
-  pushMessage("Teacher", "Student info missing. Please login again.", true);
-  setIsStartingLesson(false);
-  return;
-}
+  const mobile = student?.mobile;
+  if (!mobile) {
+    pushMessage("Teacher", "Student info missing. Please login again.", true);
+    setIsStartingLesson(false);
+    return;
+  }
 
-let access: { ok?: boolean; allowed?: boolean; used?: number; limit?: number } | null = null;
+  const ent = await loadEntitlements();
 
-try {
-  const accessRes = await fetch(
-    `/api/access/check?mobile=${encodeURIComponent(mobile)}`
-  );
-
-  if (!accessRes.ok) {
+  if (!ent?.ok) {
     pushMessage(
       "Teacher",
       "Unable to verify your plan right now. Please try again.",
@@ -853,39 +1036,16 @@ try {
     return;
   }
 
-  access = await accessRes.json();
-} catch (err) {
-  console.error("access-check failed:", err);
-  pushMessage(
-    "Teacher",
-    "Unable to verify your plan right now. Please try again.",
-    true
-  );
-  setIsStartingLesson(false);
-  return;
-}
+  if (!ent.features?.lessonGeneration) {
+    pushMessage(
+      "Teacher",
+      `Free access exhausted (${ent.usage?.used}/${ent.usage?.effectiveLimit}). Please subscribe to continue full lessons.`,
+      true
+    );
+    setIsStartingLesson(false);
+    return;
+  }
 
-if (!access?.ok) {
-  pushMessage(
-    "Teacher",
-    "Unable to verify your plan right now. Please try again.",
-    true
-  );
-  setIsStartingLesson(false);
-  return;
-}
-
-if (!access.allowed) {
-  pushMessage(
-    "Teacher",
-    `Free limit reached (${access.used}/${access.limit}). Please subscribe to continue.`,
-    true
-  );
-  setIsStartingLesson(false);
-  return;
-}
-
-  // Clear old audio + revoke old blob URL
   setAudioUrl((old) => {
     if (old && old.startsWith("blob:")) {
       URL.revokeObjectURL(old);
@@ -893,14 +1053,12 @@ if (!access.allowed) {
     return null;
   });
 
-  // Status message in chat
-  pushMessage("Teacher", "Generating your lesson. Please wait a momentâ€¦");
+  pushMessage("Teacher", "Generating your lesson. Please wait a moment...");
 
   try {
-    const langCode = getLangCode(language);          // "en" | "hi" | "bn"
-    const speedCode = getSpeedCode(speed);           // "slow" | "normal" | "fast"
+    const langCode = getLangCode(language);
+    const speedCode = getSpeedCode(speed);
 
-    // ------------------ 1) Get lesson TEXT ------------------
     let scriptText = "";
 
     try {
@@ -908,11 +1066,12 @@ if (!access.allowed) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          board: "CBSE", // or student?.board if you add it later
+          mobile: student?.mobile,
+          board: "CBSE",
           classLevel: `Class ${student?.classId}`,
           subject: currentSubject.subject_name,
           topic: currentTopic.topic_name,
-          language: langCode, // backend expects "en" | "hi" | "bn"
+          language: langCode,
         }),
       });
 
@@ -930,24 +1089,17 @@ if (!access.allowed) {
       console.error("generate-lesson network error:", err);
     }
 
-    // Fallback text if OpenAI text failed
     if (!scriptText) {
-      const langLabel = language; // "English" | "Hindi" | "Bengali"
+      const langLabel = language;
       scriptText = (
-        `Hi ${student?.name || "Student"}, I am your NeoLearn ${
-          currentSubject.subject_name
-        } teacher.\n\n` +
-        `Today we will learn the topic â€œ${currentTopic.topic_name}â€ from the chapter â€œ${
-          currentChapter.chapter_name
-        }â€ for Class ${student?.classId || "6"}.\n` +
+        `Hi ${student?.name || "Student"}, I am your NeoLearn ${currentSubject.subject_name} teacher.\n\n` +
+        `Today we will learn the topic "${currentTopic.topic_name}" from the chapter "${currentChapter.chapter_name}" for Class ${student?.classId || "6"}.\n` +
         `I will explain it step by step in very simple ${langLabel} so you can understand easily.`
       ).trim();
     }
 
-        // Show explanation in chat
     pushMessage("Teacher", scriptText);
 
-    // ðŸ”¥ NEW: Save topic completion in Supabase
     try {
       await fetch("/api/progress/topic", {
         method: "POST",
@@ -968,16 +1120,14 @@ if (!access.allowed) {
       console.error("Failed to save topic progress:", err);
     }
 
-
-
-    // ------------------ 2) Generate AUDIO ------------------
     try {
       const audioRes = await fetch("/api/lesson-audio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          mobile: student?.mobile,
           text: scriptText,
-          language: langCode, // "en" | "hi" | "bn"
+          language: langCode,
           speed: speedCode,
         }),
       });
@@ -1004,6 +1154,7 @@ if (!access.allowed) {
     setAudioError("Unexpected error while generating the lesson.");
   } finally {
     setIsStartingLesson(false);
+    loadEntitlements();
   }
 }, [
   isStartingLesson,
@@ -1016,157 +1167,171 @@ if (!access.allowed) {
   language,
   speed,
   pushMessage,
+  loadEntitlements,
 ]);
 
   // Student asks a doubt -> /api/teacher-math (or your Q&A route)
     // Student asks a doubt -> text + audio answer
   const handleAskQuestion = useCallback(async () => {
-    const trimmed = question.trim();
-    if (!trimmed) return;
+  const trimmed = question.trim();
+  if (!trimmed) return;
 
-    // Show student message in chat
-    pushMessage("You", trimmed);
-    setQuestion("");
+  pushMessage("You", trimmed);
+  setQuestion("");
 
-    // Require subject / chapter / topic
-    if (!currentSubject || !currentChapter || !currentTopic) {
-      pushMessage(
-        "Teacher",
-        "Please select subject, chapter and topic first. Then ask your doubt again.",
-        true
-      );
+  if (!currentSubject || !currentChapter || !currentTopic) {
+    pushMessage(
+      "Teacher",
+      "Please select subject, chapter and topic first. Then ask your doubt again.",
+      true
+    );
+    return;
+  }
+
+  const ent = await loadEntitlements();
+
+  if (!ent?.ok) {
+    pushMessage(
+      "Teacher",
+      "Unable to verify your plan right now. Please try again.",
+      true
+    );
+    return;
+  }
+
+  if (!ent.features?.teacherQa && !ent.features?.teacherQaPreview) {
+    pushMessage(
+      "Teacher",
+      "Teacher Q&A is available after subscription.",
+      true
+    );
+    return;
+  }
+
+  if (ent.features?.teacherQaPreview && !ent.features?.teacherQa) {
+    pushMessage(
+      "Teacher",
+      "Preview: full teacher doubt-solving is available after subscription.",
+      true
+    );
+    return;
+  }
+
+  setIsAsking(true);
+
+  try {
+    const res = await fetch("/api/teacher-math", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question: trimmed,
+        studentId: student?.studentId || "",
+        subjectDbId: String(currentSubject?.id ?? ""),
+        chapterDbId: String(currentChapter?.id ?? ""),
+        topicDbId: String(currentTopic?.id ?? ""),
+        subjectId: currentSubject?.subject_code || "maths6",
+        classId: String(student?.classId ?? "6"),
+        studentMobile: student?.mobile,
+        board: "cbse",
+        lang:
+          language === "Hindi"
+            ? "hi"
+            : language === "Bengali"
+            ? "bn"
+            : "en",
+        subject: currentSubject?.subject_name,
+        chapter: currentChapter?.chapter_name,
+        topic: currentTopic?.topic_name,
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const answer: string =
+      data?.answer || data?.text || "I have noted your question.";
+
+    pushMessage("Teacher", answer);
+
+    const langCode = getLangCode(language);
+
+    setAudioUrl((old) => {
+      if (old && old.startsWith("blob:")) {
+        URL.revokeObjectURL(old);
+      }
+      return null;
+    });
+
+    const ttsRes = await fetch("/api/lesson-audio", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mobile: student?.mobile,
+        text: answer,
+        language: langCode,
+      }),
+    });
+
+    if (!ttsRes.ok) {
+      console.error("TTS error for Q&A:", ttsRes.status);
       return;
     }
 
-    setIsAsking(true);
+    const ttsContentType = ttsRes.headers.get("content-type") || "";
 
-    try {
-      // 1) Get text answer from teacher-math
-      const res = await fetch("/api/teacher-math", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
- body: JSON.stringify({
-  question: trimmed,
+    if (ttsContentType.startsWith("audio/")) {
+      const blob = await ttsRes.blob();
+      const url = URL.createObjectURL(blob);
+      setAudioUrl(url);
+    } else {
+      const ttsData = await ttsRes.json();
 
-// âœ… Persona Engine key
-  studentId: student?.studentId || "",
-
-  // ðŸ”¹ DB IDs (TEXT) â€” Supabase memory
-  subjectDbId: String(currentSubject?.id ?? ""),
-  chapterDbId: String(currentChapter?.id ?? ""),
-  topicDbId: String(currentTopic?.id ?? ""),
-
-  // ðŸ”¹ Semantic ID â€” AI logic
-  subjectId: currentSubject?.subject_code || "maths6",
-
-  classId: String(student?.classId ?? "6"),
-  studentMobile: student?.mobile,
-
-  board: "cbse",
-  lang:
-    language === "Hindi"
-      ? "hi"
-      : language === "Bengali"
-      ? "bn"
-      : "en",
-
-  // optional (debug / analytics)
-  subject: currentSubject?.subject_name,
-  chapter: currentChapter?.chapter_name,
-  topic: currentTopic?.topic_name,
-}),
-});
-
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+      let urlFromJson: string | null = null;
+      if (typeof ttsData?.audioUrl === "string") {
+        urlFromJson = ttsData.audioUrl;
+      } else if (typeof ttsData?.audio_url === "string") {
+        urlFromJson = ttsData.audio_url;
+      } else if (typeof ttsData?.url === "string") {
+        urlFromJson = ttsData.url;
+      } else if (typeof ttsData?.audio === "string") {
+        urlFromJson = `data:audio/mpeg;base64,${ttsData.audio}`;
       }
 
-      const data = await res.json();
-
-      const answer: string =
-        data?.answer || data?.text || "I have noted your question.";
-
-      // Show teacher answer in chat
-      pushMessage("Teacher", answer);
-
-            // 2) Ask lesson-audio API to speak this answer
-      const langCode = getLangCode(language); // "en" | "hi" | "bn"
-
-      // Clear previous audio and revoke old blob URL
-      setAudioUrl((old) => {
-        if (old && old.startsWith("blob:")) {
-          URL.revokeObjectURL(old);
-        }
-        return null;
-      });
-
-      const ttsRes = await fetch("/api/lesson-audio", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: answer,
-          language: langCode,
-        }),
-      });
-
-
-      if (!ttsRes.ok) {
-        console.error("TTS error for Q&A:", ttsRes.status);
-        return; // text is already shown, so we just skip audio
+      if (urlFromJson) {
+        setAudioUrl(urlFromJson);
       }
-
-      const ttsContentType = ttsRes.headers.get("content-type") || "";
-
-      if (ttsContentType.startsWith("audio/")) {
-        // Raw audio stream
-        const blob = await ttsRes.blob();
-        const url = URL.createObjectURL(blob);
-        setAudioUrl(url);
-      } else {
-        // JSON with some audio field (same logic as Start Lesson)
-        const ttsData = await ttsRes.json();
-
-        let urlFromJson: string | null = null;
-        if (typeof ttsData?.audioUrl === "string") {
-          urlFromJson = ttsData.audioUrl;
-        } else if (typeof ttsData?.audio_url === "string") {
-          urlFromJson = ttsData.audio_url;
-        } else if (typeof ttsData?.url === "string") {
-          urlFromJson = ttsData.url;
-        } else if (typeof ttsData?.audio === "string") {
-          urlFromJson = `data:audio/mpeg;base64,${ttsData.audio}`;
-        }
-
-        if (urlFromJson) {
-          setAudioUrl(urlFromJson);
-        }
-      }
-    } catch (err) {
-      console.error("teacher-math or TTS error:", err);
-      pushMessage(
-        "Teacher",
-        "Sorry, I could not answer this right now. Please try again in a moment.",
-        true
-      );
-    } finally {
-      setIsAsking(false);
     }
-  }, [
-    question,
-    currentSubject,
-    currentChapter,
-    currentTopic,
-    student?.classId,
-    language,
-    pushMessage,
-  ]);
+  } catch (err) {
+    console.error("teacher-math or TTS error:", err);
+    pushMessage(
+      "Teacher",
+      "Sorry, I could not answer this right now. Please try again in a moment.",
+      true
+    );
+  } finally {
+    setIsAsking(false);
+  }
+}, [
+  question,
+  currentSubject,
+  currentChapter,
+  currentTopic,
+  student?.classId,
+  student?.mobile,
+  student?.studentId,
+  language,
+  pushMessage,
+  loadEntitlements,
+]);
  
   // ----------------- RENDER -----------------
 
   if (loadingStudent) {
     return (
       <div className="min-h-screen flex items-center justify-center text-sm text-gray-500">
-        Loading your classroomâ€¦
+        Loading your classroom...
       </div>
     );
   }
@@ -1174,188 +1339,304 @@ if (!access.allowed) {
   if (!student) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Top bar */}
-      <header className="flex items-center justify-between px-6 py-3 border-b bg-white shadow-sm">
-  <div className="flex items-center gap-3">
-    {/* Logo */}
-    <div className="h-9 w-9 rounded-full overflow-hidden bg-blue-600 flex items-center justify-center">
-      <img
-        src="/logo/neolearn-logo.png"
-        alt="NeoLearn logo"
-        className="h-full w-full object-contain"
-      />
+  <div className="fixed inset-0 flex flex-col bg-slate-100">
+    {/* Top bar */}
+    <header className="shrink-0 border-b border-slate-200 bg-white px-4 py-3 shadow-sm md:px-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-blue-600">
+            <img
+              src="/logo/neolearn-logo.png"
+              alt="NeoLearn logo"
+              className="h-full w-full object-contain"
+            />
+          </div>
+          <div className="text-lg font-semibold">NeoLearn</div>
+        </div>
+
+        <div className="flex items-center gap-3 text-xs text-gray-600">
+          <span>
+            {student.name}  Class {student.classId} {student.mobile}
+          </span>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="rounded-full border border-slate-300 px-3 py-1 text-[11px] font-semibold hover:bg-slate-100"
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+    </header>
+
+    {/* Fullscreen app shell */}
+    <div className="min-h-0 flex-1 px-2 py-2 md:px-3 md:py-3">
+      <div className="flex h-full min-h-0 flex-col gap-3">
+        {/* Top horizontal navigation */}
+        <div className="shrink-0 overflow-x-auto rounded-[24px] border border-slate-200 bg-white p-2 shadow-sm">
+          <nav className="flex min-w-max gap-2 text-sm">
+            <TabButton
+              active={activeTab === "classroom"}
+              onClick={() => setActiveTab("classroom")}
+            >
+              Classroom
+            </TabButton>
+
+            <TabButton
+              active={activeTab === "subjects"}
+              onClick={() => setActiveTab("subjects")}
+            >
+              Subjects
+            </TabButton>
+
+            <TabButton
+              active={activeTab === "chapters"}
+              onClick={() => setActiveTab("chapters")}
+            >
+              Chapters
+            </TabButton>
+
+            <TabButton
+              active={activeTab === "topics"}
+              onClick={() => setActiveTab("topics")}
+            >
+              Topics
+            </TabButton>
+
+            <TabButton
+              active={activeTab === "progress"}
+              onClick={() => setActiveTab("progress")}
+            >
+              Progress
+            </TabButton>
+
+            <TabButton
+              active={activeTab === "payments"}
+              onClick={() => setActiveTab("payments")}
+            >
+              Payments
+            </TabButton>
+
+            <TabButton
+              active={activeTab === "gallery"}
+              onClick={() => setActiveTab("gallery")}
+            >
+              Gallery
+            </TabButton>
+
+            <TabButton
+              active={activeTab === "routine"}
+              onClick={() => setActiveTab("routine")}
+            >
+              Routine
+            </TabButton>
+          </nav>
+        </div>
+
+        {/* Main content fills remaining screen */}
+        <main className="min-h-0 flex-1 overflow-hidden rounded-[28px] bg-transparent p-0 shadow-none">
+          {activeTab === "classroom" && (
+            <ClassroomView
+              syllabusLoading={syllabusLoading}
+              syllabusError={syllabusError}
+              currentSubject={currentSubject}
+              currentChapter={currentChapter}
+              currentTopic={currentTopic}
+              language={language}
+              setLanguage={setLanguage}
+              speed={speed}
+              setSpeed={setSpeed}
+              messages={messages}
+              question={question}
+              setQuestion={setQuestion}
+              onStartLesson={handleStartLesson}
+              onAskQuestion={handleAskQuestion}
+              isStartingLesson={isStartingLesson}
+              isAsking={isAsking}
+              audioUrl={audioUrl}
+              audioError={audioError}
+              messagesEndRef={messagesEndRef}
+              teacherAvatar={teacherAvatar}
+              studentName={student.name}
+              studentMobile={student.mobile}
+              isClassLive={!!classSession?.isLive}
+              remainingSeconds={remainingSeconds}
+              onEnsureClassLive={startClassSession}
+              onAppendTranscript={(delta) =>
+                setSessionTranscript((p) => p + delta)
+              }
+              onEndClass={endClassSession}
+              autoStartToken={autoStartToken}
+              autoStartPayload={autoStartPayload}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+            />
+          )}
+
+          {activeTab === "subjects" && (
+            <div className="h-full overflow-auto rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
+              <SubjectsView
+                subjects={subjects}
+                selectedSubjectId={selectedSubjectId}
+                setSelectedSubjectId={setSelectedSubjectId}
+                loading={syllabusLoading}
+                error={syllabusError}
+              />
+            </div>
+          )}
+
+          {activeTab === "chapters" && (
+            <div className="h-full overflow-auto rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
+              <ChaptersView
+                chapters={filteredChapters}
+                currentSubject={currentSubject}
+                selectedChapterId={selectedChapterId}
+                setSelectedChapterId={setSelectedChapterId}
+                loading={syllabusLoading}
+                error={syllabusError}
+              />
+            </div>
+          )}
+
+          {activeTab === "topics" && (
+            <div className="h-full overflow-auto rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
+              <TopicsView
+                topics={filteredTopics}
+                currentSubject={currentSubject}
+                currentChapter={currentChapter}
+                selectedTopicId={selectedTopicId}
+                setSelectedTopicId={setSelectedTopicId}
+                loading={syllabusLoading}
+                error={syllabusError}
+              />
+            </div>
+          )}
+
+          {activeTab === "progress" && (
+            <div className="h-full overflow-auto rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
+              <WeeklyProgressView
+                loading={weeklyLoading}
+                error={weeklyError}
+                rows={weeklyRows}
+                daily={daily}
+                dailyLoading={dailyLoading}
+                dailyError={dailyError}
+              />
+            </div>
+          )}
+
+          {activeTab === "payments" && (
+  <div className="h-full overflow-auto rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
+    <PaymentsView
+      entitlements={entitlements}
+      plans={plans}
+      loading={plansLoading}
+      error={plansError}
+      onBuyPlan={handleBuyPlan}
+      payingPlanCode={payingPlanCode}
+    />
+  </div>
+)}
+
+          {activeTab === "gallery" && (
+            <div className="h-full overflow-auto rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
+              <GalleryView
+                sessions={savedSessions}
+                selectedId={selectedSessionId}
+                setSelectedId={setSelectedSessionId}
+                noteType={noteType}
+                setNoteType={setNoteType}
+                notesMarkdown={notesMarkdown}
+                notesLoading={notesLoading}
+                onGenerateNotes={handleGenerateNotes}
+              />
+            </div>
+          )}
+
+          {activeTab === "routine" && (
+            <div className="h-full overflow-auto rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
+              <RoutineView
+                subjects={subjects}
+                routine={routine}
+                setRoutine={setRoutine}
+                onStartToday={() => startTodayClass()}
+              />
+            </div>
+          )}
+          <UpgradePopup
+            open={upgradeOpen}
+            reason={upgradeReason}
+            onClose={() => {
+              setUpgradeOpen(false);
+              setUpgradeReason(null);
+            }}
+            onBuyMonthly={() => handleBuyPlan("REGULAR_MONTHLY")}
+          />
+        </main>
+      </div>
     </div>
-    <div className="font-semibold text-lg">NeoLearn</div>
   </div>
-
-  <div className="flex items-center gap-3 text-xs text-gray-600">
-    <span>
-      {student.name} â€¢ Class {student.classId} â€¢ {student.mobile}
-    </span>
-    <button
-      type="button"
-      onClick={handleLogout}
-      className="rounded-full border border-slate-300 px-3 py-1 text-[11px] font-semibold hover:bg-slate-100"
-    >
-      Logout
-    </button>
-  </div>
-</header>
-
-
-      {/* Main layout */}
-<div className="mx-auto w-full max-w-7xl px-4 py-4">
-  {/* Top horizontal navigation */}
-  <div className="mb-3 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
-    <nav className="flex min-w-max gap-2 text-sm">
-      <TabButton active={activeTab === "classroom"} onClick={() => setActiveTab("classroom")}>
-        ðŸŽ“ Classroom
-      </TabButton>
-
-      <TabButton active={activeTab === "subjects"} onClick={() => setActiveTab("subjects")}>
-        ðŸ“š Subjects
-      </TabButton>
-
-      <TabButton active={activeTab === "chapters"} onClick={() => setActiveTab("chapters")}>
-        ðŸ“˜ Chapters
-      </TabButton>
-
-      <TabButton active={activeTab === "topics"} onClick={() => setActiveTab("topics")}>
-        ðŸ§© Topics
-      </TabButton>
-
-      <TabButton active={activeTab === "progress"} onClick={() => setActiveTab("progress")}>
-        ðŸ“Š Progress
-      </TabButton>
-
-      <TabButton active={activeTab === "payments"} onClick={() => setActiveTab("payments")}>
-        ðŸ’³ Payments
-      </TabButton>
-
-      <TabButton active={activeTab === "gallery"} onClick={() => setActiveTab("gallery")}>
-        ðŸ–¼ Gallery
-      </TabButton>
-
-      <TabButton active={activeTab === "routine"} onClick={() => setActiveTab("routine")}>
-        ðŸ—“ Routine
-      </TabButton>
-    </nav>
-  </div>
-
-  <main className="rounded-2xl bg-white p-4 shadow-sm">
-    {activeTab === "classroom" && (
-      <ClassroomView
-        syllabusLoading={syllabusLoading}
-        syllabusError={syllabusError}
-        currentSubject={currentSubject}
-        currentChapter={currentChapter}
-        currentTopic={currentTopic}
-        language={language}
-        setLanguage={setLanguage}
-        speed={speed}
-        setSpeed={setSpeed}
-        messages={messages}
-        question={question}
-        setQuestion={setQuestion}
-        onStartLesson={handleStartLesson}
-        onAskQuestion={handleAskQuestion}
-        isStartingLesson={isStartingLesson}
-        isAsking={isAsking}
-        audioUrl={audioUrl}
-        audioError={audioError}
-        messagesEndRef={messagesEndRef}
-        teacherAvatar={teacherAvatar}
-        studentName={student.name}
-        studentMobile={student.mobile}
-        isClassLive={!!classSession?.isLive}
-        remainingSeconds={remainingSeconds}
-        onAppendTranscript={(delta) =>
-          setSessionTranscript((p) => p + delta)
-        }
-        onEndClass={endClassSession}
-        autoStartToken={autoStartToken}
-        autoStartPayload={autoStartPayload}
-      />
-    )}
-
-    {activeTab === "subjects" && (
-      <SubjectsView
-        subjects={subjects}
-        selectedSubjectId={selectedSubjectId}
-        setSelectedSubjectId={setSelectedSubjectId}
-        loading={syllabusLoading}
-        error={syllabusError}
-      />
-    )}
-
-    {activeTab === "chapters" && (
-      <ChaptersView
-        chapters={filteredChapters}
-        currentSubject={currentSubject}
-        selectedChapterId={selectedChapterId}
-        setSelectedChapterId={setSelectedChapterId}
-        loading={syllabusLoading}
-        error={syllabusError}
-      />
-    )}
-
-    {activeTab === "topics" && (
-      <TopicsView
-        topics={filteredTopics}
-        currentSubject={currentSubject}
-        currentChapter={currentChapter}
-        selectedTopicId={selectedTopicId}
-        setSelectedTopicId={setSelectedTopicId}
-        loading={syllabusLoading}
-        error={syllabusError}
-      />
-    )}
-
-    {activeTab === "progress" && (
-      <WeeklyProgressView
-        loading={weeklyLoading}
-        error={weeklyError}
-        rows={weeklyRows}
-        daily={daily}
-        dailyLoading={dailyLoading}
-        dailyError={dailyError}
-      />
-    )}
-
-    {activeTab === "payments" && (
-      <PlaceholderView title="Payment History">
-        Here we will show subscription plan, invoices and payment history.
-      </PlaceholderView>
-    )}
-
-    {activeTab === "gallery" && (
-      <GalleryView
-        sessions={savedSessions}
-        selectedId={selectedSessionId}
-        setSelectedId={setSelectedSessionId}
-        noteType={noteType}
-        setNoteType={setNoteType}
-        notesMarkdown={notesMarkdown}
-        notesLoading={notesLoading}
-        onGenerateNotes={handleGenerateNotes}
-      />
-    )}
-
-    {activeTab === "routine" && (
-      <RoutineView
-        subjects={subjects}
-        routine={routine}
-        setRoutine={setRoutine}
-        onStartToday={() => startTodayClass()}
-      />
-    )}
-  </main>
-</div>
-</div>
-  );
+);
 }
                
+function UpgradePopup({
+  open,
+  reason,
+  onClose,
+  onBuyMonthly,
+}: {
+  open: boolean;
+  reason: "realtime_voice" | "topic_test" | "lesson_generation" | "qa" | null;
+  onClose: () => void;
+  onBuyMonthly: () => void;
+}) {
+  if (!open) return null;
+
+  const reasonText =
+    reason === "realtime_voice"
+      ? "Realtime live teacher voice is a premium feature."
+      : reason === "topic_test"
+      ? "Topic tests are available in premium access."
+      : reason === "lesson_generation"
+      ? "Your free access is exhausted. Upgrade to continue full lessons."
+      : reason === "qa"
+      ? "This AI feature is available in premium."
+      : "Upgrade to continue.";
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/50 p-4">
+      <div className="w-full max-w-md rounded-[24px] bg-white p-5 shadow-2xl">
+        <h2 className="text-lg font-semibold text-slate-900">
+          Upgrade NeoLearn
+        </h2>
+        <p className="mt-2 text-sm text-slate-600">{reasonText}</p>
+
+        <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="text-base font-semibold text-slate-900">
+            Regular Monthly
+          </div>
+          <div className="mt-1 text-3xl font-bold text-slate-900">₹599</div>
+          <div className="mt-1 text-sm text-slate-500">30 days access</div>
+
+          <button
+            type="button"
+            onClick={onBuyMonthly}
+            className="mt-4 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+          >
+            Buy / Upgrade
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-4 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
 /* ---------- Small components ---------- */
 
 function TabButton({
@@ -1401,6 +1682,199 @@ function PlaceholderView({
   );
 }
 
+function PaymentsView({
+  entitlements,
+  plans,
+  loading,
+  error,
+  onBuyPlan,
+  payingPlanCode,
+}: {
+  entitlements: any;
+  plans: Array<{
+    id: number;
+    code: string;
+    name: string;
+    track: string;
+    price: number;
+    validity_days: number;
+    is_active: boolean;
+    sort_order?: number;
+  }>;
+  loading: boolean;
+  error: string | null;
+  onBuyPlan: (planCode: string) => void | Promise<void>;
+  payingPlanCode: string | null;
+}) {
+  const used = entitlements?.usage?.used ?? 0;
+  const limit = entitlements?.usage?.effectiveLimit ?? 0;
+  const freeExhausted = !!entitlements?.state?.freeExhausted;
+  const subscriptionActive = !!entitlements?.subscription?.active;
+  const activePlanCode = entitlements?.subscription?.planCode || null;
+
+  const sortedPlans = [...plans].sort(
+    (a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999)
+  );
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-lg font-semibold">Plans & Subscription</h1>
+        <p className="mt-1 text-xs text-slate-500">
+          Upgrade to continue full NeoLearn access, live voice classroom, lesson audio, and more.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+            Access status
+          </div>
+          <div className="mt-2 text-sm font-semibold text-slate-800">
+            {subscriptionActive
+              ? "Premium active"
+              : freeExhausted
+              ? "Free access exhausted"
+              : "Free access active"}
+          </div>
+          <div className="mt-2 text-xs text-slate-600">
+            Used <span className="font-semibold">{used}</span> /{" "}
+            <span className="font-semibold">{limit}</span>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+            Current plan
+          </div>
+          <div className="mt-2 text-sm font-semibold text-slate-800">
+            {activePlanCode || "Free access"}
+          </div>
+          <div className="mt-2 text-xs text-slate-600">
+            {subscriptionActive
+              ? "Your premium plan is active."
+              : "Upgrade to unlock premium features."}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+            Premium unlocks
+          </div>
+          <ul className="mt-2 space-y-1 text-xs text-slate-600">
+            <li>Realtime live teacher voice</li>
+            <li>Full lesson audio</li>
+            <li>Extended AI classroom support</li>
+            <li>Continuous premium access</li>
+          </ul>
+        </div>
+      </div>
+
+      {loading && (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+          Loading plans...
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && sortedPlans.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+          No active plans found right now.
+        </div>
+      )}
+
+      {!loading && !error && sortedPlans.length > 0 && (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          {sortedPlans.map((plan, index) => {
+            const isBestValue =
+              String(plan.code).toUpperCase() === "REGULAR_QUARTERLY";
+            const isRecommended = index === 0 && !isBestValue;
+            const isCurrent = activePlanCode === plan.code;
+
+            return (
+              <div
+                key={plan.id}
+                className={`relative rounded-[26px] border p-5 shadow-sm ${
+                  isCurrent
+                    ? "border-emerald-300 bg-emerald-50"
+                    : "border-slate-200 bg-white"
+                }`}
+              >
+                <div className="mb-3 flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-lg font-semibold text-slate-900">
+                      {plan.name}
+                    </div>
+                    <div className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">
+                      {plan.track}
+                    </div>
+                  </div>
+
+                  {isCurrent ? (
+                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-semibold text-emerald-700">
+                      Active
+                    </span>
+                  ) : isBestValue ? (
+                    <span className="rounded-full bg-violet-100 px-3 py-1 text-[10px] font-semibold text-violet-700">
+                      Best Value
+                    </span>
+                  ) : isRecommended ? (
+                    <span className="rounded-full bg-blue-100 px-3 py-1 text-[10px] font-semibold text-blue-700">
+                      Recommended
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="mb-4">
+                  <div className="text-3xl font-bold text-slate-900">
+                    ₹{plan.price}
+                  </div>
+                  <div className="mt-1 text-sm text-slate-500">
+                    {plan.validity_days} days access
+                  </div>
+                </div>
+
+                <ul className="mb-5 space-y-2 text-sm text-slate-600">
+                  <li>Full NeoLearn classroom access</li>
+                  <li>AI lesson support and doubt solving</li>
+                  <li>Lesson audio and premium experience</li>
+                  <li>Premium feature eligibility</li>
+                </ul>
+
+                <button
+                  type="button"
+                  className={`w-full rounded-2xl px-4 py-3 text-sm font-semibold ${
+                    isCurrent
+                      ? "bg-emerald-600 text-white"
+                      : "bg-slate-900 text-white hover:bg-slate-800"
+                  }`}
+                  disabled={isCurrent || payingPlanCode === plan.code}
+                  onClick={() => onBuyPlan(plan.code)}
+                >
+                  {isCurrent
+  ? "Current Plan"
+  : payingPlanCode === plan.code
+  ? "Processing..."
+  : "Buy / Upgrade"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-xs text-slate-500">
+        Next step: connect these plan cards to Razorpay checkout and activate student subscription automatically after successful payment.
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Subjects / Chapters / Topics views ---------- */
 
 function SubjectsView({
@@ -1420,7 +1894,7 @@ function SubjectsView({
     <div className="space-y-3 text-sm">
       <h1 className="text-lg font-semibold mb-1">Subjects</h1>
       {loading && (
-        <p className="text-xs text-gray-500">Loading subjects from serverâ€¦</p>
+        <p className="text-xs text-gray-500">Loading subjects from server...</p>
       )}
       {error && (
         <p className="text-xs text-red-500">
@@ -1446,6 +1920,7 @@ function SubjectsView({
               )
             }
           >
+            <option value="">Choose subject</option>
             {subjects.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.subject_name} (Class {s.class_number.toString()})
@@ -1488,7 +1963,7 @@ function ChaptersView({
       )}
 
       {loading && (
-        <p className="text-xs text-gray-500">Loading chaptersâ€¦</p>
+        <p className="text-xs text-gray-500">Loading chapters...</p>
       )}
       {error && (
         <p className="text-xs text-red-500">
@@ -1522,6 +1997,7 @@ function ChaptersView({
               )
             }
           >
+            <option value="">Choose chapter</option>
             {chapters.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.chapter_number}. {c.chapter_name}
@@ -1567,7 +2043,7 @@ function TopicsView({
       )}
 
       {loading && (
-        <p className="text-xs text-gray-500">Loading topicsâ€¦</p>
+        <p className="text-xs text-gray-500">Loading topics...</p>
       )}
       {error && (
         <p className="text-xs text-red-500">
@@ -1612,6 +2088,7 @@ function TopicsView({
               )
             }
           >
+            <option value="">Choose topic</option>
             {topics.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.topic_number}. {t.topic_name}
@@ -1652,17 +2129,17 @@ function WeeklyProgressView({
     <div className="space-y-3 text-sm">
       <h1 className="text-lg font-semibold mb-1">Weekly Progress</h1>
 
-{/* âœ… Today's Progress */}
+{/* Today's Progress */}
 <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-3">
   <div className="flex items-center justify-between">
-    <div className="text-sm font-semibold">Todayâ€™s Progress</div>
+    <div className="text-sm font-semibold">Today's Progress</div>
     {daily?.date && (
       <div className="text-[11px] text-gray-500">{daily.date}</div>
     )}
   </div>
 
   {dailyLoading && (
-    <p className="text-xs text-gray-500 mt-1">Loading todayâ€¦</p>
+    <p className="text-xs text-gray-500 mt-1">Loading today...</p>
   )}
 
   {dailyError && (
@@ -1688,7 +2165,7 @@ function WeeklyProgressView({
       <div className="rounded-xl bg-slate-50 border border-slate-200 p-2">
         <div className="text-[11px] text-gray-600">Avg Score</div>
         <div className="text-lg font-semibold">
-          {daily.avgScore === null ? "â€”" : `${daily.avgScore}%`}
+          {daily.avgScore === null ? "—" : `${daily.avgScore}%`}
         </div>
       </div>
     </div>
@@ -1702,7 +2179,7 @@ function WeeklyProgressView({
       </p>
 
       {loading && (
-        <p className="text-xs text-gray-500">Loading weekly dataâ€¦</p>
+        <p className="text-xs text-gray-500">Loading weekly data...</p>
       )}
 
       {error && (
@@ -1727,7 +2204,7 @@ function WeeklyProgressView({
             >
               <div className="flex items-center justify-between mb-1">
                 <div className="font-semibold">
-                  Week of {w.weekStart} â€“ {w.weekEnd}
+                  Week of {w.weekStart} - {w.weekEnd}
                 </div>
                 {w.avgScore !== null && (
                   <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
@@ -1817,7 +2294,7 @@ function GalleryView({
   };
 
   // Title
-  addLine("NeoLearn â€“ Class Recording", 14, true);
+  addLine("NeoLearn – Class Recording", 14, true);
   y += 6;
 
   // Meta
@@ -1837,7 +2314,7 @@ function GalleryView({
 
   // Footer
   y += 12;
-  addLine("Generated by NeoLearn â€¢ AI Assisted Learning", 9, false);
+  addLine("Generated by NeoLearn AI Assisted Learning", 9, false);
 
   const safeFile =
     `NeoLearn_${selected.subject}_${selected.topic}_${new Date(selected.endedAt)
@@ -1886,7 +2363,7 @@ function GalleryView({
               disabled={notesLoading}
               className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
             >
-              {notesLoading ? "Generating…" : "Generate Notes"}
+              {notesLoading ? "Generating..." : "Generate Notes"}
             </button>
 
             {notesMarkdown?.trim() && (
@@ -1941,7 +2418,7 @@ function GalleryView({
                   }`}
                 >
                   <div className="font-semibold text-slate-800 truncate">
-                    {s.subject} â€¢ {s.topic}
+                    {s.subject} {s.topic}
                   </div>
                   <div className="text-[11px] text-slate-600 truncate">
                     {s.chapter}
@@ -1965,13 +2442,13 @@ function GalleryView({
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="text-sm font-semibold text-slate-800">
-                      {selected.subject} â€¢ {selected.topic}
+                      {selected.subject}  {selected.topic}
                     </div>
                     <div className="text-[11px] text-slate-600">
                       Chapter: {selected.chapter}
                     </div>
                     <div className="text-[11px] text-slate-500 mt-1">
-                      {new Date(selected.startedAt).toLocaleString()} â†’{" "}
+                      {new Date(selected.startedAt).toLocaleString()} →{" "}
                       {new Date(selected.endedAt).toLocaleString()}
                     </div>
                   </div>
@@ -2049,13 +2526,13 @@ function RoutineView({
           onClick={onStartToday}
           className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700"
         >
-          â–¶ï¸ Start Today Class
+          Start Today Class
         </button>
       </div>
 
       <div className="text-xs text-gray-600">
         Set <b>2 subjects per day</b> + class time. Each day runs two blocks (Phase 1 & Phase 2).
-        Recommended: <b>30â€“45 minutes</b> per subject.
+        Recommended: <b>30–45 minutes</b> per subject.
       </div>
 
       <div className="grid grid-cols-1 gap-3">
@@ -2093,7 +2570,7 @@ function RoutineView({
                       })
                     }
                   >
-                    <option value="">Select subjectâ€¦</option>
+                    <option value="">Select subject...</option>
                     {subjects.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.subject_name}
@@ -2115,7 +2592,7 @@ function RoutineView({
                       })
                     }
                   >
-                    <option value="">Select subjectâ€¦</option>
+                    <option value="">Select subject...</option>
                     {subjects.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.subject_name}
@@ -2142,7 +2619,7 @@ function RoutineView({
                   </select>
 
                   <div className="mt-1 text-[11px] text-slate-500">
-                    Total/day â‰ˆ {plan.minutesPerSubject * 2} minutes
+                    Total/day ≈ {plan.minutesPerSubject * 2} minutes
                   </div>
                 </div>
               </div>
@@ -2156,6 +2633,7 @@ function RoutineView({
 
 
 /* ---------- Classroom view (center circle + right chat) ---------- */
+
 
 function ClassroomView(props: {
   syllabusLoading: boolean;
@@ -2182,6 +2660,7 @@ function ClassroomView(props: {
   studentMobile: string;
   isClassLive: boolean;
   remainingSeconds: number;
+  onEnsureClassLive?: () => void;
   onAppendTranscript: (delta: string) => void;
   onEndClass: () => void;
   autoStartToken: number;
@@ -2190,7 +2669,7 @@ function ClassroomView(props: {
     subject2Id: number;
     minutesPerSubject: number;
   } | null;
-
+  onNavigateTab: (tab: ActiveTab) => void;
 }) {
   const {
     syllabusLoading,
@@ -2217,85 +2696,24 @@ function ClassroomView(props: {
     studentMobile,
     isClassLive,
     remainingSeconds,
+    onEnsureClassLive,
     onAppendTranscript,
     onEndClass,
-    autoStartToken,
-         autoStartPayload,
+    onNavigateTab,
   } = props;
 
-  // ===============================
-  // âœ… Class Timer (Classroom only)
-  // ===============================
-  const [classRunning, setClassRunning] = useState(false);
-  const [phase, setPhase] = useState<1 | 2>(1);
-  const [endsAt, setEndsAt] = useState<number | null>(null);
-  const [remainingSec, setRemainingSec] = useState<number>(0);
+  const [drawerOpen, setDrawerOpen] = useState(true);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [boardOpen, setBoardOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  const formatTime = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m}:${String(s).padStart(2, "0")}`;
-  };
-
- useEffect(() => {
-  if (!endsAt) return;
-
-  const t = window.setInterval(() => {
-    const now = Date.now();
-    const left = Math.max(0, Math.floor((endsAt - now) / 1000));
-    setRemainingSec(left);
-
-    if (left <= 0) {
-      window.clearInterval(t);
-      setClassRunning(false);
-      setRealtimeStatus("âœ… Class block finished. You can move to next subject.");
-    }
-  }, 1000);
-
-  return () => window.clearInterval(t);
-}, [endsAt]);
-
-
-
-  // ðŸ”¹ Realtime voice state
   const [realtimeClient, setRealtimeClient] =
     useState<RealtimeTeacherClient | null>(null);
   const [isRealtimeOn, setIsRealtimeOn] = useState(false);
-  const [realtimeStatus, setRealtimeStatus] = useState<string>("");
-
-   const [isListening, setIsListening] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [realtimeStatus, setRealtimeStatus] = useState<string>("Ready");
   const [realtimeTranscript, setRealtimeTranscript] = useState("");
 
-  // âœ… Auto start today class: enable realtime + start timer
-  useEffect(() => {
-    if (!autoStartToken) return;
-    if (!autoStartPayload) return;
-
-    const mins = Math.max(5, Number(autoStartPayload.minutesPerSubject || 30));
-    const seconds = mins * 60;
-
-    setPhase(1);
-    setClassRunning(true);
-    setEndsAt(Date.now() + seconds * 1000);
-    setRemainingSec(seconds);
-
-    // turn realtime ON if off
-    (async () => {
-      try {
-        if (!isRealtimeOn) {
-          await handleToggleRealtime();
-        }
-        setRealtimeStatus(
-          `âœ… Started today's class. Phase 1 running (${mins} min). Realtime enabled.`
-        );
-      } catch {
-        setRealtimeStatus("Started timer, but realtime connection failed.");
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoStartToken]);
-
-  // ðŸ”¹ Topic mini test state (MCQs)
   const [topicTest, setTopicTest] = useState<TopicTestQuestion[] | null>(null);
   const [topicTestAnswers, setTopicTestAnswers] = useState<
     Record<number, number | null>
@@ -2307,36 +2725,112 @@ function ClassroomView(props: {
   } | null>(null);
   const [isLoadingTest, setIsLoadingTest] = useState(false);
   const [isTopicTestOpen, setIsTopicTestOpen] = useState(false);
-  const [hasStartedClass, setHasStartedClass] = useState(false);
 
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  const goTab = (tab: ActiveTab) => {
+    onNavigateTab(tab);
+    setMobileDrawerOpen(false);
+  };
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
+  }, [messages, realtimeTranscript, messagesEndRef]);
+
+  useEffect(() => {
+    if (!audioUrl) return;
+    const audio = document.getElementById(
+      "lesson-audio"
+    ) as HTMLAudioElement | null;
+    if (!audio) return;
+
+    audio.load();
+    audio.play().catch(() => {});
+  }, [audioUrl]);
+
+  useEffect(() => {
+    return () => {
+      try {
+        streamRef.current?.getTracks().forEach((track) => track.stop());
+      } catch {}
+      try {
+        realtimeClient?.disconnect();
+      } catch {}
+    };
+  }, [realtimeClient]);
+
+useEffect(() => {
+  if (!realtimeClient) return;
+
+  try {
+    realtimeClient.disconnect();
+  } catch {}
+
+  setRealtimeClient(null);
+  setIsRealtimeOn(false);
+  setIsListening(false);
+  setRealtimeTranscript("");
+  setRealtimeStatus("Language changed. Reconnect realtime voice.");
+}, [language]);
+
   const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
+    try {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    } catch {}
+    streamRef.current = null;
+    if (videoRef.current) {
+      try {
+        videoRef.current.pause();
+      } catch {}
+      videoRef.current.srcObject = null;
     }
-    if (videoRef.current) videoRef.current.srcObject = null;
   };
 
   const openCamera = async () => {
     setCameraError(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      });
+      let stream: MediaStream;
+
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: { ideal: "environment" },
+          },
+          audio: false,
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+      }
+
       streamRef.current = stream;
       setIsCameraOpen(true);
-      setTimeout(() => {
-        if (videoRef.current) videoRef.current.srcObject = stream;
-      }, 0);
-    } catch {
-      setCameraError("Camera access blocked. Please allow camera permission.");
+
+      window.setTimeout(async () => {
+        if (!videoRef.current) return;
+        videoRef.current.srcObject = stream;
+        try {
+          await videoRef.current.play();
+        } catch {}
+      }, 60);
+    } catch (err: any) {
+      console.error("camera error:", err);
+      setCameraError(
+        err?.message || "Camera access blocked. Please allow permission."
+      );
       setIsCameraOpen(false);
     }
   };
@@ -2348,524 +2842,1081 @@ function ClassroomView(props: {
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth || 1280;
     canvas.height = video.videoHeight || 720;
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    setCapturedImage(canvas.toDataURL("image/jpeg", 0.9));
+    setCapturedImage(canvas.toDataURL("image/jpeg", 0.92));
     stopCamera();
     setIsCameraOpen(false);
   };
 
-  // ðŸ§  Build a context-rich question for the realtime teacher
   const buildRealtimeQuestion = (raw: string) => {
-    const trimmed = raw.trim();
-    if (!trimmed) return "";
+  const trimmed = raw.trim();
 
-    const parts: string[] = [];
+  return [
+    `Selected language: ${language}. Respond only in this language.`,
+    currentSubject
+      ? `Selected subject: ${currentSubject.subject_name}.`
+      : "",
+    currentChapter
+      ? `Selected chapter: ${currentChapter.chapter_name}.`
+      : "",
+    currentTopic
+      ? `Selected topic: ${currentTopic.topic_name}.`
+      : "",
+    "Important rule: Answer only if the student's question is about the selected topic.",
+    "If the question is outside the selected topic, politely refuse and ask the student to stay with the current lesson topic.",
+    `Student question: ${trimmed}`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+};
 
-    if (currentSubject) parts.push(`Subject: ${currentSubject.subject_name}`);
-    if (currentChapter) parts.push(`Chapter: ${currentChapter.chapter_name}`);
-    if (currentTopic) parts.push(`Topic: ${currentTopic.topic_name}`);
-
-    if (!parts.length) return trimmed;
-
-    const syllabusContext = parts.join(" | ");
-    return (
-      trimmed +
-      `\n\n[Context for you, teacher: ${syllabusContext}. ` +
-      `Answer in very simple ${language} for an Indian school student.]`
-    );
-  };
-
-  const handleToggleRealtime = async () => {
-if (!isClassLive) {
-  setRealtimeStatus("Start the class first to enable Realtime Voice.");
-  return;
+ function getRealtimeLocale(language: string): string {
+  if (language === "Hindi") return "hi-IN";
+  if (language === "Bengali") return "bn-IN";
+  return "en-IN";
 }
-    // Turn OFF if already on
-    if (isRealtimeOn && realtimeClient) {
-      realtimeClient.disconnect();
-      setRealtimeClient(null);
-      setIsRealtimeOn(false);
-      setRealtimeStatus("Realtime voice off");
-      return;
-    }
 
-    // Turn ON
-    const client = new RealtimeTeacherClient({
+const ensureRealtimeConnected = async (silent = false) => {
+  let client = realtimeClient;
+  if (client && isRealtimeOn) return client;
+
+  client =
+    client ??
+    new RealtimeTeacherClient(studentMobile, {
       onStatus: (s) => setRealtimeStatus(s),
-      onError: (msg) => setRealtimeStatus(msg),
-      onTranscript: (delta) => {
-  setRealtimeTranscript((prev) => prev + delta);
-  onAppendTranscript(delta); // âœ… also store globally for saving
-},
+      onError: (msg) => setRealtimeStatus(`Realtime error: ${msg}`),
+      onTranscript: (text) => {
+        setRealtimeTranscript(text);
+        onAppendTranscript(text);
+      },
     });
 
-      setRealtimeClient(client);
+  if (!realtimeClient) {
+    setRealtimeClient(client);
+  }
 
-    const baseInstruction =
-      language === "Hindi"
-        ? "You are a female Indian school teacher. Speak in very simple Hindi, slowly and clearly. Do not use any religious greetings or phrases. Use only neutral classroom language."
-        : language === "Bengali"
-        ? "You are a female Indian school teacher. Speak in very simple Bengali, slowly and clearly. Do not use any religious greetings or phrases. Use only neutral classroom language."
-        : "You are a female Indian school teacher in India. Speak in very simple English, slowly and clearly. Do not use any religious greetings or phrases. Use only neutral classroom language.";
+  const realtimeLocale = getRealtimeLocale(language);
 
-    const contextBits: string[] = [
-      "You are teaching in a coaching institute called NeoLearn.",
-    ];
-    if (currentSubject) contextBits.push(`Subject: ${currentSubject.subject_name}.`);
-    if (currentChapter) contextBits.push(`Chapter: ${currentChapter.chapter_name}.`);
-    if (currentTopic) contextBits.push(`Current topic: ${currentTopic.topic_name}.`);
+  const strictTopicGuard = currentTopic?.topic_name
+    ? `You are teaching only this exact topic: "${currentTopic.topic_name}".`
+    : "You must stay within the currently selected topic.";
 
-    const instructions = `${baseInstruction} ${contextBits.join(" ")}`;
-    // (Optional) you can feed `instructions` into RealtimeTeacherClient later.
+  const strictChapterGuard = currentChapter?.chapter_name
+    ? `Current chapter: "${currentChapter.chapter_name}".`
+    : "";
 
-    await client.connect(language);
-    setIsRealtimeOn(true);
-    setRealtimeStatus("Realtime voice connected.");
-  };
+  const strictSubjectGuard = currentSubject?.subject_name
+    ? `Current subject: "${currentSubject.subject_name}".`
+    : "";
 
-  useEffect(() => {
-    return () => stopCamera();
-  }, []);
+  const strictLanguageGuard =
+    language === "Hindi"
+      ? 'Reply only in simple Hindi used in India. Never reply in English, Kannada, Spanish, or any other language. If the student asks you to switch language, politely refuse and continue only in Hindi.'
+      : language === "Bengali"
+      ? 'Reply only in simple Bengali used in India. Never reply in English, Kannada, Spanish, or any other language. If the student asks you to switch language, politely refuse and continue only in Bengali.'
+      : 'Reply only in simple Indian English. Never reply in Hindi, Bengali, Kannada, Spanish, or any other language. If the student asks you to switch language, politely refuse and continue only in English.';
 
-  const handleAskRealtime = () => {
-    const trimmed = question.trim();
-    if (!trimmed) return;
+  const offTopicGuard =
+    'If the student asks anything outside the selected subject/chapter/topic, do not answer that off-topic question. Politely say that you are the NeoLearn classroom teacher for the current lesson and ask the student to stay on the selected topic.';
 
-    if (isRealtimeOn && realtimeClient) {
-      setRealtimeTranscript("");
-      const contextual = buildRealtimeQuestion(trimmed);
-      if (contextual) realtimeClient.sendText(contextual);
-      setQuestion("");
-      return;
-    }
+  const classroomRules =
+    'Keep answers short, teacher-like, classroom-safe, and easy for a school student to understand. Do not drift into unrelated topics.';
 
-    if (!isAsking) onAskQuestion();
-  };
+  await client.connect(
+    realtimeLocale,
+    [
+      "You are NeoLearn's professional Indian school teacher.",
+      `Current student: ${studentName}.`,
+      strictSubjectGuard,
+      strictChapterGuard,
+      strictTopicGuard,
+      strictLanguageGuard,
+      offTopicGuard,
+      classroomRules,
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
 
-  const handleMicToggle = async () => {
-    if (!isRealtimeOn || !realtimeClient) {
-      setRealtimeStatus("Turn ON Realtime Voice first.");
-      return;
-    }
+  setRealtimeClient(client);
+  setIsRealtimeOn(true);
+  setRealtimeStatus(
+    silent
+      ? `Realtime ready (${realtimeLocale}).`
+      : `Realtime connected (${realtimeLocale}).`
+  );
 
-    if (!isListening) {
-      setRealtimeTranscript("");
-      await realtimeClient.startMic();
-      setIsListening(true);
-    } else {
-      realtimeClient.stopMicAndSend();
-      setIsListening(false);
-    }
-  };
+  return client;
+};
 
-  // ðŸ”¹ Start / regenerate topic test
-  const handleStartTopicTest = async () => {
-    if (!currentSubject || !currentChapter || !currentTopic) {
-      setRealtimeStatus(
-        "Please select subject, chapter and topic before starting the test."
-      );
-      return;
-    }
+const loadEntitlementsLocal = useCallback(async () => {
+  if (!studentMobile) return null;
 
-    setIsLoadingTest(true);
-    setTopicTest(null);
-    setTopicTestAnswers({});
-    setTopicTestResult(null);
-    setRealtimeStatus("Preparing topic testâ€¦");
-
-    try {
-      const langCode =
-        language === "Hindi" ? "hi" : language === "Bengali" ? "bn" : "en";
-
-      const res = await fetch("/api/topic-test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          board: "CBSE",
-          classLevel: "Class 6",
-          subject: currentSubject.subject_name,
-          chapter: currentChapter?.chapter_name ?? "",
-          topic: currentTopic.topic_name,
-          language: langCode,
-          numQuestions: 5,
-        }),
-      });
-
-
-      if (!res.ok) {
-        console.error("topic-test HTTP error:", res.status, await res.text());
-        setRealtimeStatus("Failed to create topic test.");
-        return;
-      }
-
-      const data = await res.json();
-      if (!data.ok || !Array.isArray(data.questions)) {
-        console.error("topic-test invalid response:", data);
-        setRealtimeStatus("AI response was not valid test data.");
-        return;
-      }
-
-      const questions: TopicTestQuestion[] = data.questions;
-      setTopicTest(questions);
-
-      const initialAnswers: Record<number, number | null> = {};
-      for (const q of questions) initialAnswers[q.id] = null;
-      setTopicTestAnswers(initialAnswers);
-
-      setIsTopicTestOpen(true); // open popup
-      setRealtimeStatus("Topic test ready.");
-    } catch (err) {
-      console.error("topic-test fetch error:", err);
-      setRealtimeStatus("Error while generating topic test.");
-    } finally {
-      setIsLoadingTest(false);
-    }
-  };
-
-const handleSubmitTopicTest = async () => {
   try {
-    if (!topicTest || topicTest.length === 0) return;
+    const res = await fetch(
+      `/api/student/entitlements?mobile=${encodeURIComponent(studentMobile)}`
+    );
+    const data = await res.json();
+    return res.ok && data?.ok ? data : null;
+  } catch {
+    return null;
+  }
+}, [studentMobile]);
 
-    let correct = 0;
-    for (const q of topicTest) {
-      const chosen = topicTestAnswers[q.id];
-      if (chosen === q.correctIndex) correct++;
-    }
-
-    const total = topicTest.length;
-    const percent = Math.round((correct / total) * 100);
-
-    // show score immediately in UI
-    setTopicTestResult({ correct, total, percent });
-    setRealtimeStatus(`You scored ${correct}/${total} (${percent}%). Saving...`);
-
-    if (!currentTopic?.id) {
-      setRealtimeStatus("Save failed: topic missing.");
-      return;
-    }
-
-    // âœ… Save test score to topic_progress (your submit route updates tests_taken/last_score)
-    const saveRes = await fetch("/api/topic-test/submit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        studentMobile,          // from props
-        topicId: currentTopic.id, // topic table id
-        score: percent,
-      }),
-    });
-
-    const saveText = await saveRes.text();
-    console.log("topic-test submit:", saveRes.status, saveText);
-
-    if (!saveRes.ok) {
-      setRealtimeStatus("Save failed (server). Check console.");
-      return;
-    }
-
-    let saveData: any = null;
+const handleToggleRealtime = async () => {
+  if (isRealtimeOn && realtimeClient) {
     try {
-      saveData = JSON.parse(saveText);
+      realtimeClient.disconnect();
     } catch {}
+    setRealtimeClient(null);
+    setIsRealtimeOn(false);
+    setIsListening(false);
+    setRealtimeTranscript("");
+    setRealtimeStatus("Realtime voice off");
+    return;
+  }
 
-    if (!saveData?.ok) {
-      setRealtimeStatus("Save failed (DB). Check console.");
-      return;
-    }
+  const ent = await loadEntitlementsLocal();
+  if (!ent?.features?.realtimeVoice) {
+    setRealtimeStatus(
+      "Realtime voice is available only for paid or override access."
+    );
+    return;
+  }
 
-    setRealtimeStatus("âœ… Test saved.");
-  } catch (e) {
-    console.error("handleSubmitTopicTest error:", e);
-    setRealtimeStatus("Submit crashed. Check console.");
+  try {
+    await ensureRealtimeConnected(false);
+  } catch (err: any) {
+    console.error("realtime connect error:", err);
+    setRealtimeClient(null);
+    setIsRealtimeOn(false);
+    setIsListening(false);
+    setRealtimeStatus(
+      `Realtime error: ${
+        err?.message || err?.toString?.() || "Failed to connect realtime voice."
+      }`
+    );
   }
 };
 
-  const handleStartClass = async () => {
-    setHasStartedClass(true);
-    await onStartLesson();
+const handleAskRealtime = async () => {
+  const trimmed = question.trim();
+  if (!trimmed) return;
+
+  if (isRealtimeOn || realtimeClient) {
+    try {
+      const client = await ensureRealtimeConnected(true);
+      setRealtimeTranscript("");
+      client.sendText(buildRealtimeQuestion(trimmed));
+      setQuestion("");
+      return;
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  if (!isAsking) {
+    onAskQuestion();
+  }
+};
+
+const handleMicToggle = async () => {
+  const ent = await loadEntitlementsLocal();
+  if (!ent?.features?.realtimeVoice) {
+    setRealtimeStatus(
+      "Realtime voice is available only for paid or override access."
+    );
+    return;
+  }
+
+  try {
+    const client = await ensureRealtimeConnected(true);
+
+    if (!isListening) {
+      setRealtimeTranscript("");
+      await client.startMic();
+      setIsListening(true);
+      setRealtimeStatus("Listening... speak now.");
+    } else {
+      client.stopMicAndSend();
+      setIsListening(false);
+      setRealtimeStatus("Voice sent.");
+    }
+  } catch (err: any) {
+    console.error("mic error:", err);
+    setIsListening(false);
+    setRealtimeStatus(
+      `Mic error: ${
+        err?.message || err?.toString?.() || "Unknown microphone error"
+      }`
+    );
+  }
+};
+  
+const handleStartTopicTest = async () => {
+  if (!currentSubject || !currentChapter || !currentTopic) {
+    setRealtimeStatus(
+      "Please select subject, chapter and topic before starting the test."
+    );
+    return;
+  }
+
+  const ent = await loadEntitlementsLocal();
+  if (!ent?.features?.topicTest) {
+    setRealtimeStatus(
+      "Topic tests are not available in the current access state."
+    );
+    return;
+  }
+
+  setIsLoadingTest(true);
+  setTopicTest(null);
+  setTopicTestAnswers({});
+  setTopicTestResult(null);
+
+  try {
+    const langCode =
+      language === "Hindi" ? "hi" : language === "Bengali" ? "bn" : "en";
+
+    const res = await fetch("/api/topic-test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mobile: studentMobile,
+        board: "CBSE",
+        classLevel: "Class 6",
+        subject: currentSubject.subject_name,
+        chapter: currentChapter.chapter_name,
+        topic: currentTopic.topic_name,
+        language: langCode,
+        numQuestions: 5,
+      }),
+    });
+
+    if (!res.ok) throw new Error("Failed to create topic test.");
+
+    const data = await res.json();
+    if (!data.ok || !Array.isArray(data.questions)) {
+      throw new Error("AI response was not valid test data.");
+    }
+
+    const questions: TopicTestQuestion[] = data.questions;
+    const initialAnswers: Record<number, number | null> = {};
+
+    questions.forEach((q) => {
+      initialAnswers[q.id] = null;
+    });
+
+    setTopicTest(questions);
+    setTopicTestAnswers(initialAnswers);
+    setIsTopicTestOpen(true);
+    setRealtimeStatus("Topic test ready.");
+  } catch (err: any) {
+    console.error(err);
+    setRealtimeStatus(err?.message || "Error while generating topic test.");
+  } finally {
+    setIsLoadingTest(false);
+  }
+};
+
+  const handleSubmitTopicTest = async () => {
+    try {
+      if (!topicTest || topicTest.length === 0) return;
+
+      let correct = 0;
+      topicTest.forEach((q) => {
+        if (topicTestAnswers[q.id] === q.correctIndex) correct += 1;
+      });
+
+      const total = topicTest.length;
+      const percent = Math.round((correct / total) * 100);
+
+      setTopicTestResult({ correct, total, percent });
+
+      if (!currentTopic?.id) return;
+
+      const saveRes = await fetch("/api/topic-test/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentMobile,
+          topicId: currentTopic.id,
+          score: percent,
+        }),
+      });
+
+      if (!saveRes.ok) throw new Error("Test score could not be saved.");
+
+      const saveData = await saveRes.json();
+      if (!saveData?.ok) throw new Error("Database save failed.");
+
+      setRealtimeStatus(`Test saved: ${correct}/${total} (${percent}%).`);
+    } catch (err: any) {
+      console.error(err);
+      setRealtimeStatus(err?.message || "Submit crashed.");
+    }
   };
 
-  return (
-    <>
-      <div className="relative min-h-[76vh]">
-        <div className="flex min-h-[74vh] flex-col rounded-2xl border border-slate-200 bg-slate-50/70 lg:pr-36">
-          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-            <div>
-              <h2 className="text-sm font-semibold text-slate-800">NeoLearn AI Classroom</h2>
-              <p className="text-xs text-slate-500">Chat with your teacher like a real assistant.</p>
-            </div>
-            <div className="flex gap-2">
-              <select
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
-                value={language}
-                onChange={(e) => setLanguage(e.target.value as "English" | "Hindi" | "Bengali")}
-              >
-                <option value="English">English</option>
-                <option value="Hindi">Hindi</option>
-                <option value="Bengali">Bengali</option>
-              </select>
-              <select
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
-                value={speed}
-                onChange={(e) => setSpeed(e.target.value as "Slow" | "Normal" | "Fast")}
-              >
-                <option value="Slow">Slow</option>
-                <option value="Normal">Normal</option>
-                <option value="Fast">Fast</option>
-              </select>
-            </div>
-          </div>
+  const renderBoardVisual = () => {
+    const boardTopic = (currentTopic?.topic_name || "").toLowerCase();
+    const boardSubject = (currentSubject?.subject_name || "").toLowerCase();
 
-{/* Conversation header */}
-<div className="mb-2 text-xs font-semibold text-gray-500 uppercase">
-  Conversation
-</div>
-
-{/* Phase timer bar */}
-{classRunning && (
-  <div className="mb-2 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800">
-    <div className="font-semibold">
-      â±ï¸ Class Running â€¢ Phase {phase}/2 â€¢ Time left: {formatTime(remainingSec)}
-    </div>
-    <button
-      type="button"
-      onClick={() => setEndsAt(Date.now())}
-      className="rounded-lg border border-emerald-300 bg-white px-2 py-1 text-[11px] font-semibold hover:bg-emerald-100"
-    >
-      End Phase
-    </button>
-  </div>
-)}
-
-{/* Chat area */}
-<div className="flex-1 overflow-y-auto px-4 py-4">
-  <div className="mx-auto max-w-5xl space-y-3">
-    {messages.map((m) => {
-      const isTeacher = m.author === "Teacher";
+    if (!currentTopic) {
       return (
-        <div key={m.id} className={`flex ${isTeacher ? "justify-start" : "justify-end"}`}>
-          <div
-            className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
-              isTeacher
-                ? "rounded-tl-md border border-slate-200 bg-white text-slate-800"
-                : "rounded-tr-md bg-emerald-500 text-white"
-            } ${m.isError ? "border-red-300 bg-red-50 text-red-700" : ""}`}
-          >
-            <div className="whitespace-pre-wrap leading-relaxed">{m.text}</div>
-            <div className={`mt-1 text-[11px] ${isTeacher ? "text-slate-400" : "text-emerald-100"}`}>
-              {isTeacher ? "Teacher" : "You"} â€¢ {m.ts}
+        <div className="flex h-full items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-slate-50 text-center">
+          <div>
+            <div className="text-xl font-semibold text-slate-700">
+              Teacher Smart Board
+            </div>
+            <p className="mt-2 max-w-md text-sm text-slate-500">
+              Open the board only when the topic needs a diagram, animation, or visual explanation.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    if (boardTopic.includes("fraction") || boardTopic.includes("decimal")) {
+      return (
+        <div className="flex h-full flex-col justify-center rounded-3xl bg-slate-50 p-5">
+          <div className="mb-4 text-3xl font-bold text-slate-800">
+            1/2 + 1/4 = 3/4
+          </div>
+          <div className="space-y-4">
+            <div className="grid grid-cols-4 gap-3">
+              <div className="h-12 rounded-xl bg-blue-500" />
+              <div className="h-12 rounded-xl bg-blue-500" />
+              <div className="h-12 rounded-xl bg-slate-200" />
+              <div className="h-12 rounded-xl bg-slate-200" />
+            </div>
+            <div className="grid grid-cols-4 gap-3">
+              <div className="h-12 rounded-xl bg-violet-500" />
+              <div className="h-12 rounded-xl bg-slate-200" />
+              <div className="h-12 rounded-xl bg-slate-200" />
+              <div className="h-12 rounded-xl bg-slate-200" />
+            </div>
+            <div className="grid grid-cols-4 gap-3">
+              <div className="h-12 rounded-xl bg-emerald-500" />
+              <div className="h-12 rounded-xl bg-emerald-500" />
+              <div className="h-12 rounded-xl bg-emerald-500" />
+              <div className="h-12 rounded-xl bg-slate-200" />
             </div>
           </div>
         </div>
       );
-    })}
+    }
 
-    {realtimeTranscript && (
-      <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-slate-700">
-        <span className="font-semibold text-blue-700">Teacher (live): </span>
-        {realtimeTranscript}
-      </div>
-    )}
+    if (
+      boardTopic.includes("triangle") ||
+      boardTopic.includes("angle") ||
+      boardTopic.includes("symmetry")
+    ) {
+      return (
+        <div className="flex h-full items-center justify-center rounded-3xl bg-slate-50 p-5">
+          <svg viewBox="0 0 700 360" className="h-full w-full max-w-3xl">
+            <line x1="150" y1="280" x2="550" y2="280" stroke="#16a34a" strokeWidth="6" />
+            <line x1="150" y1="280" x2="350" y2="80" stroke="#2563eb" strokeWidth="6" />
+            <line x1="350" y1="80" x2="550" y2="280" stroke="#ef4444" strokeWidth="6" />
+            <line x1="350" y1="80" x2="350" y2="280" stroke="#ec4899" strokeDasharray="10 10" strokeWidth="4" />
+            <circle cx="150" cy="280" r="8" fill="#0f172a" />
+            <circle cx="350" cy="80" r="8" fill="#0f172a" />
+            <circle cx="550" cy="280" r="8" fill="#0f172a" />
+            <text x="138" y="305" fontSize="20" fill="#0f172a">A</text>
+            <text x="345" y="65" fontSize="20" fill="#0f172a">B</text>
+            <text x="555" y="305" fontSize="20" fill="#0f172a">C</text>
+            <text x="366" y="188" fontSize="18" fill="#be123c">Line of symmetry</text>
+          </svg>
+        </div>
+      );
+    }
 
-    {capturedImage && (
-      <div className="rounded-2xl border border-slate-200 bg-white p-3">
-        <div className="mb-2 text-xs font-semibold text-slate-500">Captured image</div>
-        <img src={capturedImage} alt="Captured" className="max-h-56 w-auto rounded-xl border border-slate-200" />
-      </div>
-    )}
-
-    {uploadedFiles.length > 0 && (
-      <div className="rounded-2xl border border-slate-200 bg-white p-3">
-        <div className="mb-1 text-xs font-semibold text-slate-500">Uploaded files</div>
-        <ul className="list-disc pl-5 text-xs text-slate-700">
-          {uploadedFiles.map((f, idx) => (
-            <li key={`${f.name}-${idx}`}>{f.name}</li>
-          ))}
-        </ul>
-      </div>
-    )}
-
-    <div ref={messagesEndRef} />
-  </div>
-</div>
-
-{/* Live class bar */}
-<div className="mb-2 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px]">
-  <div className="font-semibold text-slate-700">
-    {isClassLive ? "ðŸŸ¢ Live Class Running" : "âšª Class Not Started"}
-  </div>
-  <div className="flex items-center gap-2">
-    {isClassLive && (
-      <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-700">
-        Time left: {Math.floor(remainingSeconds / 60)}m {remainingSeconds % 60}s
-      </span>
-    )}
-    {isClassLive && (
-      <button
-        type="button"
-        onClick={onEndClass}
-        className="rounded-lg border border-red-300 bg-red-50 px-2 py-1 font-semibold text-red-700 hover:bg-red-100"
-      >
-        End Class & Save
-      </button>
-    )}
-  </div>
-</div>
-
-{/* Audio player */}
-{audioUrl && (
-  <div className="border-t border-slate-200 px-4 py-2">
-    <audio controls className="w-full">
-      <source src={audioUrl} />
-    </audio>
-  </div>
-)}
-
-{audioError && (
-  <p className="px-4 pb-2 text-xs text-red-500">
-    {audioError}
-  </p>
-)}
-
-          <div className="border-t border-slate-200 px-4 py-3">
-            <div className="mb-2 flex items-center gap-2 overflow-x-auto pb-1">
-              <button
-                type="button"
-                onClick={handleToggleRealtime}
-                className={`rounded-full border px-3 py-1 text-xs whitespace-nowrap ${
-                  isRealtimeOn
-                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                    : "border-slate-300 bg-white text-slate-700"
-                }`}
-              >
-                {isRealtimeOn ? "ðŸŸ¢ Realtime Voice ON" : "âšª Realtime Voice OFF"}
-              </button>
-              <button
-                type="button"
-                onClick={handleMicToggle}
-                disabled={!isRealtimeOn}
-                className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 disabled:opacity-50 whitespace-nowrap"
-              >
-                {isListening ? "â¹ Stop & Send" : "ðŸŽ™ Speak"}
-              </button>
-              <button
-                type="button"
-                onClick={() => !isStartingLesson && handleStartClass()}
-                disabled={isStartingLesson}
-                className="rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white disabled:opacity-60 whitespace-nowrap"
-              >
-                {isStartingLesson ? "Preparing lessonâ€¦" : "Start Lesson"}
-              </button>
-              <button
-                type="button"
-                onClick={handleStartTopicTest}
-                disabled={isLoadingTest || !currentTopic}
-                className="rounded-full border border-indigo-500 bg-white px-3 py-1 text-xs font-semibold text-indigo-600 disabled:opacity-50 whitespace-nowrap"
-              >
-                {isLoadingTest ? "Preparing testâ€¦" : "Start Topic Test"}
-              </button>
+    if (
+      boardTopic.includes("sieving") ||
+      boardTopic.includes("winnowing") ||
+      boardSubject.includes("science")
+    ) {
+      return (
+        <div className="grid h-full grid-cols-1 gap-4 rounded-3xl bg-slate-50 p-5 md:grid-cols-2">
+          <div className="rounded-2xl bg-white p-4 shadow-sm">
+            <div className="mb-3 text-sm font-semibold text-slate-700">
+              Separation flow
             </div>
-
-            <div className="mb-2 flex items-center gap-2 overflow-x-auto pb-1 text-[11px] text-slate-500">
-              <span className="whitespace-nowrap">{isListening ? "Listeningâ€¦ speak now." : realtimeStatus || "Ready"}</span>
-              {(currentTopic as any)?.status && (
-                <span className="whitespace-nowrap rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">
-                  Status: {TOPIC_STATUS_UI[(currentTopic as any).status] || "â€”"}
-                </span>
-              )}
-              {topicTestResult && (
-                <span className="whitespace-nowrap rounded-full bg-emerald-50 px-2 py-1 font-semibold text-emerald-700">
-                  Score: {topicTestResult.correct}/{topicTestResult.total} ({topicTestResult.percent}%)
-                </span>
-              )}
+            <div className="space-y-3 text-sm text-slate-600">
+              <div className="rounded-xl border border-slate-200 p-3">
+                Mixture of grain + husk
+              </div>
+              <div className="text-center text-xl">→</div>
+              <div className="rounded-xl border border-slate-200 p-3">
+                Use wind or hand movement
+              </div>
+              <div className="text-center text-xl">→</div>
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                Heavy grain falls down, lighter husk moves away
+              </div>
             </div>
-
-            <div className="grid grid-cols-[1fr_auto] gap-2">
-              <input
-                type="text"
-                className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder={isRealtimeOn ? "Type a doubt or use mic for realtime teacherâ€¦" : "Ask a doubt about this topicâ€¦"}
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    if (!isAsking) handleAskRealtime();
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => handleAskRealtime()}
-                className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-black disabled:opacity-50"
-                disabled={isAsking}
-              >
-                {isRealtimeOn ? "Send" : isAsking ? "Thinkingâ€¦" : "Ask"}
-              </button>
+          </div>
+          <div className="rounded-2xl bg-white p-4 shadow-sm">
+            <div className="mb-3 text-sm font-semibold text-slate-700">
+              Teacher focus
             </div>
-
-            <div className="mt-2 flex items-center gap-2 overflow-x-auto pb-1">
-              <label className="cursor-pointer rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 whitespace-nowrap hover:bg-slate-100">
-                ðŸ“Ž Upload notes/photo
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => setUploadedFiles(Array.from(e.target.files || []))}
-                />
-              </label>
-              <button
-                type="button"
-                onClick={openCamera}
-                className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 whitespace-nowrap hover:bg-slate-100"
-              >
-                ðŸ“· Open camera
-              </button>
-              {capturedImage && (
-                <button
-                  type="button"
-                  onClick={() => setCapturedImage(null)}
-                  className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 whitespace-nowrap hover:bg-slate-100"
-                >
-                  Clear image
-                </button>
-              )}
-            </div>
-            {cameraError && <p className="mt-1 text-xs text-red-500">{cameraError}</p>}
-            {syllabusLoading && <p className="mt-1 text-xs text-slate-500">Loading syllabusâ€¦</p>}
-            {syllabusError && <p className="mt-1 text-xs text-red-500">Syllabus error: {syllabusError}</p>}
+            <ul className="space-y-3 text-sm text-slate-600">
+              <li> Show which particles are heavier and lighter.</li>
+              <li> Explain why wind helps in winnowing.</li>
+              <li> Compare sieve holes with particle size.</li>
+              <li> Use one daily-life example from home or market.</li>
+            </ul>
           </div>
         </div>
+      );
+    }
 
-        <aside
-          className={`hidden lg:block absolute right-3 top-3 z-20 w-64 rounded-2xl border border-slate-200 bg-white p-3 shadow-md transition-transform duration-300 ${
-            hasStartedClass ? "translate-x-[74%] hover:translate-x-0" : "translate-x-0"
-          }`}
-        >
-          <div className="sticky top-3">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Teacher</div>
-            <div className="mx-auto w-28 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-              <img src={teacherAvatar} alt="AI Teacher" className="h-auto w-full object-contain" />
-            </div>
-            <p className="mt-2 text-center text-xs font-medium text-slate-700">NeoLearn Maths Teacher</p>
-            <p className="mt-2 text-center text-[11px] text-slate-500">
-              Subject: {currentSubject?.subject_name || "Select subject"}
-              <br />
-              Topic: {currentTopic?.topic_name || "Select topic"}
-            </p>
+    return (
+      <div className="flex h-full items-center justify-center rounded-3xl bg-slate-50 p-5">
+        <div className="max-w-xl rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <div className="text-2xl font-semibold text-slate-800">
+            {currentTopic.topic_name}
           </div>
-        </aside>
+          <p className="mt-3 text-sm leading-7 text-slate-600">
+            This teacher board displays diagrams, examples, highlighted steps,
+            and explanations for the current topic. The student watches the board
+            while the AI teacher explains the lesson smoothly.
+          </p>
+        </div>
+      </div>
+    );
+  };
+
+  const drawerPanel = (
+    <div className="flex h-full flex-col gap-3 overflow-y-auto p-3">
+      <button
+        type="button"
+        onClick={() => {
+          if (typeof window !== "undefined" && window.innerWidth < 1024) {
+            setMobileDrawerOpen(false);
+          } else {
+            setDrawerOpen(false);
+          }
+        }}
+        className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
+      >
+        Hide panel
+      </button>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="h-14 w-14 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+            <img
+              src={teacherAvatar}
+              alt="AI Teacher"
+              className="h-full w-full object-contain"
+            />
+          </div>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-slate-800">
+              NeoLearn {currentSubject?.subject_name || "AI"} Teacher
+            </div>
+            <div className="text-xs text-slate-500">
+              Student: {studentName}
+            </div>
+          </div>
+        </div>
       </div>
 
+      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+          Classroom info
+        </div>
+        <div className="space-y-2 text-sm text-slate-700">
+          <div>
+            <span className="font-semibold">Subject:</span>{" "}
+            {currentSubject?.subject_name || "-"}
+          </div>
+          <div>
+            <span className="font-semibold">Chapter:</span>{" "}
+            {currentChapter?.chapter_name || "-"}
+          </div>
+          <div>
+            <span className="font-semibold">Topic:</span>{" "}
+            {currentTopic?.topic_name || "-"}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+          Quick menu
+        </div>
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => goTab("progress")}
+            className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Progress
+          </button>
+          <button
+            type="button"
+            onClick={() => goTab("gallery")}
+            className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Gallery
+          </button>
+          <button
+            type="button"
+            onClick={() => goTab("payments")}
+            className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Subscription
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+          Quick actions
+        </div>
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => !isStartingLesson && onStartLesson()}
+            disabled={isStartingLesson}
+            className="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+          >
+            {isStartingLesson ? "Preparing lesson..." : "Start Lesson"}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleStartTopicTest}
+            disabled={isLoadingTest || !currentTopic}
+            className="w-full rounded-2xl border border-indigo-500 bg-white px-4 py-3 text-sm font-semibold text-indigo-600 disabled:opacity-60"
+          >
+            {isLoadingTest ? "Preparing test..." : "Start Topic Test"}
+          </button>
+
+          <button
+            type="button"
+            onClick={onEndClass}
+            className="w-full rounded-2xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
+          >
+            End Class & Save
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+          Lesson audio
+        </div>
+
+        {audioUrl ? (
+          <audio id="lesson-audio" key={audioUrl} controls className="w-full">
+            <source src={audioUrl} />
+          </audio>
+        ) : (
+          <p className="text-sm text-slate-500">
+            Lesson audio will appear here after the lesson starts.
+          </p>
+        )}
+
+        {audioError && (
+          <p className="mt-2 text-xs text-red-500">{audioError}</p>
+        )}
+      </div>
+    </div>
+  );
+
+  const railButton = (
+    label: string,
+    onClick: () => void
+  ) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+    >
+      {label}
+    </button>
+  );
+
+  const rail = (
+    <div className="flex h-full flex-col items-center gap-3 p-2">
+      {railButton("⚙", () => setDrawerOpen(true))}
+      {railButton("P", () => goTab("progress"))}
+      {railButton("G", () => goTab("gallery"))}
+      {railButton("S", () => goTab("payments"))}
+      {railButton("▶", () => !isStartingLesson && onStartLesson())}
+    </div>
+  );
+
+  return (
+    <>
+      <div className="relative flex h-full min-h-0 w-full overflow-hidden rounded-[28px] border border-slate-200 bg-slate-50">
+        {mobileDrawerOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/30 lg:hidden"
+            onClick={() => setMobileDrawerOpen(false)}
+          />
+        )}
+
+        {boardOpen && (
+          <div
+            className="fixed inset-0 z-30 bg-black/20 lg:hidden"
+            onClick={() => setBoardOpen(false)}
+          />
+        )}
+
+        <aside
+          className={`hidden border-r border-slate-200 bg-slate-50 transition-[width] duration-300 lg:block ${
+            drawerOpen ? "w-[280px]" : "w-[64px]"
+          }`}
+        >
+          {drawerOpen ? drawerPanel : rail}
+        </aside>
+
+        <aside
+          className={`fixed inset-y-0 left-0 z-50 w-[280px] border-r border-slate-200 bg-slate-50 shadow-xl transition-transform duration-300 lg:hidden ${
+            mobileDrawerOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          {drawerPanel}
+        </aside>
+
+        <section className="relative min-w-0 flex-1">
+          <div
+            className={`flex h-full min-h-0 flex-col p-3 transition-all duration-300 ${
+              boardOpen ? "lg:pr-[30%]" : ""
+            }`}
+          >
+            <div className="flex min-h-0 flex-1 flex-col gap-3">
+              <div className="shrink-0 rounded-[28px] border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setMobileDrawerOpen(true)}
+                      className="rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 lg:hidden"
+                    >
+                      |||
+                    </button>
+
+                    {!drawerOpen && (
+                      <button
+                        type="button"
+                        onClick={() => setDrawerOpen(true)}
+                        className="hidden rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 lg:block"
+                      >
+                        |||
+                      </button>
+                    )}
+
+                    <div>
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                        Conversation
+                      </div>
+                      <div className="mt-1 text-sm text-slate-500">
+                        Lesson flow, doubts, AI replies, and live captions.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+  <select
+    className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm"
+    value={language}
+    onChange={(e) =>
+      setLanguage(e.target.value as "English" | "Hindi" | "Bengali")
+    }
+  >
+    <option value="English">English</option>
+    <option value="Hindi">Hindi</option>
+    <option value="Bengali">Bengali</option>
+  </select>
+
+  <select
+    className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm"
+    value={speed}
+    onChange={(e) =>
+      setSpeed(e.target.value as "Slow" | "Normal" | "Fast")
+    }
+  >
+    <option value="Slow">Slow</option>
+    <option value="Normal">Normal</option>
+    <option value="Fast">Fast</option>
+  </select>
+
+  <div
+    className={`rounded-2xl px-3 py-2 text-sm font-semibold ${
+      isClassLive
+        ? "bg-emerald-50 text-emerald-700"
+        : "bg-slate-100 text-slate-600"
+    }`}
+  >
+    {isClassLive
+      ? `Live {Math.floor(remainingSeconds / 60)}m ${remainingSeconds % 60}s`
+      : "Not started"}
+  </div>
+
+  <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+    {messages.length} messages
+  </div>
+
+  <button
+    type="button"
+    onClick={() => setBoardOpen((v) => !v)}
+    className="rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+  >
+    {boardOpen ? "Hide board" : "Open board"}
+  </button>
+</div>
+</div>
+</div>
+
+              <div className="min-h-0 flex-1 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+                <div className="h-full overflow-y-auto overscroll-contain px-4 py-4">
+                  <div className="space-y-3">
+                    {messages.map((m) => {
+                      const isTeacher = m.author === "Teacher";
+                      return (
+                        <div
+                          key={m.id}
+                          className={`flex ${isTeacher ? "justify-start" : "justify-end"}`}
+                        >
+                          <div
+                            className={`max-w-[94%] rounded-3xl px-4 py-3 text-sm shadow-sm ${
+                              isTeacher
+                                ? "border border-slate-200 bg-slate-50 text-slate-800"
+                                : "bg-blue-600 text-white"
+                            } ${m.isError ? "border-red-300 bg-red-50 text-red-700" : ""}`}
+                          >
+                            <div className="whitespace-pre-wrap leading-7">
+                              {m.text}
+                            </div>
+                            <div
+                              className={`mt-2 text-[11px] ${
+                                isTeacher ? "text-slate-400" : "text-blue-100"
+                              }`}
+                            >
+                              {isTeacher ? "Teacher" : "You"} - {m.ts}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {realtimeTranscript && (
+                      <div className="rounded-3xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-slate-700">
+                        <span className="font-semibold text-blue-700">
+                          Teacher (live):{" "}
+                        </span>
+                        {realtimeTranscript}
+                      </div>
+                    )}
+
+                    {capturedImage && (
+                      <div className="rounded-3xl border border-slate-200 bg-white p-3">
+                        <div className="mb-2 text-xs font-semibold text-slate-500">
+                          Captured image
+                        </div>
+                        <img
+                          src={capturedImage}
+                          alt="Captured"
+                          className="max-h-72 w-auto rounded-2xl border border-slate-200"
+                        />
+                      </div>
+                    )}
+
+                    {uploadedFiles.length > 0 && (
+                      <div className="rounded-3xl border border-slate-200 bg-white p-3">
+                        <div className="mb-1 text-xs font-semibold text-slate-500">
+                          Uploaded files
+                        </div>
+                        <ul className="list-disc pl-5 text-xs text-slate-700">
+                          {uploadedFiles.map((f, idx) => (
+                            <li key={`${f.name}-${idx}`}>{f.name}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <div ref={messagesEndRef} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="shrink-0 rounded-[28px] border border-slate-200 bg-white px-3 py-3 shadow-sm">
+                <div className="relative flex items-center gap-2">
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setMenuOpen((v) => !v)}
+                      className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-300 bg-white text-2xl text-slate-700 hover:bg-slate-50"
+                    >
+                      +
+                    </button>
+
+                    {menuOpen && (
+                      <div className="absolute bottom-14 left-0 z-30 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+                        <label className="flex cursor-pointer items-center rounded-xl px-3 py-3 text-sm text-slate-700 hover:bg-slate-100">
+                          Upload notes / photo
+                          <input
+                            type="file"
+                            accept="image/*,.pdf"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => {
+                              setUploadedFiles(Array.from(e.target.files || []));
+                              setMenuOpen(false);
+                            }}
+                          />
+                        </label>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            openCamera();
+                          }}
+                          className="flex w-full items-center rounded-xl px-3 py-3 text-sm text-slate-700 hover:bg-slate-100"
+                        >
+                          Open camera
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <input
+                    type="text"
+                    className="h-12 min-w-0 flex-1 rounded-full border border-slate-300 bg-white px-5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder={
+                      isRealtimeOn
+                        ? "Type a doubt or use mic for realtime teacher..."
+                        : "Ask about this topic..."
+                    }
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        if (!isAsking) handleAskRealtime();
+                      }
+                    }}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={handleMicToggle}
+                    className={`h-12 min-w-[68px] rounded-full border px-4 text-sm font-semibold ${
+                      isListening
+                        ? "border-blue-600 bg-blue-600 text-white"
+                        : "border-slate-300 bg-white text-slate-700"
+                    }`}
+                  >
+                    {isListening ? "Stop" : "Mic"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleAskRealtime}
+                    disabled={isAsking}
+                    className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-lg font-bold text-white disabled:opacity-50"
+                  >
+                   →
+                  </button>
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={handleToggleRealtime}
+                    className={`rounded-full border px-3 py-1 font-semibold ${
+                      isRealtimeOn
+                        ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                        : "border-slate-300 bg-white text-slate-700"
+                    }`}
+                  >
+                    {isRealtimeOn ? "Realtime Voice On" : "Realtime Voice Off"}
+                  </button>
+
+                  <span className="text-slate-500">
+                    {isListening ? "Listening... speak now." : realtimeStatus || "Ready"}
+                  </span>
+
+                  {syllabusLoading && (
+                    <span className="text-slate-400">Loading syllabus...</span>
+                  )}
+                  {syllabusError && (
+                    <span className="text-red-500">{syllabusError}</span>
+                  )}
+                  {cameraError && (
+                    <span className="text-red-500">{cameraError}</span>
+                  )}
+                  {topicTestResult && (
+                    <span className="rounded-full bg-emerald-50 px-2 py-1 font-semibold text-emerald-700">
+                      Score {topicTestResult.percent}%
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {boardOpen && (
+            <aside className="hidden lg:block absolute inset-y-0 right-0 w-[30%] min-w-[320px] border-l border-slate-200 bg-white p-3">
+              <div className="flex h-full flex-col rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                      Teacher smart board
+                    </div>
+                    <div className="mt-1 text-2xl font-semibold text-slate-900">
+                      {currentTopic?.topic_name || "Visual board"}
+                    </div>
+                    <div className="mt-2 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                      {currentSubject?.subject_name || "Board"}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setBoardOpen(false)}
+                    className="rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                
+
+                <div className="min-h-0 flex-1">{renderBoardVisual()}</div>
+              </div>
+            </aside>
+          )}
+        </section>
+      </div>
+
+      {boardOpen && (
+  <div className="fixed inset-y-0 right-0 z-40 w-full max-w-md border-l border-slate-200 bg-white p-4 shadow-2xl lg:hidden">
+    <div className="mb-3 flex items-start justify-between gap-3">
+      <div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+          Teacher smart board
+        </div>
+        <div className="mt-1 text-xl font-semibold text-slate-900">
+          {currentTopic?.topic_name || "Visual board"}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setBoardOpen(false)}
+        className="rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700"
+      >
+        Close
+      </button>
+    </div>
+
+    <div className="h-[calc(100%-72px)]">
+      {renderBoardVisual()}
+    </div>
+  </div>
+)}
+
+      {isTopicTestOpen && topicTest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-3">
+          <div className="max-h-[88vh] w-full max-w-3xl overflow-y-auto rounded-[28px] bg-white p-5 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">
+                  Topic Test
+                </h3>
+                <p className="text-sm text-slate-500">
+                  Answer all questions, then submit to save your score.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsTopicTestOpen(false)}
+                className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {topicTest.map((q, index) => (
+                <div key={q.id} className="rounded-2xl border border-slate-200 p-4">
+                  <div className="mb-3 text-sm font-semibold text-slate-800">
+                    Q{index + 1}. {q.question}
+                  </div>
+
+                  <div className="space-y-2">
+                    {q.options.map((option, optionIndex) => {
+                      const selected = topicTestAnswers[q.id] === optionIndex;
+                      return (
+                        <button
+                          key={optionIndex}
+                          type="button"
+                          onClick={() =>
+                            setTopicTestAnswers((prev) => ({
+                              ...prev,
+                              [q.id]: optionIndex,
+                            }))
+                          }
+                          className={`w-full rounded-2xl border px-4 py-3 text-left text-sm ${
+                            selected
+                              ? "border-blue-500 bg-blue-50 text-blue-700"
+                              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {topicTestResult && (
+              <div className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+                Result: {topicTestResult.correct}/{topicTestResult.total} (
+                {topicTestResult.percent}%)
+              </div>
+            )}
+
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsTopicTestOpen(false)}
+                className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSubmitTopicTest}
+                className="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white"
+              >
+                Submit Test
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isCameraOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-3">
-          <div className="w-full max-w-2xl rounded-2xl bg-white p-4 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-3">
+          <div className="w-full max-w-3xl rounded-[28px] bg-white p-4 shadow-2xl">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold">Capture question image</h3>
+
               <button
                 type="button"
                 className="rounded-full border border-slate-300 px-3 py-1 text-xs"
@@ -2877,11 +3928,19 @@ const handleSubmitTopicTest = async () => {
                 Close
               </button>
             </div>
-            <video ref={videoRef} autoPlay playsInline className="max-h-[60vh] w-full rounded-xl border border-slate-200 bg-black" />
+
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="max-h-[66vh] w-full rounded-2xl border border-slate-200 bg-black object-contain"
+            />
+
             <div className="mt-3 flex justify-end gap-2">
               <button
                 type="button"
-                className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold"
+                className="rounded-2xl border border-slate-300 px-3 py-2 text-xs font-semibold"
                 onClick={() => {
                   stopCamera();
                   setIsCameraOpen(false);
@@ -2889,9 +3948,10 @@ const handleSubmitTopicTest = async () => {
               >
                 Cancel
               </button>
+
               <button
                 type="button"
-                className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white"
+                className="rounded-2xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white"
                 onClick={captureFromCamera}
               >
                 Capture
@@ -2900,13 +3960,16 @@ const handleSubmitTopicTest = async () => {
           </div>
         </div>
       )}
-
-      
-             
-
     </>
   );
 }
+
+
+
+
+
+
+
 
 
 

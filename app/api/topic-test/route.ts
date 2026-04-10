@@ -17,7 +17,34 @@ type TopicTestQuestion = {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+const mobile = String(body.mobile || body.studentMobile || "").trim();
 
+if (!mobile) {
+  return NextResponse.json(
+    { ok: false, error: "Missing mobile." },
+    { status: 400 }
+  );
+}
+
+const entitlementRes = await fetch(
+  `${new URL(req.url).origin}/api/student/entitlements?mobile=${encodeURIComponent(mobile)}`,
+  { cache: "no-store" }
+);
+const ent = await entitlementRes.json();
+
+if (!entitlementRes.ok || !ent?.ok) {
+  return NextResponse.json(
+    { ok: false, error: "Unable to verify entitlement for topic test." },
+    { status: 500 }
+  );
+}
+
+if (!ent.features?.topicTest) {
+  return NextResponse.json(
+    { ok: false, error: "Topic tests are not available in the current access state." },
+    { status: 403 }
+  );
+}
     const board = (body.board as string) || "CBSE";
     const classLevel = (body.classLevel as string) || "Class 6";
     const subject = (body.subject as string) || "Mathematics";
