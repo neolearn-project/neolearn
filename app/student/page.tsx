@@ -2899,7 +2899,8 @@ const ensureRealtimeConnected = async (silent = false) => {
     setRealtimeClient(client);
   }
 
-  const realtimeLocale = getRealtimeLocale(language);
+  const realtimeLocale =
+    getRealtimeLocale(language) as Parameters<RealtimeTeacherClient["connect"]>[0];
 
   const strictTopicGuard = currentTopic?.topic_name
     ? `You are teaching only this exact topic: "${currentTopic.topic_name}".`
@@ -3963,6 +3964,7 @@ const handleStartTopicTest = async () => {
     </>
   );
 }
+
 
 
 
