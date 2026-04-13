@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 
@@ -191,6 +191,30 @@ const [featureFlagsMessage, setFeatureFlagsMessage] = useState("");
     setPlansLoading(false);
   }
 }
+
+  async function loadPayments() {
+    if (!adminPassword) return;
+
+    setPaymentsLoading(true);
+    setPaymentsError("");
+
+    try {
+      const res = await fetch(
+        `/api/admin/payment-history?adminPassword=${encodeURIComponent(adminPassword)}&limit=12`
+      );
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || "Failed to load payment history.");
+      }
+
+      setPayments(Array.isArray(data.payments) ? data.payments : []);
+    } catch (e: any) {
+      setPaymentsError(e?.message || "Failed to load payment history.");
+    } finally {
+      setPaymentsLoading(false);
+    }
+  }
 
   async function loadStudents(q: string) {
     setStudentsLoading(true);
@@ -568,7 +592,7 @@ async function updateFeatureFlag(key: string, enabled: boolean) {
                   <td className="px-4 py-3 font-medium">{plan.code}</td>
                   <td className="px-4 py-3">{plan.name}</td>
                   <td className="px-4 py-3 capitalize">{plan.track}</td>
-                  <td className="px-4 py-3">₹{plan.price}</td>
+                  <td className="px-4 py-3">â‚¹{plan.price}</td>
                   <td className="px-4 py-3">{plan.validity_days} days</td>
                   <td className="px-4 py-3">{plan.is_active ? "Yes" : "No"}</td>
                   <td className="px-4 py-3">{plan.sort_order}</td>
@@ -886,3 +910,6 @@ function ActionButton({
     </button>
   );
 }
+
+
+
