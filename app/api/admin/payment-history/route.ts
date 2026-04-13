@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -11,26 +11,30 @@ function getSupabase() {
   return createClient(supabaseUrl, supabaseKey);
 }
 
-function requireAdmin(searchParams: URLSearchParams) {
-  const adminPw = String(searchParams.get("adminPassword") || "").trim();
-  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "neolearn-admin-secret";
+function requireAdminPassword(body: any) {
+  const adminPw = String(body?.adminPassword || "").trim();
+  const ADMIN_PASSWORD =
+    process.env.NEOLEARN_ADMIN_PASSWORD ||
+    process.env.ADMIN_PASSWORD ||
+    "neolearn-admin-secret";
+
   if (adminPw !== ADMIN_PASSWORD) {
     throw new Error("Unauthorized");
   }
 }
 
-export async function GET(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-    requireAdmin(searchParams);
+    const body = await req.json();
+    requireAdminPassword(body);
 
     const limit = Math.min(
-      Math.max(Number(searchParams.get("limit") || 20), 1),
+      Math.max(Number(body?.limit || 20), 1),
       100
     );
 
-    const mobile = String(searchParams.get("mobile") || "").trim();
-    const status = String(searchParams.get("status") || "").trim();
+    const mobile = String(body?.mobile || "").trim();
+    const status = String(body?.status || "").trim();
 
     const supabase = getSupabase();
 

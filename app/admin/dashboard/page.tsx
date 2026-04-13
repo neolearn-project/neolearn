@@ -202,13 +202,20 @@ const [paymentsError, setPaymentsError] = useState("");
     setPaymentsError("");
 
     try {
-      const res = await fetch(
-        `/api/admin/payment-history?adminPassword=${encodeURIComponent(adminPassword)}&limit=12`
-      );
-      const data = await res.json();
+      const res = await fetch("/api/admin/payment-history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminPassword,
+          limit: 12,
+        }),
+      });
+
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : null;
 
       if (!res.ok || !data?.ok) {
-        throw new Error(data?.error || "Failed to load payment history.");
+        throw new Error(data?.error || `Failed to load payment history (HTTP ${res.status}).`);
       }
 
       setPayments(Array.isArray(data.payments) ? data.payments : []);
@@ -779,6 +786,65 @@ async function updateFeatureFlag(key: string, enabled: boolean) {
   )}
 </div>
 
+
+<div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-5">
+  <div className="flex items-center justify-between gap-3">
+    <div>
+      <h2 className="text-xl font-semibold">Recent Payments</h2>
+      <p className="text-sm text-gray-500 mt-1">
+        Latest payment attempts captured from Razorpay flow.
+      </p>
+    </div>
+
+    <ActionButton disabled={paymentsLoading || !adminPassword} onClick={() => loadPayments()}>
+      {paymentsLoading ? "Refreshing..." : "Refresh Payments"}
+    </ActionButton>
+  </div>
+
+  {paymentsError ? (
+    <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      {paymentsError}
+    </div>
+  ) : paymentsLoading ? (
+    <div className="text-sm text-gray-500">Loading payment history...</div>
+  ) : payments.length === 0 ? (
+    <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-500">
+      No payment records found.
+    </div>
+  ) : (
+    <div className="overflow-x-auto">
+      <table className="min-w-full">
+        <thead>
+          <tr className="border-b border-gray-200 text-left text-sm text-gray-500">
+            <th className="px-4 py-3">Created</th>
+            <th className="px-4 py-3">Mobile</th>
+            <th className="px-4 py-3">Plan</th>
+            <th className="px-4 py-3">Amount</th>
+            <th className="px-4 py-3">Status</th>
+            <th className="px-4 py-3">Order ID</th>
+            <th className="px-4 py-3">Payment ID</th>
+            <th className="px-4 py-3">Source</th>
+          </tr>
+        </thead>
+        <tbody>
+          {payments.map((p) => (
+            <tr key={p.id} className="border-t border-gray-200 text-sm">
+              <td className="px-4 py-3">{p.created_at ? new Date(p.created_at).toLocaleString() : "-"}</td>
+              <td className="px-4 py-3">{p.student_mobile || "-"}</td>
+              <td className="px-4 py-3">{p.plan_code || "-"}</td>
+              <td className="px-4 py-3">₹{p.amount ?? 0}</td>
+              <td className="px-4 py-3">{p.payment_status || "-"}</td>
+              <td className="px-4 py-3 break-all text-xs">{p.razorpay_order_id || "-"}</td>
+              <td className="px-4 py-3 break-all text-xs">{p.razorpay_payment_id || "-"}</td>
+              <td className="px-4 py-3">{p.source || "-"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+</div>
+
       <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
   <div>
     <h2 className="text-xl font-semibold">Subscription Status Card</h2>
@@ -913,6 +979,9 @@ function ActionButton({
     </button>
   );
 }
+
+
+
 
 
 
