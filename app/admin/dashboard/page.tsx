@@ -94,6 +94,9 @@ const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 const [featureFlags, setFeatureFlags] = useState<Array<{ key: string; enabled: boolean }>>([]);
 const [featureFlagsLoading, setFeatureFlagsLoading] = useState(false);
 const [featureFlagsMessage, setFeatureFlagsMessage] = useState("");
+const [payments, setPayments] = useState<any[]>([]);
+const [paymentsLoading, setPaymentsLoading] = useState(false);
+const [paymentsError, setPaymentsError] = useState("");
 
   useEffect(() => {
     let mounted = true;
