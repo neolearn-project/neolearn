@@ -107,6 +107,21 @@ export async function POST(req: Request) {
       },
     });
 
+    await supabase.from("student_payments").insert({
+      student_mobile: studentMobile,
+      plan_code: plan.code,
+      amount: Number(plan.price),
+      currency: "INR",
+      payment_status: "created",
+      razorpay_order_id: order.id,
+      source: "create_order",
+      notes: {
+        plan_name: plan.name,
+        validity_days: plan.validity_days,
+        track: plan.track,
+      },
+    });
+
     return NextResponse.json({
       ok: true,
       keyId,
@@ -134,3 +149,4 @@ export async function POST(req: Request) {
     );
   }
 }
+

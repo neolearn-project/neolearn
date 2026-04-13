@@ -98,6 +98,39 @@ export async function POST(req: Request) {
     const nowIso = new Date().toISOString();
     const endAtIso = addDaysIso(nowIso, Number(plan.validity_days));
 
+    const paymentUpsert = await supabase.from("student_payments").upsert(
+      {
+        student_mobile: studentMobile,
+        plan_code: plan.code,
+        amount: Number(plan.price),
+        currency: "INR",
+        payment_status: "paid",
+        razorpay_order_id: razorpayOrderId,
+        razorpay_payment_id: razorpayPaymentId,
+        razorpay_signature: razorpaySignature,
+        source: "verify",
+        updated_at: new Date().toISOString(),
+        notes: {
+          validity_days: plan.validity_days,
+          track: plan.track,
+        },
+      },
+      { onConflict: "razorpay_order_id" }
+    );
+
+    if (paymentUpsert.error) {
+      return NextResponse.json(
+        { ok: false, error: paymentUpsert.error.message },
+        { status: 500 }
+      );
+    }
+
+    await supabase
+      .from("student_subscriptions")
+      .update({ is_active: false })
+      .eq("student_mobile", studentMobile)
+      .eq("is_active", true);
+
     const { error: subError } = await supabase.from("student_subscriptions").insert({
       student_mobile: studentMobile,
       plan_code: plan.code,
@@ -139,3 +172,4 @@ export async function POST(req: Request) {
     );
   }
 }
+

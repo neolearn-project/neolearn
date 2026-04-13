@@ -1,4 +1,4 @@
-import crypto from "crypto";
+﻿import crypto from "crypto";
 
 export const runtime = "nodejs";
 
@@ -28,9 +28,11 @@ export async function POST(req: Request) {
 
   const event = JSON.parse(rawBody.toString("utf8"));
 
-  // ✅ Typical event: "payment.captured"
-  // For now just log it. Next we’ll update Supabase and unlock access.
-  console.log("✅ Razorpay webhook event:", event?.event);
+  // âœ… Typical event: "payment.captured"
+  // For now just log it. Next weâ€™ll update Supabase and unlock access.
+  console.log("âœ… Razorpay webhook event:", event?.event);
 
   return Response.json({ ok: true });
 }
+
+
