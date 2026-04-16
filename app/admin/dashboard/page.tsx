@@ -97,6 +97,8 @@ const [featureFlagsMessage, setFeatureFlagsMessage] = useState("");
 const [payments, setPayments] = useState<any[]>([]);
 const [paymentsLoading, setPaymentsLoading] = useState(false);
 const [paymentsError, setPaymentsError] = useState("");
+const [paymentMobileFilter, setPaymentMobileFilter] = useState("");
+const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -801,6 +803,27 @@ async function updateFeatureFlag(key: string, enabled: boolean) {
     </ActionButton>
   </div>
 
+
+  <div className="grid md:grid-cols-2 gap-4">
+    <Field
+      label="Filter by Mobile"
+      value={paymentMobileFilter}
+      onChange={setPaymentMobileFilter}
+      placeholder="10-digit student mobile"
+    />
+    <SelectField
+      label="Filter by Status"
+      value={paymentStatusFilter}
+      onChange={setPaymentStatusFilter}
+      options={[
+        { label: "All", value: "" },
+        { label: "Created", value: "created" },
+        { label: "Paid", value: "paid" },
+        { label: "Failed", value: "failed" },
+      ]}
+    />
+  </div>
+
   {paymentsError ? (
     <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
       {paymentsError}
@@ -833,7 +856,17 @@ async function updateFeatureFlag(key: string, enabled: boolean) {
               <td className="px-4 py-3">{p.student_mobile || "-"}</td>
               <td className="px-4 py-3">{p.plan_code || "-"}</td>
               <td className="px-4 py-3">₹{p.amount ?? 0}</td>
-              <td className="px-4 py-3">{p.payment_status || "-"}</td>
+              <td className="px-4 py-3">
+                <span className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                  p.payment_status === "paid"
+                    ? "bg-emerald-100 text-emerald-700"
+                    : p.payment_status === "failed"
+                    ? "bg-red-100 text-red-700"
+                    : "bg-gray-100 text-gray-700"
+                }`}>
+                  {p.payment_status || "-"}
+                </span>
+              </td>
               <td className="px-4 py-3 break-all text-xs">{p.razorpay_order_id || "-"}</td>
               <td className="px-4 py-3 break-all text-xs">{p.razorpay_payment_id || "-"}</td>
               <td className="px-4 py-3">{p.source || "-"}</td>
@@ -979,6 +1012,15 @@ function ActionButton({
     </button>
   );
 }
+
+
+
+
+
+
+
+
+
 
 
 
