@@ -243,12 +243,7 @@ const [teacherAvatar, setTeacherAvatar] = useState<string>(
   const [student, setStudent] = useState<StudentInfo | null>(null);
   const [loadingStudent, setLoadingStudent] = useState(true);
 const [payingPlanCode, setPayingPlanCode] = useState<string | null>(null);
-const [upgradeOpen, setUpgradeOpen] = useState(false);
-const [upgradeReason, setUpgradeReason] = useState<
-  "realtime_voice" | "topic_test" | "lesson_generation" | "qa" | null
->(null);
-
-  const [activeTab, setActiveTab] = useState<ActiveTab>("classroom");
+const [activeTab, setActiveTab] = useState<ActiveTab>("classroom");
 
   // ---------------- Notes Engine (v1) ----------------
 const [noteType, setNoteType] = useState<NoteType>("full_exam_notes");
@@ -307,7 +302,6 @@ const [sessionTranscript, setSessionTranscript] = useState<string>("");
     }
     router.replace("/");
   };
-
 const printSession = () => {
   if (typeof window === "undefined") return;
   window.print();
@@ -1437,6 +1431,7 @@ const handleStartLesson = useCallback(async () => {
         <main className="min-h-0 flex-1 overflow-hidden rounded-[28px] bg-transparent p-0 shadow-none">
           {activeTab === "classroom" && (
             <ClassroomView
+      onOpenPayments={() => setActiveTab("payments")}
               syllabusLoading={syllabusLoading}
               syllabusError={syllabusError}
               currentSubject={currentSubject}
@@ -1562,81 +1557,13 @@ const handleStartLesson = useCallback(async () => {
               />
             </div>
           )}
-          <UpgradePopup
-            open={upgradeOpen}
-            reason={upgradeReason}
-            onClose={() => {
-              setUpgradeOpen(false);
-              setUpgradeReason(null);
-            }}
-            onBuyMonthly={() => handleBuyPlan("REGULAR_MONTHLY")}
-          />
-        </main>
+</main>
       </div>
     </div>
   </div>
 );
 }
                
-function UpgradePopup({
-  open,
-  reason,
-  onClose,
-  onBuyMonthly,
-}: {
-  open: boolean;
-  reason: "realtime_voice" | "topic_test" | "lesson_generation" | "qa" | null;
-  onClose: () => void;
-  onBuyMonthly: () => void;
-}) {
-  if (!open) return null;
-
-  const reasonText =
-    reason === "realtime_voice"
-      ? "Realtime live teacher voice is a premium feature."
-      : reason === "topic_test"
-      ? "Topic tests are available in premium access."
-      : reason === "lesson_generation"
-      ? "Your free access is exhausted. Upgrade to continue full lessons."
-      : reason === "qa"
-      ? "This AI feature is available in premium."
-      : "Upgrade to continue.";
-
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/50 p-4">
-      <div className="w-full max-w-md rounded-[24px] bg-white p-5 shadow-2xl">
-        <h2 className="text-lg font-semibold text-slate-900">
-          Upgrade NeoLearn
-        </h2>
-        <p className="mt-2 text-sm text-slate-600">{reasonText}</p>
-
-        <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <div className="text-base font-semibold text-slate-900">
-            Regular Monthly
-          </div>
-          <div className="mt-1 text-3xl font-bold text-slate-900">₹599</div>
-          <div className="mt-1 text-sm text-slate-500">30 days access</div>
-
-          <button
-            type="button"
-            onClick={onBuyMonthly}
-            className="mt-4 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800"
-          >
-            Buy / Upgrade
-          </button>
-        </div>
-
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-4 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  );
-}
 /* ---------- Small components ---------- */
 
 function TabButton({
@@ -2636,6 +2563,7 @@ function RoutineView({
 
 
 function ClassroomView(props: {
+  onOpenPayments: () => void;
   syllabusLoading: boolean;
   syllabusError: string | null;
   currentSubject: SubjectRow | null;
@@ -2672,6 +2600,7 @@ function ClassroomView(props: {
   onNavigateTab: (tab: ActiveTab) => void;
 }) {
   const {
+    onOpenPayments,
     syllabusLoading,
     syllabusError,
     currentSubject,
@@ -2986,6 +2915,7 @@ const handleToggleRealtime = async () => {
     setRealtimeStatus(
       "Realtime voice is available only for paid or override access."
     );
+    onOpenPayments();
     return;
   }
 
@@ -3031,28 +2961,28 @@ const handleMicToggle = async () => {
     setRealtimeStatus(
       "Realtime voice is available only for paid or override access."
     );
+    onOpenPayments();
     return;
   }
 
   try {
-    const client = await ensureRealtimeConnected(true);
+    if (!realtimeClient) {
+      await ensureRealtimeConnected(false);
+      return;
+    }
 
-    if (!isListening) {
-      setRealtimeTranscript("");
-      await client.startMic();
-      setIsListening(true);
-      setRealtimeStatus("Listening... speak now.");
-    } else {
-      client.stopMicAndSend();
+    if (isListening) {
       setIsListening(false);
-      setRealtimeStatus("Voice sent.");
+      setRealtimeStatus("Mic off");
+    } else {
+      setIsListening(true);
+      setRealtimeStatus("Listening...");
     }
   } catch (err: any) {
-    console.error("mic error:", err);
-    setIsListening(false);
+    console.error("mic toggle error:", err);
     setRealtimeStatus(
-      `Mic error: ${
-        err?.message || err?.toString?.() || "Unknown microphone error"
+      `Realtime error: ${
+        err?.message || err?.toString?.() || "Mic toggle failed."
       }`
     );
   }
@@ -3964,6 +3894,39 @@ const handleStartTopicTest = async () => {
     </>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
