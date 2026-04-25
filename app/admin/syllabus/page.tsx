@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 
@@ -8,7 +8,10 @@ export default function AdminSyllabusPage() {
   const [classNumber, setClassNumber] = useState("6");
   const [subjectName, setSubjectName] = useState("Mathematics");
   const [subjectCode, setSubjectCode] = useState("maths6");
-  const [overwrite, setOverwrite] = useState(false);
+  
+const [bookName, setBookName] = useState("");
+const [textbookSeries, setTextbookSeries] = useState("");
+const [overwrite, setOverwrite] = useState(false);
 
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -53,11 +56,11 @@ export default function AdminSyllabusPage() {
         data.subject?.chapters?.length ?? 0;
 
       setStatus(
-        `✅ Done! AI syllabus JSON generated successfully` +
+        `âœ… Done! AI syllabus JSON generated successfully` +
           (chaptersCount
             ? ` with about ${chaptersCount} chapters.`
             : ".") +
-          ` Open DevTools → Network → ai-syllabus-subject → Response to inspect the full structure.`
+          ` Open DevTools â†’ Network â†’ ai-syllabus-subject â†’ Response to inspect the full structure.`
       );
 
       // Helpful for you while developing
@@ -133,7 +136,7 @@ export default function AdminSyllabusPage() {
               value={subjectName}
               onChange={(e) => setSubjectName(e.target.value)}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              placeholder="Mathematics / Science / English …"
+              placeholder="Mathematics / Science / English â€¦"
             />
           </div>
 
@@ -146,9 +149,32 @@ export default function AdminSyllabusPage() {
               value={subjectCode}
               onChange={(e) => setSubjectCode(e.target.value)}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              placeholder="maths6 / sci6 / eng6 …"
+              placeholder="maths6 / sci6 / eng6 â€¦"
             />
           </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Book name (optional)
+                </label>
+                <input
+                  value={bookName}
+                  onChange={(e) => setBookName(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2"
+                  placeholder="Honeycomb / Beehive / First Flight"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Textbook series (optional)
+                </label>
+                <input
+                  value={textbookSeries}
+                  onChange={(e) => setTextbookSeries(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2"
+                  placeholder="NCERT Honeycomb / NCERT Beehive"
+                />
+              </div>
 
           <div className="md:col-span-2 flex items-center gap-2 mt-1">
             <input
@@ -185,3 +211,6 @@ export default function AdminSyllabusPage() {
     </div>
   );
 }
+
+
+

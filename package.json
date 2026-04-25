@@ -25,7 +25,8 @@
     "react-dom": "18.2.0",
     "recharts": "^3.5.1",
     "remotion": "4.0.435",
-    "twilio": "^5.11.1"
+    "twilio": "^5.11.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/react": "19.2.2",

@@ -393,6 +393,8 @@ const [dailyError, setDailyError] = useState<string | null>(null);
   const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
 
 // ---------------- Notes Engine: Generate ----------------
+const effectiveStudentClassId = student?.classId ? String(student.classId) : "";
+
 const handleGenerateNotes = useCallback(async () => {
   if (!student || !currentSubject || !currentChapter) {
     alert("Please select subject and chapter first.");
@@ -409,7 +411,7 @@ const handleGenerateNotes = useCallback(async () => {
       body: JSON.stringify({
         mobile: student.mobile,
         board: "cbse",
-        classId: String(student.classId),
+        classId: effectiveStudentClassId,
         courseType: "regular",
         subjectId: String(currentSubject.id),
         chapterId: String(currentChapter.id),
@@ -1224,7 +1226,7 @@ const handleStartLesson = useCallback(async () => {
         chapterDbId: String(currentChapter?.id ?? ""),
         topicDbId: String(currentTopic?.id ?? ""),
         subjectId: currentSubject?.subject_code || "maths6",
-        classId: String(student?.classId ?? "6"),
+        classId: effectiveStudentClassId,
         studentMobile: student?.mobile,
         board: "cbse",
         lang:
@@ -1542,6 +1544,7 @@ const handleStartLesson = useCallback(async () => {
                 setNoteType={setNoteType}
                 notesMarkdown={notesMarkdown}
                 notesLoading={notesLoading}
+                notesError={notesError}
                 onGenerateNotes={handleGenerateNotes}
               />
             </div>
@@ -2169,6 +2172,7 @@ function GalleryView({
   setNoteType,
   notesMarkdown,
   notesLoading,
+  notesError,
   onGenerateNotes,
 }: {
   sessions: StoredSession[];
@@ -2179,12 +2183,99 @@ function GalleryView({
   setNoteType: (t: NoteType) => void;
   notesMarkdown: string;
   notesLoading: boolean;
+  notesError: string | null;
   onGenerateNotes: () => Promise<void> | void;
 }) {
   const selected = useMemo(
     () => sessions.find((s) => s.id === selectedId) || null,
     [sessions, selectedId]
   );
+
+  const printNotes = () => {
+    if (typeof window === "undefined") return;
+    const text = (notesMarkdown || "").trim();
+    if (!text) return;
+
+    const escaped = text
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;");
+
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (!win) return;
+
+    win.document.open();
+    win.document.write(`
+<!doctype html>
+<html>
+<head>
+  <title>NeoLearn Notes</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 32px;
+      color: #111827;
+      line-height: 1.65;
+      white-space: pre-wrap;
+    }
+    h1 {
+      font-size: 22px;
+      margin-bottom: 18px;
+    }
+    .content {
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>NeoLearn Notes</h1>
+  <div class="content">${escaped}</div>
+</body>
+</html>
+    `);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 400);
+  };
+
+  const downloadNotesText = () => {
+    const text = (notesMarkdown || "").trim();
+    if (!text) return;
+
+    const doc = new jsPDF({
+      orientation: "p",
+      unit: "pt",
+      format: "a4",
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 40;
+    const maxWidth = pageWidth - margin * 2;
+    let y = margin;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("NeoLearn Notes", margin, y);
+    y += 24;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+
+    const lines = doc.splitTextToSize(text, maxWidth);
+
+    for (const line of lines) {
+      if (y > pageHeight - margin) {
+        doc.addPage();
+        y = margin;
+      }
+      doc.text(line, margin, y);
+      y += 16;
+    }
+
+    doc.save("NeoLearn_Notes.pdf");
+  };
+
 
   const downloadPdf = () => {
   if (!selected) return;
@@ -2294,28 +2385,43 @@ function GalleryView({
             </button>
 
             {notesMarkdown?.trim() && (
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-              >
-                Print Notes
-              </button>
-            )}
+  <>
+    <button
+      type="button"
+      onClick={printNotes}
+      className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+    >
+      Print Notes
+    </button>
+    <button
+      type="button"
+      onClick={downloadNotesText}
+      className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+    >
+      Download Notes
+    </button>
+  </>
+)}
           </div>
         </div>
 
         {!notesMarkdown?.trim() && !notesLoading && (
-          <div className="mt-2 text-xs text-slate-600">
-            Select a note type and click <b>Generate Notes</b>.
-          </div>
-        )}
+  <div className="mt-2 text-xs text-slate-600">
+    Select a note type and click <b>Generate Notes</b>.
+  </div>
+)}
 
-        {notesMarkdown?.trim() && (
-          <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 whitespace-pre-wrap">
-            {notesMarkdown}
-          </div>
-        )}
+{notesError && (
+  <div className="mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+    {notesError}
+  </div>
+)}
+
+{notesMarkdown?.trim() && (
+  <div className="mt-3 max-h-[420px] overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-800 whitespace-pre-wrap">
+    {notesMarkdown}
+  </div>
+)}
       </div>
       </div>
 
@@ -2412,6 +2518,7 @@ function GalleryView({
     </div>
   );
 }
+
 
 
 interface TopicTestQuestion {
@@ -3894,6 +4001,19 @@ const handleStartTopicTest = async () => {
     </>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
