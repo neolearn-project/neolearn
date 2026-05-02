@@ -337,19 +337,20 @@ Return ONLY JSON.
     // ---------------------------------------------------
     // 3) UPSERT SUBJECT
     // ---------------------------------------------------
+    const finalCode =
+      subjCodeInput ||
+      syllabus?.subject?.code ||
+      subjName.toLowerCase().replace(/\s+/g, "").slice(0, 12);
+
     const { data: existingSubject } = await supabase
       .from("subjects")
       .select("id")
       .eq("board", boardKey)
       .eq("class_number", classNumber)
-      .eq("subject_name", subjName)
+      .eq("subject_code", finalCode)
       .maybeSingle();
 
     let subjectId: number;
-    const finalCode =
-      subjCodeInput ||
-      syllabus?.subject?.code ||
-      subjName.toLowerCase().replace(/\s+/g, "").slice(0, 12);
 
     if (existingSubject?.id) {
       subjectId = existingSubject.id;
@@ -589,5 +590,7 @@ Return ONLY JSON.
     );
   }
 }
+
+
 
 

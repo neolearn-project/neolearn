@@ -1,6 +1,6 @@
 ﻿import { MasterSubject } from "../../types";
 
-export const cbseClass9Science: MasterSubject = {
+export const tm_cbse_class9_science_1ykavyy: MasterSubject = {
   board: "cbse",
   classNumber: 9,
   subjectName: "Science",
