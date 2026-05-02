@@ -1,14 +1,14 @@
 import { MasterSubject } from "./types";
-import { tm_cbse_class10_englishfirstFlight_yqg00i } from "./cbse/class10/englishfirstFlight";
-import { tm_cbse_class10_englishfootprintswithoutFeet_18ig2si } from "./cbse/class10/englishfootprintswithoutFeet";
-import { tm_cbse_class10_hindikritikaPart_II_gd7kgx } from "./cbse/class10/hindikritikaPart-II";
-import { tm_cbse_class10_hindikshitizPart_II_ngcduq } from "./cbse/class10/hindikshitizPart-II";
+import { tm_cbse_class10_englishfirstflight_1g9k2sy } from "./cbse/class10/englishfirstflight";
+import { tm_cbse_class10_englishfootprintswithoutfeet_16ucyte } from "./cbse/class10/englishfootprintswithoutfeet";
+import { tm_cbse_class10_hindikritikapart_ii_1nusgqp } from "./cbse/class10/hindikritikapart-ii";
+import { tm_cbse_class10_hindikshitizpart_ii_r65qde } from "./cbse/class10/hindikshitizpart-ii";
 import { tm_cbse_class10_mathematicsmathematics_xd59ey } from "./cbse/class10/mathematicsmathematics";
 import { tm_cbse_class10_sciencescience_hxea2i } from "./cbse/class10/sciencescience";
-import { tm_cbse_class10_socialSciencecontemporaryIndiaPart_II_108nbsh } from "./cbse/class10/socialSciencecontemporaryIndiaPart-II";
-import { tm_cbse_class10_socialSciencedemocraticPolitics_II_1ixs33a } from "./cbse/class10/socialSciencedemocraticPolitics-II";
-import { tm_cbse_class10_socialScienceindiaandtheContemporaryWorldPart_II_1i084un } from "./cbse/class10/socialScienceindiaandtheContemporaryWorldPart-II";
-import { tm_cbse_class10_socialScienceunderstandingEconomicDevelopment_1kt4f55 } from "./cbse/class10/socialScienceunderstandingEconomicDevelopment";
+import { tm_cbse_class10_socialsciencecontemporaryindiapart_ii_11rjpzl } from "./cbse/class10/socialsciencecontemporaryindiapart-ii";
+import { tm_cbse_class10_socialsciencedemocraticpolitics_ii_1l5in6u } from "./cbse/class10/socialsciencedemocraticpolitics-ii";
+import { tm_cbse_class10_socialscienceindiaandthecontemporaryworldpart_ii_1b6c1zj } from "./cbse/class10/socialscienceindiaandthecontemporaryworldpart-ii";
+import { tm_cbse_class10_socialscienceunderstandingeconomicdevelopment_617qrt } from "./cbse/class10/socialscienceunderstandingeconomicdevelopment";
 import { tm_cbse_class11_biology_7mcx20 } from "./cbse/class11/biology";
 import { tm_cbse_class11_chemistry_a8mv4v } from "./cbse/class11/chemistry";
 import { tm_cbse_class11_economics_gwfspn } from "./cbse/class11/economics";
@@ -75,16 +75,16 @@ function keyOf(args: {
 }
 
 const masters: MasterSubject[] = [
-  tm_cbse_class10_englishfirstFlight_yqg00i,
-  tm_cbse_class10_englishfootprintswithoutFeet_18ig2si,
-  tm_cbse_class10_hindikritikaPart_II_gd7kgx,
-  tm_cbse_class10_hindikshitizPart_II_ngcduq,
+  tm_cbse_class10_englishfirstflight_1g9k2sy,
+  tm_cbse_class10_englishfootprintswithoutfeet_16ucyte,
+  tm_cbse_class10_hindikritikapart_ii_1nusgqp,
+  tm_cbse_class10_hindikshitizpart_ii_r65qde,
   tm_cbse_class10_mathematicsmathematics_xd59ey,
   tm_cbse_class10_sciencescience_hxea2i,
-  tm_cbse_class10_socialSciencecontemporaryIndiaPart_II_108nbsh,
-  tm_cbse_class10_socialSciencedemocraticPolitics_II_1ixs33a,
-  tm_cbse_class10_socialScienceindiaandtheContemporaryWorldPart_II_1i084un,
-  tm_cbse_class10_socialScienceunderstandingEconomicDevelopment_1kt4f55,
+  tm_cbse_class10_socialsciencecontemporaryindiapart_ii_11rjpzl,
+  tm_cbse_class10_socialsciencedemocraticpolitics_ii_1l5in6u,
+  tm_cbse_class10_socialscienceindiaandthecontemporaryworldpart_ii_1b6c1zj,
+  tm_cbse_class10_socialscienceunderstandingeconomicdevelopment_617qrt,
   tm_cbse_class11_biology_7mcx20,
   tm_cbse_class11_chemistry_a8mv4v,
   tm_cbse_class11_economics_gwfspn,

@@ -1,6 +1,6 @@
 import { MasterSubject } from "../../types";
 
-export const tm_cbse_class10_socialSciencedemocraticPolitics_II_1ixs33a: MasterSubject = {
+export const tm_cbse_class10_socialsciencedemocraticpolitics_ii_1l5in6u: MasterSubject = {
   board: "cbse",
   classNumber: 10,
   subjectName: "Social Science",
