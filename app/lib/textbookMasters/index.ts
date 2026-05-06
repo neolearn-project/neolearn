@@ -9,15 +9,30 @@ import { tm_cbse_class10_socialsciencecontemporaryindiapart_ii_11rjpzl } from ".
 import { tm_cbse_class10_socialsciencedemocraticpolitics_ii_1l5in6u } from "./cbse/class10/socialsciencedemocraticpolitics-ii";
 import { tm_cbse_class10_socialscienceindiaandthecontemporaryworldpart_ii_1b6c1zj } from "./cbse/class10/socialscienceindiaandthecontemporaryworldpart-ii";
 import { tm_cbse_class10_socialscienceunderstandingeconomicdevelopment_617qrt } from "./cbse/class10/socialscienceunderstandingeconomicdevelopment";
-import { tm_cbse_class11_biology_7mcx20 } from "./cbse/class11/biology";
-import { tm_cbse_class11_chemistry_a8mv4v } from "./cbse/class11/chemistry";
-import { tm_cbse_class11_economics_gwfspn } from "./cbse/class11/economics";
-import { tm_cbse_class11_english_fis40d } from "./cbse/class11/english";
-import { tm_cbse_class11_geography_50jjzb } from "./cbse/class11/geography";
-import { tm_cbse_class11_history_1pejrnh } from "./cbse/class11/history";
-import { tm_cbse_class11_mathematics_1gv88ib } from "./cbse/class11/mathematics";
-import { tm_cbse_class11_physics_1xcxjle } from "./cbse/class11/physics";
-import { tm_cbse_class11_politicalScience_drgk40 } from "./cbse/class11/politicalScience";
+import { tm_cbse_class11_accountancyfinancialaccounting_i_u1150h } from "./cbse/class11/accountancyfinancialaccounting-i";
+import { tm_cbse_class11_accountancyfinancialaccountingpartii_1ojkd3e } from "./cbse/class11/accountancyfinancialaccountingpartii";
+import { tm_cbse_class11_biologybiology_mj99qj } from "./cbse/class11/biologybiology";
+import { tm_cbse_class11_businessstudiesbusinessstudies_wev4s3 } from "./cbse/class11/businessstudiesbusinessstudies";
+import { tm_cbse_class11_chemistrychemistry_74889l } from "./cbse/class11/chemistrychemistry";
+import { tm_cbse_class11_chemistrychemistryii_zuiy7n } from "./cbse/class11/chemistrychemistryii";
+import { tm_cbse_class11_chemistryrasayanvigyanbhag_ii_106j83z } from "./cbse/class11/chemistryrasayanvigyanbhag-ii";
+import { tm_cbse_class11_economicsindianeconomicdevelopment_eaiu3y } from "./cbse/class11/economicsindianeconomicdevelopment";
+import { tm_cbse_class11_economicsstatisticsforeconomics_iccqgj } from "./cbse/class11/economicsstatisticsforeconomics";
+import { tm_cbse_class11_englishhornbill_p2k2nh } from "./cbse/class11/englishhornbill";
+import { tm_cbse_class11_geographyfundamentalsofphysicalgeography_rpvyth } from "./cbse/class11/geographyfundamentalsofphysicalgeography";
+import { tm_cbse_class11_geographyindiaphysicalenvironment_1b40to2 } from "./cbse/class11/geographyindiaphysicalenvironment";
+import { tm_cbse_class11_hindiabhivyaktiaurmadhyam_zp8jqy } from "./cbse/class11/hindiabhivyaktiaurmadhyam";
+import { tm_cbse_class11_hindiaroh_11204u9 } from "./cbse/class11/hindiaroh";
+import { tm_cbse_class11_hindivitan_1wdc6rp } from "./cbse/class11/hindivitan";
+import { tm_cbse_class11_historythemesinworldhistory_s7gthy } from "./cbse/class11/historythemesinworldhistory";
+import { tm_cbse_class11_mathematicsmathematics_1owjyml } from "./cbse/class11/mathematicsmathematics";
+import { tm_cbse_class11_physicsphysics_i_mr9xn1 } from "./cbse/class11/physicsphysics-i";
+import { tm_cbse_class11_physicsphysics_ii_11znhys } from "./cbse/class11/physicsphysics-ii";
+import { tm_cbse_class11_politicalscienceindianconstitutionatwork_1is6rx0 } from "./cbse/class11/politicalscienceindianconstitutionatwork";
+import { tm_cbse_class11_politicalsciencepoliticaltheory_11r8860 } from "./cbse/class11/politicalsciencepoliticaltheory";
+import { tm_cbse_class11_psychologypsychology_1cwoir5 } from "./cbse/class11/psychologypsychology";
+import { tm_cbse_class11_sanskritbhaswati_loajdf } from "./cbse/class11/sanskritbhaswati";
+import { tm_cbse_class11_sociologyintroducingsociology_19k0qrn } from "./cbse/class11/sociologyintroducingsociology";
 import { tm_cbse_class12_biology_fo715n } from "./cbse/class12/biology";
 import { tm_cbse_class12_chemistry_17sex8o } from "./cbse/class12/chemistry";
 import { tm_cbse_class12_economics_tay240 } from "./cbse/class12/economics";
@@ -85,15 +100,30 @@ const masters: MasterSubject[] = [
   tm_cbse_class10_socialsciencedemocraticpolitics_ii_1l5in6u,
   tm_cbse_class10_socialscienceindiaandthecontemporaryworldpart_ii_1b6c1zj,
   tm_cbse_class10_socialscienceunderstandingeconomicdevelopment_617qrt,
-  tm_cbse_class11_biology_7mcx20,
-  tm_cbse_class11_chemistry_a8mv4v,
-  tm_cbse_class11_economics_gwfspn,
-  tm_cbse_class11_english_fis40d,
-  tm_cbse_class11_geography_50jjzb,
-  tm_cbse_class11_history_1pejrnh,
-  tm_cbse_class11_mathematics_1gv88ib,
-  tm_cbse_class11_physics_1xcxjle,
-  tm_cbse_class11_politicalScience_drgk40,
+  tm_cbse_class11_accountancyfinancialaccounting_i_u1150h,
+  tm_cbse_class11_accountancyfinancialaccountingpartii_1ojkd3e,
+  tm_cbse_class11_biologybiology_mj99qj,
+  tm_cbse_class11_businessstudiesbusinessstudies_wev4s3,
+  tm_cbse_class11_chemistrychemistry_74889l,
+  tm_cbse_class11_chemistrychemistryii_zuiy7n,
+  tm_cbse_class11_chemistryrasayanvigyanbhag_ii_106j83z,
+  tm_cbse_class11_economicsindianeconomicdevelopment_eaiu3y,
+  tm_cbse_class11_economicsstatisticsforeconomics_iccqgj,
+  tm_cbse_class11_englishhornbill_p2k2nh,
+  tm_cbse_class11_geographyfundamentalsofphysicalgeography_rpvyth,
+  tm_cbse_class11_geographyindiaphysicalenvironment_1b40to2,
+  tm_cbse_class11_hindiabhivyaktiaurmadhyam_zp8jqy,
+  tm_cbse_class11_hindiaroh_11204u9,
+  tm_cbse_class11_hindivitan_1wdc6rp,
+  tm_cbse_class11_historythemesinworldhistory_s7gthy,
+  tm_cbse_class11_mathematicsmathematics_1owjyml,
+  tm_cbse_class11_physicsphysics_i_mr9xn1,
+  tm_cbse_class11_physicsphysics_ii_11znhys,
+  tm_cbse_class11_politicalscienceindianconstitutionatwork_1is6rx0,
+  tm_cbse_class11_politicalsciencepoliticaltheory_11r8860,
+  tm_cbse_class11_psychologypsychology_1cwoir5,
+  tm_cbse_class11_sanskritbhaswati_loajdf,
+  tm_cbse_class11_sociologyintroducingsociology_19k0qrn,
   tm_cbse_class12_biology_fo715n,
   tm_cbse_class12_chemistry_17sex8o,
   tm_cbse_class12_economics_tay240,
