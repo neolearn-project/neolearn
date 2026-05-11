@@ -33,15 +33,33 @@ import { tm_cbse_class11_politicalsciencepoliticaltheory_11r8860 } from "./cbse/
 import { tm_cbse_class11_psychologypsychology_1cwoir5 } from "./cbse/class11/psychologypsychology";
 import { tm_cbse_class11_sanskritbhaswati_loajdf } from "./cbse/class11/sanskritbhaswati";
 import { tm_cbse_class11_sociologyintroducingsociology_19k0qrn } from "./cbse/class11/sociologyintroducingsociology";
-import { tm_cbse_class12_biology_fo715n } from "./cbse/class12/biology";
-import { tm_cbse_class12_chemistry_17sex8o } from "./cbse/class12/chemistry";
-import { tm_cbse_class12_economics_tay240 } from "./cbse/class12/economics";
-import { tm_cbse_class12_english_1urcvde } from "./cbse/class12/english";
-import { tm_cbse_class12_geography_2l7hss } from "./cbse/class12/geography";
-import { tm_cbse_class12_history_muxme6 } from "./cbse/class12/history";
-import { tm_cbse_class12_mathematics_8njrw0 } from "./cbse/class12/mathematics";
-import { tm_cbse_class12_physics_1k854b9 } from "./cbse/class12/physics";
-import { tm_cbse_class12_politicalScience_3j9dup } from "./cbse/class12/politicalScience";
+import { tm_cbse_class12_accountancyaccountancyparti_k2hzkm } from "./cbse/class12/accountancyaccountancyparti";
+import { tm_cbse_class12_accountancyaccountancypartii_i8jgdh } from "./cbse/class12/accountancyaccountancypartii";
+import { tm_cbse_class12_biologybiology_1xnvp7m } from "./cbse/class12/biologybiology";
+import { tm_cbse_class12_businessstudiesbusinessstudiesparti_15iil98 } from "./cbse/class12/businessstudiesbusinessstudiesparti";
+import { tm_cbse_class12_businessstudiesbusinessstudiespartii_197ojkf } from "./cbse/class12/businessstudiesbusinessstudiespartii";
+import { tm_cbse_class12_chemistrychemistryparti_h1ry3i } from "./cbse/class12/chemistrychemistryparti";
+import { tm_cbse_class12_chemistrychemistrypartii_2x7159 } from "./cbse/class12/chemistrychemistrypartii";
+import { tm_cbse_class12_economicsmacroeconomicsparti_1bzp0t0 } from "./cbse/class12/economicsmacroeconomicsparti";
+import { tm_cbse_class12_economicsmacroeconomicspartii_15z55jb } from "./cbse/class12/economicsmacroeconomicspartii";
+import { tm_cbse_class12_englishflamingo_xh3wl9 } from "./cbse/class12/englishflamingo";
+import { tm_cbse_class12_englishvistassupplementary_yd92m7 } from "./cbse/class12/englishvistassupplementary";
+import { tm_cbse_class12_geographyfundamentalsofhumangeography_q70808 } from "./cbse/class12/geographyfundamentalsofhumangeography";
+import { tm_cbse_class12_geographyindiapeopleandeconomy_pjqcar } from "./cbse/class12/geographyindiapeopleandeconomy";
+import { tm_cbse_class12_hindiarohpart_ii_1boqtuq } from "./cbse/class12/hindiarohpart-ii";
+import { tm_cbse_class12_hindivitanpart_ii_mdl3pc } from "./cbse/class12/hindivitanpart-ii";
+import { tm_cbse_class12_historythemesinindianhistoryparti_1mu2bfk } from "./cbse/class12/historythemesinindianhistoryparti";
+import { tm_cbse_class12_historythemesinindianhistorypartii_18um4xn } from "./cbse/class12/historythemesinindianhistorypartii";
+import { tm_cbse_class12_historythemesinindianhistorypartiii_hxmura } from "./cbse/class12/historythemesinindianhistorypartiii";
+import { tm_cbse_class12_mathematicsmathematicsparti_pxf1b2 } from "./cbse/class12/mathematicsmathematicsparti";
+import { tm_cbse_class12_mathematicsmathematicspartii_tl17yl } from "./cbse/class12/mathematicsmathematicspartii";
+import { tm_cbse_class12_physicsphysicsii_1jxnge0 } from "./cbse/class12/physicsphysicsii";
+import { tm_cbse_class12_physicsphysicsparti_lpc7uw } from "./cbse/class12/physicsphysicsparti";
+import { tm_cbse_class12_politicalsciencecontemporaryworldpolitics_7xygqr } from "./cbse/class12/politicalsciencecontemporaryworldpolitics";
+import { tm_cbse_class12_politicalsciencepoliticsinindiasinceindependence_1arapde } from "./cbse/class12/politicalsciencepoliticsinindiasinceindependence";
+import { tm_cbse_class12_psychologypsychology_1e0td64 } from "./cbse/class12/psychologypsychology";
+import { tm_cbse_class12_sanskritbhaswati_1mim1g6 } from "./cbse/class12/sanskritbhaswati";
+import { tm_cbse_class12_sociologyindiansociety_1uni4b } from "./cbse/class12/sociologyindiansociety";
 import { tm_cbse_class6_englishHoneycomb_1vjm1bl } from "./cbse/class6/englishHoneycomb";
 import { tm_cbse_class6_englishpoorvi_uwd5ak } from "./cbse/class6/englishpoorvi";
 import { tm_cbse_class6_hindi_1tgv5so } from "./cbse/class6/hindiमलहर";
@@ -124,15 +142,33 @@ const masters: MasterSubject[] = [
   tm_cbse_class11_psychologypsychology_1cwoir5,
   tm_cbse_class11_sanskritbhaswati_loajdf,
   tm_cbse_class11_sociologyintroducingsociology_19k0qrn,
-  tm_cbse_class12_biology_fo715n,
-  tm_cbse_class12_chemistry_17sex8o,
-  tm_cbse_class12_economics_tay240,
-  tm_cbse_class12_english_1urcvde,
-  tm_cbse_class12_geography_2l7hss,
-  tm_cbse_class12_history_muxme6,
-  tm_cbse_class12_mathematics_8njrw0,
-  tm_cbse_class12_physics_1k854b9,
-  tm_cbse_class12_politicalScience_3j9dup,
+  tm_cbse_class12_accountancyaccountancyparti_k2hzkm,
+  tm_cbse_class12_accountancyaccountancypartii_i8jgdh,
+  tm_cbse_class12_biologybiology_1xnvp7m,
+  tm_cbse_class12_businessstudiesbusinessstudiesparti_15iil98,
+  tm_cbse_class12_businessstudiesbusinessstudiespartii_197ojkf,
+  tm_cbse_class12_chemistrychemistryparti_h1ry3i,
+  tm_cbse_class12_chemistrychemistrypartii_2x7159,
+  tm_cbse_class12_economicsmacroeconomicsparti_1bzp0t0,
+  tm_cbse_class12_economicsmacroeconomicspartii_15z55jb,
+  tm_cbse_class12_englishflamingo_xh3wl9,
+  tm_cbse_class12_englishvistassupplementary_yd92m7,
+  tm_cbse_class12_geographyfundamentalsofhumangeography_q70808,
+  tm_cbse_class12_geographyindiapeopleandeconomy_pjqcar,
+  tm_cbse_class12_hindiarohpart_ii_1boqtuq,
+  tm_cbse_class12_hindivitanpart_ii_mdl3pc,
+  tm_cbse_class12_historythemesinindianhistoryparti_1mu2bfk,
+  tm_cbse_class12_historythemesinindianhistorypartii_18um4xn,
+  tm_cbse_class12_historythemesinindianhistorypartiii_hxmura,
+  tm_cbse_class12_mathematicsmathematicsparti_pxf1b2,
+  tm_cbse_class12_mathematicsmathematicspartii_tl17yl,
+  tm_cbse_class12_physicsphysicsii_1jxnge0,
+  tm_cbse_class12_physicsphysicsparti_lpc7uw,
+  tm_cbse_class12_politicalsciencecontemporaryworldpolitics_7xygqr,
+  tm_cbse_class12_politicalsciencepoliticsinindiasinceindependence_1arapde,
+  tm_cbse_class12_psychologypsychology_1e0td64,
+  tm_cbse_class12_sanskritbhaswati_1mim1g6,
+  tm_cbse_class12_sociologyindiansociety_1uni4b,
   tm_cbse_class6_englishHoneycomb_1vjm1bl,
   tm_cbse_class6_englishpoorvi_uwd5ak,
   tm_cbse_class6_hindi_1tgv5so,
