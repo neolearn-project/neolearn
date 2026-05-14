@@ -1799,7 +1799,7 @@ function PaymentsView({
       )}
 
       <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-xs text-slate-500">
-        Next step: connect these plan cards to Razorpay checkout and activate student subscription automatically after successful payment.
+        Secure Razorpay checkout is connected. After successful payment, the student subscription is activated automatically.
       </div>
     </div>
   );
@@ -4001,6 +4001,7 @@ const handleStartTopicTest = async () => {
     </>
   );
 }
+
 
 
 
