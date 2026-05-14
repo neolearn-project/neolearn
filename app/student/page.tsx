@@ -1640,7 +1640,7 @@ function PaymentsView({
   const limit = entitlements?.usage?.effectiveLimit ?? 0;
   const freeExhausted = !!entitlements?.state?.freeExhausted;
   const subscriptionActive = !!entitlements?.subscription?.active;
-  const activePlanCode = entitlements?.subscription?.planCode || null;
+  const activePlanCode = subscriptionActive ? entitlements?.subscription?.planCode || null : null;
 
   const sortedPlans = [...plans].sort(
     (a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999)
@@ -3182,6 +3182,11 @@ const handleStartTopicTest = async () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           studentMobile,
+          studentName: "",
+          board: "cbse",
+          classNumber: Number(currentSubject?.class_number || 6),
+          subjectId: currentSubject?.id,
+          chapterId: currentChapter?.id,
           topicId: currentTopic.id,
           score: percent,
         }),
@@ -4001,6 +4006,11 @@ const handleStartTopicTest = async () => {
     </>
   );
 }
+
+
+
+
+
 
 
 
