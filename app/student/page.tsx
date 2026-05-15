@@ -672,7 +672,7 @@ const handleBuyPlan = async (planCode: string) => {
   }
 };
 
-  // Load student from localStorage
+  // Load student from localStorage, then sync latest class/profile from server.
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -682,15 +682,61 @@ const handleBuyPlan = async (planCode: string) => {
       return;
     }
 
+    let cancelled = false;
+    let localInfo: StudentInfo | null = null;
+
     try {
-      const info = JSON.parse(raw) as StudentInfo;
-      setStudent(info);
+      localInfo = JSON.parse(raw) as StudentInfo;
+      setStudent(localInfo);
     } catch {
       router.replace("/");
       return;
     } finally {
       setLoadingStudent(false);
     }
+
+    async function syncLatestStudentProfile() {
+      if (!localInfo?.mobile) return;
+
+      try {
+        const res = await fetch(
+          `/api/student/profile?mobile=${encodeURIComponent(localInfo.mobile)}`,
+          { cache: "no-store" }
+        );
+
+        const data = await res.json();
+
+        if (!res.ok || !data?.ok || !data?.student) return;
+        if (cancelled) return;
+
+        const latestClassId = String(data.student.classId || localInfo.classId || "6");
+
+        const nextInfo: StudentInfo = {
+          ...localInfo,
+          name: data.student.name || localInfo.name,
+          mobile: data.student.mobile || localInfo.mobile,
+          classId: latestClassId as ClassId,
+        };
+
+        const changed =
+          nextInfo.classId !== localInfo.classId ||
+          nextInfo.name !== localInfo.name ||
+          nextInfo.mobile !== localInfo.mobile;
+
+        if (changed) {
+          setStudent(nextInfo);
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextInfo));
+        }
+      } catch (err) {
+        console.warn("student profile sync skipped:", err);
+      }
+    }
+
+    syncLatestStudentProfile();
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   // Load routine per-student
@@ -4006,6 +4052,7 @@ const handleStartTopicTest = async () => {
     </>
   );
 }
+
 
 
 
