@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     const supabase = getAdminClient();
     const nowIso = new Date().toISOString();
 
-    // 1) Update parent-child link/profile row
+    // 1) Main source of truth for parent dashboard.
     const { data: childRow, error: childErr } = await supabase
       .from("children")
       .update({
@@ -76,9 +76,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2) Update student_profile if present.
-    // This keeps future student-login API/profile aligned with parent upgrade.
-    const { error: profileErr } = await supabase
+    // 2) Best-effort student_profile sync.
+    // Some older DB schemas do not have board column, so never block the class upgrade.
+    let profileWarning: string | null = null;
+
+    const profileFull = await supabase
       .from("student_profile")
       .update({
         board,
@@ -87,17 +89,26 @@ export async function POST(req: NextRequest) {
       })
       .eq("mobile", childMobile);
 
-    if (profileErr) {
-      console.error("child class update student_profile error:", profileErr);
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            profileErr.message ||
-            "Child row updated, but student profile class update failed.",
-        },
-        { status: 500 }
-      );
+    if (profileFull.error) {
+      const msg = String(profileFull.error.message || "").toLowerCase();
+
+      if (msg.includes("board") || msg.includes("schema cache")) {
+        const profileClassOnly = await supabase
+          .from("student_profile")
+          .update({
+            class_id: String(classNumber),
+            updated_at: nowIso,
+          })
+          .eq("mobile", childMobile);
+
+        if (profileClassOnly.error) {
+          profileWarning = profileClassOnly.error.message;
+          console.warn("student_profile class-only sync skipped:", profileClassOnly.error);
+        }
+      } else {
+        profileWarning = profileFull.error.message;
+        console.warn("student_profile sync skipped:", profileFull.error);
+      }
     }
 
     return NextResponse.json({
@@ -106,6 +117,7 @@ export async function POST(req: NextRequest) {
       child: childRow,
       classNumber,
       board,
+      profileWarning,
     });
   } catch (err: any) {
     console.error("child class update unexpected error:", err);
