@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation";
 import { RealtimeTeacherClient } from "./realtimeTeacherClient";
 import jsPDF from "jspdf";
 
-type ClassId = "5" | "6" | "7" | "8" | "9";
+type ClassId = "6" | "7" | "8" | "9" | "10" | "11" | "12";
 
 type NoteType = "full_exam_notes" | "quick_revision" | "important_qna" | "mcq_only";
 
@@ -4006,6 +4006,7 @@ const handleStartTopicTest = async () => {
     </>
   );
 }
+
 
 
 

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -64,6 +64,12 @@ export default function ParentDashboardPage() {
     classNumber: "6",
   });
   const [saving, setSaving] = useState(false);
+
+  const [upgradeForm, setUpgradeForm] = useState({
+    board: "CBSE",
+    classNumber: "6",
+  });
+  const [upgradeSaving, setUpgradeSaving] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -202,10 +208,72 @@ export default function ParentDashboardPage() {
     [children, activeChildMobile]
   );
 
+  useEffect(() => {
+    if (!activeChild) return;
+    setUpgradeForm({
+      board: activeChild.board || "CBSE",
+      classNumber: String(activeChild.class_number || 6),
+    });
+  }, [activeChild]);
+
+  const handleUpgradeClass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!parentMobile || !activeChild) return;
+
+    const ok = window.confirm(
+      `Upgrade ${activeChild.child_name} to Class ${upgradeForm.classNumber}? Old progress will remain saved.`
+    );
+
+    if (!ok) return;
+
+    setUpgradeSaving(true);
+    setStatus(null);
+
+    try {
+      const res = await fetch("/api/parent/child-class/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          parentMobile,
+          childMobile: activeChild.child_mobile,
+          board: upgradeForm.board,
+          classNumber: Number(upgradeForm.classNumber),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok) {
+        setStatus(data?.error || "Failed to update child class.");
+        return;
+      }
+
+      setChildren((prev) =>
+        prev.map((c) =>
+          c.child_mobile === activeChild.child_mobile
+            ? {
+                ...c,
+                board: upgradeForm.board,
+                class_number: Number(upgradeForm.classNumber),
+              }
+            : c
+        )
+      );
+
+      setStatus(
+        `${activeChild.child_name} upgraded to Class ${upgradeForm.classNumber}. Ask the student to logout/login or refresh the student profile.`
+      );
+    } catch (err: any) {
+      console.error("upgrade class error:", err);
+      setStatus(err?.message || "Failed to update child class.");
+    } finally {
+      setUpgradeSaving(false);
+    }
+  };
   if (!parentMobile) {
     return (
       <div className="min-h-screen flex items-center justify-center text-sm text-gray-500">
-        Redirecting to parent login…
+        Redirecting to parent loginâ€¦
       </div>
     );
   }
@@ -245,7 +313,7 @@ export default function ParentDashboardPage() {
             )}
           </div>
 
-          {loading && <p className="text-xs text-gray-500">Loading child profiles from server…</p>}
+          {loading && <p className="text-xs text-gray-500">Loading child profiles from serverâ€¦</p>}
           {status && !loading && <p className="text-[11px] text-gray-600">{status}</p>}
 
           {children.length > 0 && (
@@ -330,9 +398,9 @@ export default function ParentDashboardPage() {
                   )}
                   {masteryRows.map((row, idx) => (
                     <tr key={`${row.topic}-${idx}`} className="border-b last:border-0">
-                      <td className="py-1 pr-2">{row.topic || "—"}</td>
+                      <td className="py-1 pr-2">{row.topic || "â€”"}</td>
                       <td className="py-1 pr-2">{row.mastery_level}</td>
-                      <td className="py-1">{row.last_practiced_at ? new Date(row.last_practiced_at).toLocaleDateString() : "—"}</td>
+                      <td className="py-1">{row.last_practiced_at ? new Date(row.last_practiced_at).toLocaleDateString() : "â€”"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -340,10 +408,83 @@ export default function ParentDashboardPage() {
             </div>
           </div>
 
-          {masteryLoading && <p className="text-xs text-gray-500">Loading analytics…</p>}
+          {masteryLoading && <p className="text-xs text-gray-500">Loading analyticsâ€¦</p>}
           {masteryError && <p className="text-xs text-rose-600">{masteryError}</p>}
         </section>
 
+                <section className="rounded-2xl bg-white p-4 shadow-sm text-sm space-y-3">
+          <h2 className="text-base font-semibold">Upgrade Child Class</h2>
+          <p className="text-[11px] text-gray-500">
+            Change the selected child&apos;s class for the next academic level. Old progress will remain saved.
+          </p>
+
+          {!activeChild ? (
+            <p className="text-xs text-gray-500">Select or add a child first.</p>
+          ) : (
+            <form onSubmit={handleUpgradeClass} className="space-y-3">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                Selected child:{" "}
+                <span className="font-semibold">{activeChild.child_name}</span>
+                <br />
+                Current:{" "}
+                <span className="font-semibold">
+                  {activeChild.board} Class {activeChild.class_number}
+                </span>
+              </div>
+
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="block text-[11px] font-medium text-gray-600 mb-1">
+                    Board
+                  </label>
+                  <select
+                    value={upgradeForm.board}
+                    onChange={(e) =>
+                      setUpgradeForm((f) => ({ ...f, board: e.target.value }))
+                    }
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="CBSE">CBSE</option>
+                    <option value="TBSE">TBSE</option>
+                    <option value="ICSE">ICSE</option>
+                  </select>
+                </div>
+
+                <div className="w-28">
+                  <label className="block text-[11px] font-medium text-gray-600 mb-1">
+                    New Class
+                  </label>
+                  <select
+                    value={upgradeForm.classNumber}
+                    onChange={(e) =>
+                      setUpgradeForm((f) => ({
+                        ...f,
+                        classNumber: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10</option>
+                    <option value="11">11</option>
+                    <option value="12">12</option>
+                  </select>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={upgradeSaving}
+                className="w-full rounded-xl bg-blue-600 text-white text-sm font-semibold py-2 hover:bg-blue-700 disabled:opacity-60"
+              >
+                {upgradeSaving ? "Updating..." : "Update Class"}
+              </button>
+            </form>
+          )}
+        </section>
         <section className="rounded-2xl bg-white p-4 shadow-sm text-sm">
           <h2 className="text-base font-semibold mb-2">Add / Edit Child</h2>
           <p className="text-[11px] text-gray-500 mb-3">
@@ -409,7 +550,7 @@ export default function ParentDashboardPage() {
               disabled={saving}
               className="w-full rounded-xl bg-emerald-600 text-white text-sm font-semibold py-2 hover:bg-emerald-700 disabled:opacity-60"
             >
-              {saving ? "Saving…" : "Save Child Profile"}
+              {saving ? "Savingâ€¦" : "Save Child Profile"}
             </button>
           </form>
         </section>
@@ -417,3 +558,7 @@ export default function ParentDashboardPage() {
     </div>
   );
 }
+
+
+
+
