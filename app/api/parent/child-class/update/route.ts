@@ -49,35 +49,54 @@ export async function POST(req: NextRequest) {
     const supabase = getAdminClient();
     const nowIso = new Date().toISOString();
 
-    // 1) Main source of truth for parent dashboard.
-    const { data: childRow, error: childErr } = await supabase
+    // 1) Verify this parent owns this child.
+    const { data: ownedChild, error: ownedErr } = await supabase
       .from("children")
-      .update({
-        board,
-        class_number: classNumber,
-      })
+      .select("*")
       .eq("parent_mobile", parentMobile)
       .eq("child_mobile", childMobile)
-      .select("*")
       .maybeSingle();
 
-    if (childErr) {
-      console.error("child class update children error:", childErr);
+    if (ownedErr) {
+      console.error("child ownership check error:", ownedErr);
       return NextResponse.json(
-        { ok: false, error: childErr.message || "Failed to update child row." },
+        { ok: false, error: ownedErr.message || "Failed to verify child." },
         { status: 500 }
       );
     }
 
-    if (!childRow) {
+    if (!ownedChild) {
       return NextResponse.json(
         { ok: false, error: "Child not found for this parent." },
         { status: 404 }
       );
     }
 
-    // 2) Best-effort student_profile sync.
-    // Some older DB schemas do not have board column, so never block the class upgrade.
+    // 2) Update all rows for this child mobile.
+    // This handles duplicate children rows created earlier.
+    const { data: updatedChildren, error: updateErr } = await supabase
+      .from("children")
+      .update({
+        board,
+        class_number: classNumber,
+      })
+      .eq("child_mobile", childMobile)
+      .select("*");
+
+    if (updateErr) {
+      console.error("child class update children error:", updateErr);
+      return NextResponse.json(
+        { ok: false, error: updateErr.message || "Failed to update child row." },
+        { status: 500 }
+      );
+    }
+
+    const childRow =
+      (updatedChildren || []).find((c) => c.parent_mobile === parentMobile) ||
+      (updatedChildren || [])[0] ||
+      ownedChild;
+
+    // 3) Best-effort student_profile sync.
     let profileWarning: string | null = null;
 
     const profileFull = await supabase
@@ -115,6 +134,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       message: "Child class updated successfully.",
       child: childRow,
+      updatedChildrenCount: updatedChildren?.length || 0,
       classNumber,
       board,
       profileWarning,
