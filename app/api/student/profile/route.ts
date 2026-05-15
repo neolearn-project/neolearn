@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     // Parent dashboard children table is the latest source for class upgrade.
     const childRes = await supabase
       .from("children")
-      .select("child_name, child_mobile, board, class_number, updated_at, created_at")
+      .select("child_name, child_mobile, board, class_number, created_at")
       .eq("child_mobile", mobile)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -77,3 +77,4 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
