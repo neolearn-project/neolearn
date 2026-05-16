@@ -11,6 +11,7 @@ const supabaseServiceKey =
 function getAdminClient() {
   if (!supabaseUrl) throw new Error("NEXT_PUBLIC_SUPABASE_URL missing.");
   if (!supabaseServiceKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY missing.");
+
   return createClient(supabaseUrl, supabaseServiceKey, {
     auth: { persistSession: false },
   });
@@ -47,7 +48,6 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = getAdminClient();
-    const nowIso = new Date().toISOString();
 
     // 1) Verify this parent owns this child.
     const { data: ownedChild, error: ownedErr } = await supabase
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2) Update all rows for this child mobile.
-    // This handles duplicate children rows created earlier.
+    // This fixes duplicate children rows created earlier.
     const { data: updatedChildren, error: updateErr } = await supabase
       .from("children")
       .update({
@@ -96,40 +96,6 @@ export async function POST(req: NextRequest) {
       (updatedChildren || [])[0] ||
       ownedChild;
 
-    // 3) Best-effort student_profile sync.
-    let profileWarning: string | null = null;
-
-    const profileFull = await supabase
-      .from("student_profile")
-      .update({
-        board,
-        class_id: String(classNumber),
-        updated_at: nowIso,
-      })
-      .eq("mobile", childMobile);
-
-    if (profileFull.error) {
-      const msg = String(profileFull.error.message || "").toLowerCase();
-
-      if (msg.includes("board") || msg.includes("schema cache")) {
-        const profileClassOnly = await supabase
-          .from("student_profile")
-          .update({
-            class_id: String(classNumber),
-            updated_at: nowIso,
-          })
-          .eq("mobile", childMobile);
-
-        if (profileClassOnly.error) {
-          profileWarning = profileClassOnly.error.message;
-          console.warn("student_profile class-only sync skipped:", profileClassOnly.error);
-        }
-      } else {
-        profileWarning = profileFull.error.message;
-        console.warn("student_profile sync skipped:", profileFull.error);
-      }
-    }
-
     return NextResponse.json({
       ok: true,
       message: "Child class updated successfully.",
@@ -137,7 +103,6 @@ export async function POST(req: NextRequest) {
       updatedChildrenCount: updatedChildren?.length || 0,
       classNumber,
       board,
-      profileWarning,
     });
   } catch (err: any) {
     console.error("child class update unexpected error:", err);

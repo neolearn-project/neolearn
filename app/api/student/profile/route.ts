@@ -18,19 +18,8 @@ export async function GET(req: NextRequest) {
 
     const supabase = supabaseAdmin();
 
-    // Do not select board here because older student_profile schema may not have it.
-    const profileRes = await supabase
-      .from("student_profile")
-      .select("user_id, username, full_name, class_id, mobile")
-      .eq("mobile", mobile)
-      .maybeSingle();
-
-    if (profileRes.error) {
-      console.warn("student profile read warning:", profileRes.error);
-    }
-
-    // Parent dashboard children table is the latest source for class upgrade.
-    const childRes = await supabase
+    // children table is the source of truth for parent-managed class upgrades
+    const { data: child, error: childError } = await supabase
       .from("children")
       .select("child_name, child_mobile, board, class_number, created_at")
       .eq("child_mobile", mobile)
@@ -38,34 +27,30 @@ export async function GET(req: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    if (childRes.error) {
-      console.warn("student child profile read warning:", childRes.error);
+    if (childError) {
+      console.error("student child profile read error:", childError);
+      return NextResponse.json(
+        { ok: false, error: childError.message || "Failed to load child profile." },
+        { status: 500 }
+      );
     }
 
-    const profile = profileRes.data || null;
-    const child = childRes.data || null;
-
     const classId =
-      child?.class_number != null
-        ? String(child.class_number)
-        : profile?.class_id
-        ? String(profile.class_id)
-        : "6";
+      child?.class_number != null ? String(child.class_number) : "6";
 
     const board = child?.board || "CBSE";
 
     return NextResponse.json({
       ok: true,
       student: {
-        userId: profile?.user_id || null,
-        username: profile?.username || null,
-        name: profile?.full_name || child?.child_name || "Student",
+        userId: null,
+        username: null,
+        name: child?.child_name || "Student",
         mobile,
         classId,
         board,
       },
       sources: {
-        profileFound: !!profile,
         childFound: !!child,
       },
     });
@@ -77,4 +62,3 @@ export async function GET(req: NextRequest) {
     );
   }
 }
-
