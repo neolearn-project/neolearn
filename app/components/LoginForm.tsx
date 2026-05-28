@@ -1,8 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabaseBrowser } from "@/app/lib/supabaseBrowser";
 
 const STUDENT_STORAGE_KEY = "neolearnStudent";
 
@@ -15,43 +14,52 @@ export default function LoginForm({ onDone }: { onDone: () => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function toEmailFromUserId(id: string) {
-    return `${id.trim().toLowerCase()}@neolearn.in`;
-  }
-
   async function handleLogin() {
     setError(null);
 
-    if (!loginUserId.trim()) {
-      setError("Enter User ID.");
+    const username = loginUserId.trim().toLowerCase();
+    const password = loginPassword.trim();
+
+    if (!username) {
+      setError("Enter Student User ID.");
       return;
     }
 
-    if (!loginPassword.trim()) {
+    if (!password) {
       setError("Enter password.");
       return;
     }
 
     setLoading(true);
-    try {
-      const email = toEmailFromUserId(loginUserId);
 
-      const { data, error } = await supabaseBrowser.auth.signInWithPassword({
-        email,
-        password: loginPassword.trim(),
+    try {
+      const res = await fetch("/api/auth/student-login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+        body: JSON.stringify({
+          username,
+          password,
+        }),
       });
 
-      if (error) throw new Error(error.message);
-      if (!data.user) throw new Error("Student login failed.");
+      const data = await res.json().catch(() => null);
 
-      const meta: any = data.user.user_metadata || {};
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || "Invalid username or password.");
+      }
+
+      const st = data.student || {};
 
       const payload = {
-        name: meta?.name || "Student",
-        mobile: meta?.mobile || "",
-        classId: meta?.classId || "6",
-        studentId: data.user.id,
-        username: loginUserId.trim().toLowerCase(),
+        name: st.full_name || st.name || "Student",
+        mobile: st.mobile || "",
+        classId: String(st.class_id || st.classId || "6"),
+        board: st.board || "CBSE",
+        studentId: st.user_id || st.studentId || "",
+        username: st.username || username,
       };
 
       localStorage.setItem(STUDENT_STORAGE_KEY, JSON.stringify(payload));
@@ -66,7 +74,7 @@ export default function LoginForm({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
@@ -91,6 +99,7 @@ export default function LoginForm({ onDone }: { onDone: () => void }) {
             if (e.key === "Enter") handleLogin();
           }}
         />
+
         <button
           type="button"
           className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-blue-600 hover:text-blue-700"
@@ -103,8 +112,8 @@ export default function LoginForm({ onDone }: { onDone: () => void }) {
       <button
         type="button"
         disabled={loading}
-        className="btn btn-primary w-full"
         onClick={handleLogin}
+        className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {loading ? "Logging in..." : "Login"}
       </button>
