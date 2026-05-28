@@ -167,18 +167,49 @@ export default function Page() {
             </div>
 
             <div className="mx-auto mt-4 max-w-md text-center text-xs text-gray-500">
-              By continuing, you agree to our Terms & Privacy Policy.
+              By continuing, you agree to our{" "}
+              <Link href="/terms" className="underline underline-offset-2 hover:text-gray-700">
+                Terms
+              </Link>{" "}
+              &{" "}
+              <Link href="/privacy" className="underline underline-offset-2 hover:text-gray-700">
+                Privacy Policy
+              </Link>.
             </div>
           </section>
         </div>
       </main>
 
       <footer className="border-t border-black/10 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 text-xs text-gray-600">
-          <div>© {new Date().getFullYear()} NeoLearn</div>
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-5 text-xs text-gray-600 md:flex-row md:items-center md:justify-between">
+          <div>
+            © {new Date().getFullYear()} NeoLearn by THE NEOMIND INNOVATIONS LLP
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <Link href="/about" className="underline underline-offset-2 hover:text-gray-900">
+              About
+            </Link>
+            <Link href="/contact" className="underline underline-offset-2 hover:text-gray-900">
+              Contact
+            </Link>
+            <Link href="/privacy" className="underline underline-offset-2 hover:text-gray-900">
+              Privacy
+            </Link>
+            <Link href="/terms" className="underline underline-offset-2 hover:text-gray-900">
+              Terms
+            </Link>
+            <Link href="/refund" className="underline underline-offset-2 hover:text-gray-900">
+              Refund
+            </Link>
+          </div>
+
           <div>
             Made in India •{" "}
-            <a className="underline" href="mailto:neo.neolearn.ai@gmail.com">
+            <a
+              className="underline underline-offset-2 hover:text-gray-900"
+              href="mailto:neo.neolearn.ai@gmail.com"
+            >
               neo.neolearn.ai@gmail.com
             </a>
           </div>
