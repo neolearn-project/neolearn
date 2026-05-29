@@ -13,7 +13,7 @@ export default function Page() {
   const [authOpen, setAuthOpen] = useState<null | "login" | "signup">(null);
 
   return (
-    <div className="min-h-screen bg-[#f0f2f5] flex flex-col">
+    <div className="flex min-h-screen flex-col bg-[#f0f2f5]">
       <header className="w-full">
         <div className="mx-auto max-w-6xl px-4 pt-5">
           <div className="flex items-center justify-between">
@@ -27,12 +27,19 @@ export default function Page() {
               />
             </div>
 
-            <div className="hidden sm:flex items-center gap-3">
+            <div className="hidden items-center gap-3 sm:flex">
               <Link
                 href="/parent/login"
                 className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
               >
                 Parent Login
+              </Link>
+
+              <Link
+                href="/pricing"
+                className="inline-flex items-center justify-center rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
+              >
+                Pricing
               </Link>
 
               <a
@@ -48,11 +55,12 @@ export default function Page() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 pb-10 pt-6 flex-grow">
+      <main className="mx-auto flex-grow max-w-6xl px-4 pb-10 pt-6">
         <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
           <section className="order-2 lg:order-1">
             <h1 className="text-[clamp(28px,5vw,44px)] font-semibold leading-tight text-gray-900">
-              AI Teachers for Every Child, <span className="text-blue-600">Anytime</span>.
+              AI Teachers for Every Child,{" "}
+              <span className="text-blue-600">Anytime</span>.
             </h1>
 
             <p className="mt-4 max-w-xl text-[15px] leading-6 text-gray-600">
@@ -67,12 +75,14 @@ export default function Page() {
                   Short lessons & concepts.
                 </div>
               </div>
+
               <div className="rounded-xl border border-black/10 bg-white p-4">
                 <div className="text-sm font-semibold text-gray-900">Practice</div>
                 <div className="mt-1 text-sm text-gray-600">
                   Quizzes with hints.
                 </div>
               </div>
+
               <div className="rounded-xl border border-black/10 bg-white p-4">
                 <div className="text-sm font-semibold text-gray-900">Track</div>
                 <div className="mt-1 text-sm text-gray-600">
@@ -87,6 +97,13 @@ export default function Page() {
                 className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
               >
                 Parent Login
+              </Link>
+
+              <Link
+                href="/pricing"
+                className="inline-flex items-center justify-center rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
+              >
+                Pricing
               </Link>
 
               <a
@@ -112,6 +129,7 @@ export default function Page() {
               </div>
 
               <button
+                type="button"
                 onClick={() => setAuthOpen("login")}
                 className="mt-5 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 active:bg-blue-700"
               >
@@ -120,7 +138,7 @@ export default function Page() {
 
               <Link
                 href="/parent/login"
-                className="mt-3 block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-center text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                className="mt-3 flex w-full items-center justify-center rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-gray-900 hover:bg-gray-50"
               >
                 Parent Login
               </Link>
@@ -130,8 +148,9 @@ export default function Page() {
               </div>
 
               <button
+                type="button"
                 onClick={() => setAuthOpen("signup")}
-                className="mt-3 w-full rounded-xl bg-[#42b72a] px-4 py-3 text-sm font-semibold text-white hover:brightness-95 active:brightness-95"
+                className="mt-3 w-full rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold text-white hover:bg-green-700"
               >
                 Create new account
               </button>
@@ -149,17 +168,21 @@ export default function Page() {
                 >
                   Student Login
                 </button>
+
                 <span>•</span>
+
                 <Link
                   href="/parent/login"
                   className="underline decoration-gray-300 underline-offset-2 hover:text-gray-700"
                 >
                   Parent Login
                 </Link>
+
                 <span>•</span>
+
                 <a
                   className="underline decoration-gray-300 underline-offset-2 hover:text-gray-700"
-                  href="mailto:hello@neolearn.ai"
+                  href="mailto:neo.neolearn.ai@gmail.com"
                 >
                   Support
                 </a>
@@ -168,11 +191,17 @@ export default function Page() {
 
             <div className="mx-auto mt-4 max-w-md text-center text-xs text-gray-500">
               By continuing, you agree to our{" "}
-              <Link href="/terms" className="underline underline-offset-2 hover:text-gray-700">
+              <Link
+                href="/terms"
+                className="underline underline-offset-2 hover:text-gray-700"
+              >
                 Terms
               </Link>{" "}
               &{" "}
-              <Link href="/privacy" className="underline underline-offset-2 hover:text-gray-700">
+              <Link
+                href="/privacy"
+                className="underline underline-offset-2 hover:text-gray-700"
+              >
                 Privacy Policy
               </Link>.
             </div>
@@ -192,6 +221,9 @@ export default function Page() {
             </Link>
             <Link href="/contact" className="underline underline-offset-2 hover:text-gray-900">
               Contact
+            </Link>
+            <Link href="/pricing" className="underline underline-offset-2 hover:text-gray-900">
+              Pricing
             </Link>
             <Link href="/privacy" className="underline underline-offset-2 hover:text-gray-900">
               Privacy
