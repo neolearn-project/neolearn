@@ -94,7 +94,7 @@ export async function POST(req: Request) {
       try {
         const childRes = await supabaseAdminClient
           .from("children")
-          .select("id, parent_mobile, child_name, child_mobile, board, class_number, created_at")
+          .select("id, parent_mobile, child_name, child_mobile, board, class_number, subject_type, language, country, created_at")
           .eq("child_mobile", mobile)
           .order("id", { ascending: false })
           .limit(1)
@@ -123,7 +123,9 @@ export async function POST(req: Request) {
         ? String(child.class_number)
         : String(profile?.class_id || profile?.classId || meta?.classId || "6");
 
+    const track = child?.subject_type || profile?.track || meta?.track || "regular";
     const board = child?.board || profile?.board || meta?.board || "CBSE";
+    const competitiveExam = track === "competitive" ? board : null;
 
     return NextResponse.json(
       {
@@ -142,6 +144,10 @@ export async function POST(req: Request) {
           class_id: classId,
           classId,
           board,
+          track,
+          subject_type: track,
+          subjectType: track,
+          competitiveExam,
           child_id: child?.id || null,
           parent_mobile: child?.parent_mobile || null,
         },
@@ -161,3 +167,4 @@ export async function POST(req: Request) {
     );
   }
 }
+

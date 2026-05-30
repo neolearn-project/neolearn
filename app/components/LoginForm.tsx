@@ -58,6 +58,9 @@ export default function LoginForm({ onDone }: { onDone: () => void }) {
         mobile: st.mobile || "",
         classId: String(st.class_id || st.classId || "6"),
         board: st.board || "CBSE",
+        track: st.track || st.subject_type || st.subjectType || "regular",
+        subjectType: st.subject_type || st.subjectType || st.track || "regular",
+        competitiveExam: st.competitiveExam || null,
         studentId: st.user_id || st.studentId || "",
         username: st.username || username,
       };
@@ -120,3 +123,4 @@ export default function LoginForm({ onDone }: { onDone: () => void }) {
     </div>
   );
 }
+

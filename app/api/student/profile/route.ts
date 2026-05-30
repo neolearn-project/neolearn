@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 
     const { data: rows, error } = await supabase
       .from("children")
-      .select("id, parent_mobile, child_name, child_mobile, board, class_number, created_at")
+      .select("id, parent_mobile, child_name, child_mobile, board, class_number, subject_type, language, country, created_at")
       .eq("child_mobile", mobile)
       .order("id", { ascending: false });
 
@@ -57,6 +57,10 @@ export async function GET(req: NextRequest) {
         mobile,
         classId: child?.class_number != null ? String(child.class_number) : "6",
         board: child?.board || "CBSE",
+        track: child?.subject_type || "regular",
+        subjectType: child?.subject_type || "regular",
+        competitiveExam:
+          child?.subject_type === "competitive" ? child?.board || null : null,
       },
       sources: {
         childFound: !!child,
@@ -70,6 +74,7 @@ export async function GET(req: NextRequest) {
         child_mobile: c.child_mobile,
         class_number: c.class_number,
         board: c.board,
+        subject_type: c.subject_type,
         created_at: c.created_at,
       })),
     });
@@ -81,3 +86,4 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
