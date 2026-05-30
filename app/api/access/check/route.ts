@@ -124,11 +124,34 @@ export async function GET(req: NextRequest) {
     const now = Date.now();
     const sub = subscriptionResult.data;
 
+    function parseDbTime(value: any) {
+      if (!value) return NaN;
+
+      const raw = String(value).trim();
+
+      // Supabase may return timestamp like: 2026-06-29 09:17:36.732+00
+      // Convert it to ISO-like format for safer JS parsing.
+      const isoLike =
+        raw.includes("T") ? raw : raw.replace(" ", "T");
+
+      const parsed = new Date(isoLike).getTime();
+
+      if (Number.isFinite(parsed)) return parsed;
+
+      // Last fallback.
+      return new Date(raw).getTime();
+    }
+
+    const subEndMs = parseDbTime(sub?.end_at);
+    const subIsPaid = String(sub?.payment_status || "").toLowerCase() === "paid";
+    const subIsActiveFlag = sub?.is_active === true || String(sub?.is_active) === "true";
+
     const subscriptionActive =
       !!sub &&
-      !!sub.is_active &&
-      sub.payment_status === "paid" &&
-      new Date(sub.end_at).getTime() > now;
+      subIsActiveFlag &&
+      subIsPaid &&
+      Number.isFinite(subEndMs) &&
+      subEndMs > now;
 
     const allowed = summary.allowed || summary.overrideActive || subscriptionActive;
 
@@ -145,6 +168,14 @@ export async function GET(req: NextRequest) {
       overrideExpiresAt: overrideResult.data?.expires_at || null,
       subscriptionActive,
       subscriptionPlanCode: sub?.plan_code || null,
+      subscriptionDebug: {
+        found: !!sub,
+        isActiveFlag: sub?.is_active ?? null,
+        paymentStatus: sub?.payment_status ?? null,
+        endAt: sub?.end_at ?? null,
+        endMs: Number.isFinite(subEndMs) ? subEndMs : null,
+        nowMs: now,
+      },
       reason: subscriptionActive
         ? "paid_subscription"
         : summary.overrideActive
@@ -160,3 +191,5 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
+
