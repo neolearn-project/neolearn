@@ -22,6 +22,10 @@ interface StudentInfo {
   name: string;
   mobile: string;
   classId: ClassId;
+  board?: string;
+  track?: "regular" | "competitive" | string;
+  subjectType?: "regular" | "competitive" | string;
+  competitiveExam?: string | null;
 
   // Supabase Auth user id (needed for Persona Engine)
   studentId?: string;
@@ -181,6 +185,112 @@ function defaultRoutine(): WeeklyRoutine {
     Saturday: { ...base },
     Sunday: { ...base },
   };
+}
+
+function slugifyNeoLearn(value: string) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+const COMPETITIVE_SUBJECTS: Record<string, string[]> = {
+  JEE: ["Physics", "Chemistry", "Mathematics"],
+  NEET: ["Physics", "Chemistry", "Biology"],
+  CUET: ["English", "General Test", "Domain Subjects"],
+  SSC: ["Reasoning", "Quantitative Aptitude", "English", "General Awareness"],
+  Banking: ["Reasoning", "Quantitative Aptitude", "English", "Banking Awareness", "Computer Awareness"],
+  UPSC: ["History", "Polity", "Geography", "Economy", "Environment", "Current Affairs"],
+  Foundation: ["Mathematics", "Science", "Reasoning", "English"],
+};
+
+const COMPETITIVE_TOPIC_SETS: Record<string, string[]> = {
+  Physics: ["Units and Measurements", "Motion", "Laws of Motion", "Work, Energy and Power", "Electricity Basics"],
+  Chemistry: ["Atomic Structure", "Chemical Bonding", "Mole Concept", "Acids, Bases and Salts", "Organic Chemistry Basics"],
+  Mathematics: ["Algebra Basics", "Trigonometry", "Coordinate Geometry", "Calculus Foundation", "Probability"],
+  Biology: ["Cell Biology", "Human Physiology", "Genetics", "Plant Physiology", "Ecology"],
+  English: ["Grammar Basics", "Reading Comprehension", "Vocabulary", "Error Detection", "Para Jumbles"],
+  "General Test": ["Numerical Ability", "Logical Reasoning", "General Knowledge", "Current Affairs", "Data Interpretation"],
+  "Domain Subjects": ["Domain Concept Practice", "Important Formulae", "NCERT Based Questions", "MCQ Practice", "Previous Pattern Practice"],
+  Reasoning: ["Analogy", "Series", "Coding-Decoding", "Blood Relation", "Syllogism"],
+  "Quantitative Aptitude": ["Number System", "Percentage", "Profit and Loss", "Time and Work", "Data Interpretation"],
+  "General Awareness": ["Indian History", "Indian Polity", "Geography", "Economy", "Current Affairs"],
+  "Banking Awareness": ["Banking Basics", "RBI", "Financial Awareness", "Banking Terms", "Current Banking Updates"],
+  "Computer Awareness": ["Computer Basics", "Internet", "MS Office", "Cyber Security", "Digital Payments"],
+  History: ["Ancient India", "Medieval India", "Modern India", "World History", "Freedom Movement"],
+  Polity: ["Constitution", "Parliament", "Fundamental Rights", "Directive Principles", "Judiciary"],
+  Geography: ["Physical Geography", "Indian Geography", "Climate", "Resources", "Maps"],
+  Economy: ["Basic Economics", "Budget", "Banking", "Inflation", "Planning and Development"],
+  Environment: ["Ecology", "Biodiversity", "Pollution", "Climate Change", "Conservation"],
+  "Current Affairs": ["National Affairs", "International Affairs", "Science and Technology", "Sports", "Government Schemes"],
+  Science: ["Physics Basics", "Chemistry Basics", "Biology Basics", "Daily Life Science", "MCQ Practice"],
+};
+
+function getCompetitiveSyllabus(examRaw: string | null | undefined) {
+  const exam = String(examRaw || "Foundation").trim() || "Foundation";
+  const subjectNames = COMPETITIVE_SUBJECTS[exam] || COMPETITIVE_SUBJECTS.Foundation;
+
+  const subjects: SubjectRow[] = [];
+  const chapters: ChapterRow[] = [];
+  const topics: TopicRow[] = [];
+
+  subjectNames.forEach((subjectName, sIndex) => {
+    const subjectId = 900000 + sIndex + 1;
+    const chapterBase = 910000 + (sIndex + 1) * 100;
+    const topicBase = 920000 + (sIndex + 1) * 1000;
+
+    subjects.push({
+      id: subjectId,
+      board: exam,
+      class_number: 0,
+      subject_code: `${slugifyNeoLearn(exam)}-${slugifyNeoLearn(subjectName)}`,
+      subject_name: subjectName,
+    });
+
+    const chapterNames = [
+      "Core Concepts",
+      "Exam Shortcuts",
+      "MCQ Practice",
+    ];
+
+    chapterNames.forEach((chapterName, cIndex) => {
+      const chapterId = chapterBase + cIndex + 1;
+
+      chapters.push({
+        id: chapterId,
+        subject_id: subjectId,
+        chapter_number: cIndex + 1,
+        chapter_name: chapterName,
+      });
+
+      const baseTopics = COMPETITIVE_TOPIC_SETS[subjectName] || [
+        "Concept Basics",
+        "Important Questions",
+        "Shortcut Methods",
+        "Practice MCQs",
+        "Previous Pattern Questions",
+      ];
+
+      baseTopics.forEach((topicName, tIndex) => {
+        topics.push({
+          id: topicBase + cIndex * 100 + tIndex + 1,
+          chapter_id: chapterId,
+          topic_number: tIndex + 1,
+          topic_name:
+            cIndex === 0
+              ? topicName
+              : cIndex === 1
+              ? `${topicName} - Shortcut Approach`
+              : `${topicName} - MCQ Practice`,
+          content: "",
+          is_active: true,
+        });
+      });
+    });
+  });
+
+  return { subjects, chapters, topics };
 }
 
 function getFallbackSyllabus(classId: string) {
@@ -716,12 +826,20 @@ const handleBuyPlan = async (planCode: string) => {
           name: data.student.name || localInfo.name,
           mobile: data.student.mobile || localInfo.mobile,
           classId: latestClassId as ClassId,
+          board: data.student.board || localInfo.board || "CBSE",
+          track: data.student.track || data.student.subjectType || localInfo.track || "regular",
+          subjectType: data.student.subjectType || data.student.track || localInfo.subjectType || "regular",
+          competitiveExam: data.student.competitiveExam ?? localInfo.competitiveExam ?? null,
         };
 
         const changed =
           nextInfo.classId !== localInfo.classId ||
           nextInfo.name !== localInfo.name ||
-          nextInfo.mobile !== localInfo.mobile;
+          nextInfo.mobile !== localInfo.mobile ||
+          nextInfo.board !== localInfo.board ||
+          nextInfo.track !== localInfo.track ||
+          nextInfo.subjectType !== localInfo.subjectType ||
+          nextInfo.competitiveExam !== localInfo.competitiveExam;
 
         if (changed) {
           setStudent(nextInfo);
@@ -777,14 +895,31 @@ const handleBuyPlan = async (planCode: string) => {
   useEffect(() => {
     if (!student) return;
 
-    const classId = student.classId;
+    const currentStudent = student;
+    const classId = currentStudent.classId;
+    const studentTrack = String(currentStudent.track || currentStudent.subjectType || "").toLowerCase();
+    const isCompetitiveStudent = studentTrack === "competitive";
+    const competitiveExamForStudent =
+      currentStudent.competitiveExam || currentStudent.board || "Foundation";
 
     async function load() {
       setSyllabusLoading(true);
       setSyllabusError(null);
       try {
+        if (isCompetitiveStudent) {
+          const competitive = getCompetitiveSyllabus(competitiveExamForStudent);
+          setSubjects(competitive.subjects);
+          setChapters(competitive.chapters);
+          setTopics(competitive.topics);
+          setSelectedSubjectId(null);
+          setSelectedChapterId(null);
+          setSelectedTopicId(null);
+          setSyllabusError(null);
+          return;
+        }
+
         const params = new URLSearchParams({
-  class: student?.classId ?? "6",
+  class: currentStudent.classId ?? "6",
   board: "CBSE", // later we can store board per student
 });
 
@@ -1398,7 +1533,7 @@ const handleStartLesson = useCallback(async () => {
 
         <div className="flex items-center gap-3 text-xs text-gray-600">
           <span>
-            {student.name}  Class {student.classId} {student.mobile}
+            {student.name}  {String(student.track || student.subjectType || "regular").toLowerCase() === "competitive" ? `${student.competitiveExam || student.board || "Competitive"} Exam` : `Class ${student.classId}`} {student.mobile}
           </span>
           <button
             type="button"
@@ -1899,7 +2034,7 @@ function SubjectsView({
             <option value="">Choose subject</option>
             {subjects.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.subject_name} (Class {s.class_number.toString()})
+                {s.class_number > 0 ? `${s.subject_name} (Class ${s.class_number.toString()})` : s.subject_name}
               </option>
             ))}
           </select>
@@ -4052,6 +4187,18 @@ const handleStartTopicTest = async () => {
     </>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
