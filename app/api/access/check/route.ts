@@ -183,14 +183,6 @@ export async function GET(req: NextRequest) {
       overrideExpiresAt: overrideResult.data?.expires_at || null,
       subscriptionActive,
       subscriptionPlanCode: sub?.plan_code || null,
-      subscriptionDebug: {
-        found: !!sub,
-        isActiveFlag: sub?.is_active ?? null,
-        paymentStatus: sub?.payment_status ?? null,
-        endAt: sub?.end_at ?? null,
-        endMs: Number.isFinite(subEndMs) ? subEndMs : null,
-        nowMs: now,
-      },
       reason: subscriptionActive
         ? "paid_subscription"
         : summary.overrideActive
@@ -206,6 +198,7 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
 
 
 
