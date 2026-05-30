@@ -71,11 +71,8 @@ export async function GET(req: NextRequest) {
         .from("student_subscriptions")
         .select("*")
         .eq("student_mobile", mobile)
-        .eq("is_active", true)
         .eq("payment_status", "paid")
-        .order("end_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+        .order("end_at", { ascending: false }),
     ]);
 
     if (progressResult.error) {
@@ -122,7 +119,25 @@ export async function GET(req: NextRequest) {
     );
 
     const now = Date.now();
-    const sub = subscriptionResult.data;
+    const subscriptionRows = Array.isArray(subscriptionResult.data)
+      ? subscriptionResult.data
+      : subscriptionResult.data
+      ? [subscriptionResult.data]
+      : [];
+
+    const sub = subscriptionRows.find((row: any) => {
+      const rowEndMs = parseDbTime(row?.end_at);
+      const rowIsPaid = String(row?.payment_status || "").toLowerCase() === "paid";
+      const rowIsActiveFlag =
+        row?.is_active === true || String(row?.is_active) === "true";
+
+      return (
+        rowIsActiveFlag &&
+        rowIsPaid &&
+        Number.isFinite(rowEndMs) &&
+        rowEndMs > now
+      );
+    }) || null;
 
     function parseDbTime(value: any) {
       if (!value) return NaN;
@@ -191,5 +206,6 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
 
 
