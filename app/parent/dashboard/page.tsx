@@ -11,11 +11,27 @@ interface ChildRow {
   child_name: string;
   child_mobile: string;
   board: string;
-  class_number: number;
-  track?: "regular" | "competitive" | string;
+  class_number: number | null;
+  subject_type?: "regular" | "competitive" | string | null;
+  track?: "regular" | "competitive" | string | null;
   created_at: string;
 }
 
+function getChildTrack(child: ChildRow | null) {
+  return String(child?.subject_type || child?.track || "regular").toLowerCase();
+}
+
+function isCompetitiveChild(child: ChildRow | null) {
+  return getChildTrack(child) === "competitive";
+}
+
+function getChildCurrentLabel(child: ChildRow | null) {
+  if (!child) return "-";
+  if (isCompetitiveChild(child)) {
+    return `${child.board || "Competitive"} Competitive Exam`;
+  }
+  return `${child.board || "CBSE"} Class ${child.class_number || "-"}`;
+}
 type MasteryItem = {
   subject: string;
   chapter: string;
@@ -237,7 +253,8 @@ export default function ParentDashboardPage() {
           parentMobile,
           childMobile: activeChild.child_mobile,
           board: upgradeForm.board,
-          classNumber: Number(upgradeForm.classNumber),
+          classNumber: isCompetitiveChild(activeChild) ? null : Number(upgradeForm.classNumber),
+          subjectType: isCompetitiveChild(activeChild) ? "competitive" : "regular",
         }),
       });
 
@@ -254,7 +271,8 @@ export default function ParentDashboardPage() {
             ? {
                 ...c,
                 board: upgradeForm.board,
-                class_number: Number(upgradeForm.classNumber),
+                class_number: isCompetitiveChild(activeChild) ? null : Number(upgradeForm.classNumber),
+                subject_type: isCompetitiveChild(activeChild) ? "competitive" : "regular",
               }
             : c
         )
@@ -413,9 +431,13 @@ export default function ParentDashboardPage() {
         </section>
 
                 <section className="rounded-2xl bg-white p-4 shadow-sm text-sm space-y-3">
-          <h2 className="text-base font-semibold">Upgrade Child Class</h2>
+          <h2 className="text-base font-semibold">
+            {isCompetitiveChild(activeChild) ? "Update Competitive Exam" : "Upgrade Child Class"}
+          </h2>
           <p className="text-[11px] text-gray-500">
-            Change the selected child&apos;s class for the next academic level. Old progress will remain saved.
+            {isCompetitiveChild(activeChild)
+              ? "Change the selected child&apos;s competitive exam track. Old progress will remain saved."
+              : "Change the selected child&apos;s class for the next academic level. Old progress will remain saved."}
           </p>
 
           {!activeChild ? (
@@ -428,14 +450,14 @@ export default function ParentDashboardPage() {
                 <br />
                 Current:{" "}
                 <span className="font-semibold">
-                  {activeChild.board} Class {activeChild.class_number}
+                  {getChildCurrentLabel(activeChild)}
                 </span>
               </div>
 
               <div className="flex gap-2">
                 <div className="flex-1">
                   <label className="block text-[11px] font-medium text-gray-600 mb-1">
-                    Board
+                    {isCompetitiveChild(activeChild) ? "Exam" : "Board"}
                   </label>
                   <select
                     value={upgradeForm.board}
@@ -444,35 +466,46 @@ export default function ParentDashboardPage() {
                     }
                     className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="CBSE">CBSE</option>
-                    <option value="TBSE">TBSE</option>
-                    <option value="ICSE">ICSE</option>
+                    {isCompetitiveChild(activeChild) ? (
+                      <>
+                        <option value="JEE">JEE</option>
+                        <option value="NEET">NEET</option>
+                        <option value="CUET">CUET</option>
+                        <option value="SSC">SSC</option>
+                        <option value="Banking">Banking</option>
+                        <option value="UPSC">UPSC</option>
+                        <option value="Foundation">Foundation</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="CBSE">CBSE</option>
+                        <option value="TBSE">TBSE</option>
+                        <option value="ICSE">ICSE</option>
+                      </>
+                    )}
                   </select>
                 </div>
 
-                <div className="w-28">
-                  <label className="block text-[11px] font-medium text-gray-600 mb-1">
-                    New Class
-                  </label>
-                  <select
-                    value={upgradeForm.classNumber}
-                    onChange={(e) =>
-                      setUpgradeForm((f) => ({
-                        ...f,
-                        classNumber: e.target.value,
-                      }))
-                    }
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="6">6</option>
-                    <option value="7">7</option>
-                    <option value="8">8</option>
-                    <option value="9">9</option>
-                    <option value="10">10</option>
-                    <option value="11">11</option>
-                    <option value="12">12</option>
-                  </select>
-                </div>
+                {!isCompetitiveChild(activeChild) && (
+                  <div className="w-28">
+                    <label className="block text-[11px] font-medium text-gray-600 mb-1">
+                      New Class
+                    </label>
+                    <select
+                      value={upgradeForm.classNumber}
+                      onChange={(e) =>
+                        setUpgradeForm((f) => ({ ...f, classNumber: e.target.value }))
+                      }
+                      className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {[6, 7, 8, 9, 10, 11, 12].map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
               <button
@@ -480,7 +513,11 @@ export default function ParentDashboardPage() {
                 disabled={upgradeSaving}
                 className="w-full rounded-xl bg-blue-600 text-white text-sm font-semibold py-2 hover:bg-blue-700 disabled:opacity-60"
               >
-                {upgradeSaving ? "Updating..." : "Update Class"}
+                {upgradeSaving
+                  ? "Updating..."
+                  : isCompetitiveChild(activeChild)
+                  ? "Update Exam"
+                  : "Update Class"}
               </button>
             </form>
           )}
@@ -558,6 +595,15 @@ export default function ParentDashboardPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
 
 
 
