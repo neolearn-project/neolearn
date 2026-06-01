@@ -279,7 +279,9 @@ export default function ParentDashboardPage() {
       );
 
       setStatus(
-        `${activeChild.child_name} upgraded to Class ${upgradeForm.classNumber}. Ask the student to logout/login or refresh the student profile.`
+        isCompetitiveChild(activeChild)
+          ? `${activeChild.child_name} exam updated to ${upgradeForm.board}. Ask the student to logout/login or refresh the student profile.`
+          : `${activeChild.child_name} upgraded to Class ${upgradeForm.classNumber}. Ask the student to logout/login or refresh the student profile.`
       );
     } catch (err: any) {
       console.error("upgrade class error:", err);
@@ -436,8 +438,8 @@ export default function ParentDashboardPage() {
           </h2>
           <p className="text-[11px] text-gray-500">
             {isCompetitiveChild(activeChild)
-              ? "Change the selected child&apos;s competitive exam track. Old progress will remain saved."
-              : "Change the selected child&apos;s class for the next academic level. Old progress will remain saved."}
+              ? "Change the selected child's competitive exam track. Old progress will remain saved."
+              : "Change the selected child's class for the next academic level. Old progress will remain saved."}
           </p>
 
           {!activeChild ? (
@@ -595,6 +597,7 @@ export default function ParentDashboardPage() {
     </div>
   );
 }
+
 
 
 
