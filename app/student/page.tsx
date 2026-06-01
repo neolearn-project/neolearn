@@ -187,6 +187,12 @@ function defaultRoutine(): WeeklyRoutine {
   };
 }
 
+function cleanSubjectName(value: string | undefined | null) {
+  return String(value || "AI")
+    .replace(/\bPhyscs\b/gi, "Physics")
+    .replace(/\bPhyics\b/gi, "Physics")
+    .trim();
+}
 function slugifyNeoLearn(value: string) {
   return String(value || "")
     .trim()
@@ -1100,7 +1106,7 @@ useEffect(() => {
           id: messageIdRef.current++,
           author: "Teacher",
           text:
-            'Hi! I am your NeoLearn Maths teacher. ' +
+            `Hi! I am your NeoLearn ${cleanSubjectName(currentSubject?.subject_name)} teacher. ` +
             'Select your subject, chapter, and topic, then click "Start Lesson" to hear a short explanation. ' +
             'You can also ask me questions anytime.',
           ts: new Date().toLocaleTimeString([], {
@@ -1269,7 +1275,7 @@ const handleStartLesson = useCallback(async () => {
     if (!scriptText) {
       const langLabel = language;
       scriptText = (
-        `Hi ${student?.name || "Student"}, I am your NeoLearn ${currentSubject.subject_name} teacher.\n\n` +
+        `Hi ${student?.name || "Student"}, I am your NeoLearn ${cleanSubjectName(currentSubject.subject_name)} teacher.\n\n` +
         `Today we will learn the topic "${currentTopic.topic_name}" from the chapter "${currentChapter.chapter_name}" for Class ${student?.classId || "6"}.\n` +
         `I will explain it step by step in very simple ${langLabel} so you can understand easily.`
       ).trim();
@@ -3541,7 +3547,7 @@ const handleStartTopicTest = async () => {
           </div>
           <div className="min-w-0">
             <div className="text-sm font-semibold text-slate-800">
-              NeoLearn {currentSubject?.subject_name || "AI"} Teacher
+              NeoLearn {cleanSubjectName(currentSubject?.subject_name)} Teacher
             </div>
             <div className="text-xs text-slate-500">
               Student: {studentName}
@@ -4187,6 +4193,9 @@ const handleStartTopicTest = async () => {
     </>
   );
 }
+
+
+
 
 
 
