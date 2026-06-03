@@ -1,4 +1,4 @@
-// app/api/parent/children/route.ts
+﻿// app/api/parent/children/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -65,8 +65,9 @@ export async function POST(req: NextRequest) {
 
     const country = (body.country as string | undefined)?.trim() || "India";
     const language = (body.language as string | undefined)?.trim() || "English";
-    const subjectType =
-      (body.subjectType as "regular" | "competitive" | undefined) || "regular";
+    const rawSubjectType = String(body.subjectType || "regular").toLowerCase();
+    const subjectType: "regular" | "competitive" =
+      rawSubjectType === "competitive" ? "competitive" : "regular";
 
     if (!parentMobile || !childName || !childMobile || !board) {
       return NextResponse.json(
@@ -75,8 +76,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const classNumber = Number(classNumberRaw || 6);
-    if (!Number.isFinite(classNumber) || classNumber <= 0) {
+    const classNumber =
+      subjectType === "competitive" ? null : Number(classNumberRaw || 6);
+
+    if (
+      subjectType === "regular" &&
+      (!Number.isFinite(classNumber) || Number(classNumber) <= 0)
+    ) {
       return NextResponse.json(
         { ok: false, error: "Invalid classNumber." },
         { status: 400 }
@@ -188,3 +194,6 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+
+

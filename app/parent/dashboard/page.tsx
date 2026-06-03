@@ -73,10 +73,19 @@ export default function ParentDashboardPage() {
   const [weeklyRows, setWeeklyRows] = useState<DailyItem[]>([]);
   const [dailyRow, setDailyRow] = useState<DailyItem | null>(null);
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    childName: string;
+    childMobile: string;
+    subjectType: "regular" | "competitive";
+    board: string;
+    competitiveExam: string;
+    classNumber: string;
+  }>({
     childName: "",
     childMobile: "",
+    subjectType: "regular",
     board: "CBSE",
+    competitiveExam: "JEE",
     classNumber: "6",
   });
   const [saving, setSaving] = useState(false);
@@ -210,7 +219,14 @@ export default function ParentDashboardPage() {
       });
 
       setActiveChildMobile(incoming.child_mobile);
-      setForm({ childName: "", childMobile: "", board: "CBSE", classNumber: "6" });
+      setForm({
+        childName: "",
+        childMobile: "",
+        subjectType: "regular",
+        board: "CBSE",
+        competitiveExam: "JEE",
+        classNumber: "6",
+      });
     } catch (err: any) {
       console.error("add child error:", err);
       setStatus(err?.message || "Failed to save child profile.");
@@ -553,38 +569,82 @@ export default function ParentDashboardPage() {
               />
             </div>
 
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <label className="block text-[11px] font-medium text-gray-600 mb-1">Board</label>
-                <select
-                  value={form.board}
-                  onChange={(e) => setForm((f) => ({ ...f, board: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="CBSE">CBSE</option>
-                  <option value="TBSE">TBSE</option>
-                  <option value="ICSE">ICSE</option>
-                </select>
-              </div>
 
-              <div className="w-24">
-                <label className="block text-[11px] font-medium text-gray-600 mb-1">Class</label>
-                <select
-                  value={form.classNumber}
-                  onChange={(e) => setForm((f) => ({ ...f, classNumber: e.target.value }))}
-                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="5">5</option>
-                  <option value="6">6</option>
-                  <option value="7">7</option>
-                  <option value="8">8</option>
-                  <option value="9">9</option>
-                  <option value="10">10</option>
-                </select>
-              </div>
+            <div>
+              <label className="block text-[11px] font-medium text-gray-600 mb-1">
+                Learning Track
+              </label>
+              <select
+                value={form.subjectType}
+                onChange={(e) => {
+                  const nextSubjectType = e.target.value as "regular" | "competitive";
+                  setForm((f) => ({
+                    ...f,
+                    subjectType: nextSubjectType,
+                    board: nextSubjectType === "competitive" ? f.board : "CBSE",
+                    competitiveExam: nextSubjectType === "competitive" ? f.competitiveExam : "JEE",
+                  }));
+                }}
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="regular">Regular School</option>
+                <option value="competitive">Competitive Exam</option>
+              </select>
             </div>
 
-            <button
+            {form.subjectType === "competitive" ? (
+              <div>
+                <label className="block text-[11px] font-medium text-gray-600 mb-1">
+                  Competitive Exam
+                </label>
+                <select
+                  value={form.competitiveExam}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, competitiveExam: e.target.value }))
+                  }
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="JEE">JEE</option>
+                  <option value="NEET">NEET</option>
+                  <option value="CUET">CUET</option>
+                  <option value="SSC">SSC</option>
+                  <option value="Banking">Banking</option>
+                  <option value="UPSC">UPSC</option>
+                  <option value="Foundation">Foundation</option>
+                </select>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="block text-[11px] font-medium text-gray-600 mb-1">Board</label>
+                  <select
+                    value={form.board}
+                    onChange={(e) => setForm((f) => ({ ...f, board: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="CBSE">CBSE</option>
+                    <option value="TBSE">TBSE</option>
+                    <option value="ICSE">ICSE</option>
+                  </select>
+                </div>
+
+                <div className="w-24">
+                  <label className="block text-[11px] font-medium text-gray-600 mb-1">Class</label>
+                  <select
+                    value={form.classNumber}
+                    onChange={(e) => setForm((f) => ({ ...f, classNumber: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {[5, 6, 7, 8, 9, 10, 11, 12].map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+<button
               type="submit"
               disabled={saving}
               className="w-full rounded-xl bg-emerald-600 text-white text-sm font-semibold py-2 hover:bg-emerald-700 disabled:opacity-60"
@@ -597,6 +657,10 @@ export default function ParentDashboardPage() {
     </div>
   );
 }
+
+
+
+
 
 
 
