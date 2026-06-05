@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class12_chemistrychemistrypartii_2x7159: MasterSubject = {
   board: "cbse",
@@ -110,11 +110,11 @@ export const tm_cbse_class12_chemistrychemistrypartii_2x7159: MasterSubject = {
       },
       {
         "number": 2,
-        "name": "Alcohols—Mono, Di, Tri or Polyhydric Alcohols"
+        "name": "Alcoholsâ€”Mono, Di, Tri or Polyhydric Alcohols"
       },
       {
         "number": 3,
-        "name": "Phenols—Mono, Di and Trihydric Phenols"
+        "name": "Phenolsâ€”Mono, Di and Trihydric Phenols"
       },
       {
         "number": 4,
@@ -401,3 +401,4 @@ export const tm_cbse_class12_chemistrychemistrypartii_2x7159: MasterSubject = {
   }
 ],
 };
+

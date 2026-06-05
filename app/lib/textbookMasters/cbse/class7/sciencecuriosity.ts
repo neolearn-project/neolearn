@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class7_sciencecuriosity_1xkqmdd: MasterSubject = {
   board: "cbse",
@@ -320,7 +320,7 @@ export const tm_cbse_class7_sciencecuriosity_1xkqmdd: MasterSubject = {
       },
       {
         "number": 22,
-        "name": "4.5 Are Non-metals Essential in Everyday Life?"
+        "name": "4.5 Are Non-metals Essential in EverydayÂ Life?"
       },
       {
         "number": 23,
@@ -510,7 +510,7 @@ export const tm_cbse_class7_sciencecuriosity_1xkqmdd: MasterSubject = {
       },
       {
         "number": 18,
-        "name": "Table 6.4: Dos and don’ts to be followed on social media"
+        "name": "Table 6.4: Dos and donâ€™ts to be followed on social media"
       },
       {
         "number": 19,
@@ -518,7 +518,7 @@ export const tm_cbse_class7_sciencecuriosity_1xkqmdd: MasterSubject = {
       },
       {
         "number": 20,
-        "name": "6.5 The ‘Why’ Question for Adolescence"
+        "name": "6.5 The â€˜Whyâ€™ Question for Adolescence"
       },
       {
         "number": 21,
@@ -770,7 +770,7 @@ export const tm_cbse_class7_sciencecuriosity_1xkqmdd: MasterSubject = {
       },
       {
         "number": 6,
-        "name": "10.2.1 Leaves: the ̒ food factories̓ of plants"
+        "name": "10.2.1 Leaves: the Ì’ food factoriesÌ“ of plants"
       },
       {
         "number": 7,
@@ -1018,3 +1018,4 @@ export const tm_cbse_class7_sciencecuriosity_1xkqmdd: MasterSubject = {
   }
 ],
 };
+

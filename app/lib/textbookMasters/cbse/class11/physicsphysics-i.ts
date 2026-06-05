@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class11_physicsphysics_i_mr9xn1: MasterSubject = {
   board: "cbse",
@@ -85,7 +85,7 @@ export const tm_cbse_class11_physicsphysics_i_mr9xn1: MasterSubject = {
       },
       {
         "number": 4,
-        "name": "Addition and Subtraction of Vectors — Graphical Method"
+        "name": "Addition and Subtraction of Vectors â€” Graphical Method"
       },
       {
         "number": 5,
@@ -93,7 +93,7 @@ export const tm_cbse_class11_physicsphysics_i_mr9xn1: MasterSubject = {
       },
       {
         "number": 6,
-        "name": "Vector Addition — Analytical Method"
+        "name": "Vector Addition â€” Analytical Method"
       },
       {
         "number": 7,
@@ -124,7 +124,7 @@ export const tm_cbse_class11_physicsphysics_i_mr9xn1: MasterSubject = {
       },
       {
         "number": 2,
-        "name": "Aristotle’s Fallacy"
+        "name": "Aristotleâ€™s Fallacy"
       },
       {
         "number": 3,
@@ -132,15 +132,15 @@ export const tm_cbse_class11_physicsphysics_i_mr9xn1: MasterSubject = {
       },
       {
         "number": 4,
-        "name": "Newton’s First Law of Motion"
+        "name": "Newtonâ€™s First Law of Motion"
       },
       {
         "number": 5,
-        "name": "Newton’s Second Law of Motion"
+        "name": "Newtonâ€™s Second Law of Motion"
       },
       {
         "number": 6,
-        "name": "Newton’s Third Law of Motion"
+        "name": "Newtonâ€™s Third Law of Motion"
       },
       {
         "number": 7,
@@ -281,7 +281,7 @@ export const tm_cbse_class11_physicsphysics_i_mr9xn1: MasterSubject = {
       },
       {
         "number": 2,
-        "name": "Kepler’s Laws"
+        "name": "Keplerâ€™s Laws"
       },
       {
         "number": 3,
@@ -319,3 +319,4 @@ export const tm_cbse_class11_physicsphysics_i_mr9xn1: MasterSubject = {
   }
 ],
 };
+

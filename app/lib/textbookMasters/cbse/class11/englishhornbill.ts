@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class11_englishhornbill_p2k2nh: MasterSubject = {
   board: "cbse",
@@ -45,7 +45,7 @@ export const tm_cbse_class11_englishhornbill_p2k2nh: MasterSubject = {
   },
   {
     "number": 2,
-    "name": "We’re Not Afraid to Die... if We Can All Be Together",
+    "name": "Weâ€™re Not Afraid to Die... if We Can All Be Together",
     "chapterType": "prose",
     "topics": [
       {
@@ -70,7 +70,7 @@ export const tm_cbse_class11_englishhornbill_p2k2nh: MasterSubject = {
       },
       {
         "number": 6,
-        "name": "Search for Île Amsterdam"
+        "name": "Search for ÃŽle Amsterdam"
       },
       {
         "number": 7,
@@ -119,7 +119,7 @@ export const tm_cbse_class11_englishhornbill_p2k2nh: MasterSubject = {
   },
   {
     "number": 4,
-    "name": "The Ailing Planet: the Green Movement’s Role",
+    "name": "The Ailing Planet: the Green Movementâ€™s Role",
     "chapterType": "prose",
     "topics": [
       {
@@ -394,3 +394,4 @@ export const tm_cbse_class11_englishhornbill_p2k2nh: MasterSubject = {
   }
 ],
 };
+

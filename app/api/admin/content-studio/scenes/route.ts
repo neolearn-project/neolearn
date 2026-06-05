@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -330,27 +330,27 @@ function buildFallbackScenes(params: {
         voiceover:
           type === "title"
             ? language.toLowerCase() === "hindi"
-              ? `आज हम ${topic} को आसान और दृश्य तरीके से समझेंगे।`
+              ? `à¤†à¤œ à¤¹à¤® ${topic} à¤•à¥‹ à¤†à¤¸à¤¾à¤¨ à¤”à¤° à¤¦à¥ƒà¤¶à¥à¤¯ à¤¤à¤°à¥€à¤•à¥‡ à¤¸à¥‡ à¤¸à¤®à¤à¥‡à¤‚à¤—à¥‡à¥¤`
               : language.toLowerCase() === "bengali"
-                ? `আজ আমরা ${topic} সহজ এবং ভিজ্যুয়াল পদ্ধতিতে শিখব।`
+                ? `à¦†à¦œ à¦†à¦®à¦°à¦¾ ${topic} à¦¸à¦¹à¦œ à¦à¦¬à¦‚ à¦­à¦¿à¦œà§à¦¯à§à¦¯à¦¼à¦¾à¦² à¦ªà¦¦à§à¦§à¦¤à¦¿à¦¤à§‡ à¦¶à¦¿à¦–à¦¬à¥¤`
                 : `Today we will learn ${topic} in a simple, visual and easy way.`
             : type === "concept"
               ? language.toLowerCase() === "hindi"
-                ? `${topic} को समझने के लिए पहले इसके मूल विचार को स्पष्ट रूप से समझना ज़रूरी है।`
+                ? `${topic} à¤•à¥‹ à¤¸à¤®à¤à¤¨à¥‡ à¤•à¥‡ à¤²à¤¿à¤ à¤ªà¤¹à¤²à¥‡ à¤‡à¤¸à¤•à¥‡ à¤®à¥‚à¤² à¤µà¤¿à¤šà¤¾à¤° à¤•à¥‹ à¤¸à¥à¤ªà¤·à¥à¤Ÿ à¤°à¥‚à¤ª à¤¸à¥‡ à¤¸à¤®à¤à¤¨à¤¾ à¤œà¤¼à¤°à¥‚à¤°à¥€ à¤¹à¥ˆà¥¤`
                 : language.toLowerCase() === "bengali"
-                  ? `${topic} ভালোভাবে শিখতে হলে আগে এর মূল ধারণা পরিষ্কারভাবে বুঝতে হবে।`
+                  ? `${topic} à¦­à¦¾à¦²à§‹à¦­à¦¾à¦¬à§‡ à¦¶à¦¿à¦–à¦¤à§‡ à¦¹à¦²à§‡ à¦†à¦—à§‡ à¦à¦° à¦®à§‚à¦² à¦§à¦¾à¦°à¦£à¦¾ à¦ªà¦°à¦¿à¦·à§à¦•à¦¾à¦°à¦­à¦¾à¦¬à§‡ à¦¬à§à¦à¦¤à§‡ à¦¹à¦¬à§‡à¥¤`
                   : `${topic} becomes easier when the main idea is explained clearly step by step.`
               : type === "example"
                 ? language.toLowerCase() === "hindi"
-                  ? `अब एक आसान उदाहरण देखते हैं जिससे ${topic} और अच्छी तरह समझ आए।`
+                  ? `à¤…à¤¬ à¤à¤• à¤†à¤¸à¤¾à¤¨ à¤‰à¤¦à¤¾à¤¹à¤°à¤£ à¤¦à¥‡à¤–à¤¤à¥‡ à¤¹à¥ˆà¤‚ à¤œà¤¿à¤¸à¤¸à¥‡ ${topic} à¤”à¤° à¤…à¤šà¥à¤›à¥€ à¤¤à¤°à¤¹ à¤¸à¤®à¤ à¤†à¤à¥¤`
                   : language.toLowerCase() === "bengali"
-                    ? `এবার একটি সহজ উদাহরণ দেখি যাতে ${topic} আরও পরিষ্কারভাবে বোঝা যায়।`
+                    ? `à¦à¦¬à¦¾à¦° à¦à¦•à¦Ÿà¦¿ à¦¸à¦¹à¦œ à¦‰à¦¦à¦¾à¦¹à¦°à¦£ à¦¦à§‡à¦–à¦¿ à¦¯à¦¾à¦¤à§‡ ${topic} à¦†à¦°à¦“ à¦ªà¦°à¦¿à¦·à§à¦•à¦¾à¦°à¦­à¦¾à¦¬à§‡ à¦¬à§‹à¦à¦¾ à¦¯à¦¾à¦¯à¦¼à¥¤`
                     : `Now let us look at a simple example so that ${topic} becomes easier to understand and remember.`
                 : type === "recap"
                   ? language.toLowerCase() === "hindi"
-                    ? `${topic} सीखने के लिए विचार समझना, उदाहरण देखना और अभ्यास करना ज़रूरी है।`
+                    ? `${topic} à¤¸à¥€à¤–à¤¨à¥‡ à¤•à¥‡ à¤²à¤¿à¤ à¤µà¤¿à¤šà¤¾à¤° à¤¸à¤®à¤à¤¨à¤¾, à¤‰à¤¦à¤¾à¤¹à¤°à¤£ à¤¦à¥‡à¤–à¤¨à¤¾ à¤”à¤° à¤…à¤­à¥à¤¯à¤¾à¤¸ à¤•à¤°à¤¨à¤¾ à¤œà¤¼à¤°à¥‚à¤°à¥€ à¤¹à¥ˆà¥¤`
                     : language.toLowerCase() === "bengali"
-                      ? `${topic} শিখতে হলে ধারণা, উদাহরণ আর অনুশীলন — এই ধাপগুলো গুরুত্বপূর্ণ।`
+                      ? `${topic} à¦¶à¦¿à¦–à¦¤à§‡ à¦¹à¦²à§‡ à¦§à¦¾à¦°à¦£à¦¾, à¦‰à¦¦à¦¾à¦¹à¦°à¦£ à¦†à¦° à¦…à¦¨à§à¦¶à§€à¦²à¦¨ â€” à¦à¦‡ à¦§à¦¾à¦ªà¦—à§à¦²à§‹ à¦—à§à¦°à§à¦¤à§à¦¬à¦ªà§‚à¦°à§à¦£à¥¤`
                       : `To learn ${topic}, first understand the idea, then see an example, and finally practice it well.`
                   : defaultCtaVoice(language, ctaText),
       },

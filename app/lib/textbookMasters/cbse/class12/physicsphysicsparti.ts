@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class12_physicsphysicsparti_lpc7uw: MasterSubject = {
   board: "cbse",
@@ -43,7 +43,7 @@ export const tm_cbse_class12_physicsphysicsparti_lpc7uw: MasterSubject = {
       },
       {
         "number": 8,
-        "name": "Coulomb’s Law"
+        "name": "Coulombâ€™s Law"
       },
       {
         "number": 9,
@@ -91,11 +91,11 @@ export const tm_cbse_class12_physicsphysicsparti_lpc7uw: MasterSubject = {
       },
       {
         "number": 20,
-        "name": "Gauss’s Law"
+        "name": "Gaussâ€™s Law"
       },
       {
         "number": 21,
-        "name": "Applications of Gauss’s Law"
+        "name": "Applications of Gaussâ€™s Law"
       },
       {
         "number": 22,
@@ -221,7 +221,7 @@ export const tm_cbse_class12_physicsphysicsparti_lpc7uw: MasterSubject = {
       },
       {
         "number": 4,
-        "name": "Ohm’s Law"
+        "name": "Ohmâ€™s Law"
       },
       {
         "number": 5,
@@ -233,7 +233,7 @@ export const tm_cbse_class12_physicsphysicsparti_lpc7uw: MasterSubject = {
       },
       {
         "number": 7,
-        "name": "Limitations of Ohm’s Law"
+        "name": "Limitations of Ohmâ€™s Law"
       },
       {
         "number": 8,
@@ -257,7 +257,7 @@ export const tm_cbse_class12_physicsphysicsparti_lpc7uw: MasterSubject = {
       },
       {
         "number": 13,
-        "name": "Kirchhoff’s Rules"
+        "name": "Kirchhoffâ€™s Rules"
       },
       {
         "number": 14,
@@ -304,7 +304,7 @@ export const tm_cbse_class12_physicsphysicsparti_lpc7uw: MasterSubject = {
       },
       {
         "number": 9,
-        "name": "Ampere’s Circuital Law"
+        "name": "Ampereâ€™s Circuital Law"
       },
       {
         "number": 10,
@@ -363,7 +363,7 @@ export const tm_cbse_class12_physicsphysicsparti_lpc7uw: MasterSubject = {
       },
       {
         "number": 7,
-        "name": "Magnetism and Gauss’s Law"
+        "name": "Magnetism and Gaussâ€™s Law"
       },
       {
         "number": 8,
@@ -406,11 +406,11 @@ export const tm_cbse_class12_physicsphysicsparti_lpc7uw: MasterSubject = {
       },
       {
         "number": 4,
-        "name": "Faraday’s Law of Induction"
+        "name": "Faradayâ€™s Law of Induction"
       },
       {
         "number": 5,
-        "name": "Lenz’s Law and Conservation of Energy"
+        "name": "Lenzâ€™s Law and Conservation of Energy"
       },
       {
         "number": 6,
@@ -449,7 +449,7 @@ export const tm_cbse_class12_physicsphysicsparti_lpc7uw: MasterSubject = {
       },
       {
         "number": 3,
-        "name": "Representation of AC Current and Voltage by Rotating Vectors — Phasors"
+        "name": "Representation of AC Current and Voltage by Rotating Vectors â€” Phasors"
       },
       {
         "number": 4,
@@ -542,3 +542,4 @@ export const tm_cbse_class12_physicsphysicsparti_lpc7uw: MasterSubject = {
   }
 ],
 };
+

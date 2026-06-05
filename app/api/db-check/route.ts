@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { supabaseServerAdmin } from "@/lib/supabaseClient";
 
 export async function GET() {
@@ -39,3 +39,4 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: e.message }, { status: 500 });
   }
 }
+

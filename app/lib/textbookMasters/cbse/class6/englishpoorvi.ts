@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class6_englishpoorvi_uwd5ak: MasterSubject = {
   board: "cbse",
@@ -735,7 +735,7 @@ export const tm_cbse_class6_englishpoorvi_uwd5ak: MasterSubject = {
   },
   {
     "number": 12,
-    "name": "Yoga—A Way of Life",
+    "name": "Yogaâ€”A Way of Life",
     "chapterType": "non-fiction",
     "topics": [
       {
@@ -798,7 +798,7 @@ export const tm_cbse_class6_englishpoorvi_uwd5ak: MasterSubject = {
   },
   {
     "number": 13,
-    "name": "Hamara Bharat—Incredible India!",
+    "name": "Hamara Bharatâ€”Incredible India!",
     "chapterType": "passage",
     "topics": [
       {
@@ -1065,3 +1065,4 @@ export const tm_cbse_class6_englishpoorvi_uwd5ak: MasterSubject = {
   }
 ],
 };
+

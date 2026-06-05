@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class12_chemistrychemistryparti_h1ry3i: MasterSubject = {
   board: "cbse",
@@ -43,7 +43,7 @@ export const tm_cbse_class12_chemistrychemistryparti_h1ry3i: MasterSubject = {
       },
       {
         "number": 8,
-        "name": "Raoult’s Law as a Special Case of Henry’s Law"
+        "name": "Raoultâ€™s Law as a Special Case of Henryâ€™s Law"
       },
       {
         "number": 9,
@@ -268,7 +268,7 @@ export const tm_cbse_class12_chemistrychemistryparti_h1ry3i: MasterSubject = {
       },
       {
         "number": 11,
-        "name": "Chemical Reactivity and E° Values"
+        "name": "Chemical Reactivity and EÂ° Values"
       },
       {
         "number": 12,
@@ -343,7 +343,7 @@ export const tm_cbse_class12_chemistrychemistryparti_h1ry3i: MasterSubject = {
     "topics": [
       {
         "number": 1,
-        "name": "Werner’s Theory of Coordination Compounds"
+        "name": "Wernerâ€™s Theory of Coordination Compounds"
       },
       {
         "number": 2,
@@ -429,3 +429,4 @@ export const tm_cbse_class12_chemistrychemistryparti_h1ry3i: MasterSubject = {
   }
 ],
 };
+

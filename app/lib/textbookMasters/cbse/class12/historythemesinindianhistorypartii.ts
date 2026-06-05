@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class12_historythemesinindianhistorypartii_18um4xn: MasterSubject = {
   board: "cbse",
@@ -35,7 +35,7 @@ export const tm_cbse_class12_historythemesinindianhistorypartii_18um4xn: MasterS
       },
       {
         "number": 6,
-        "name": "Al-Biruni’s linguistic and scholarly background"
+        "name": "Al-Biruniâ€™s linguistic and scholarly background"
       },
       {
         "number": 7,
@@ -43,7 +43,7 @@ export const tm_cbse_class12_historythemesinindianhistorypartii_18um4xn: MasterS
       },
       {
         "number": 8,
-        "name": "Al-Biruni’s objectives"
+        "name": "Al-Biruniâ€™s objectives"
       },
       {
         "number": 9,
@@ -55,7 +55,7 @@ export const tm_cbse_class12_historythemesinindianhistorypartii_18um4xn: MasterS
       },
       {
         "number": 11,
-        "name": "Audience and purpose of Al-Biruni’s work"
+        "name": "Audience and purpose of Al-Biruniâ€™s work"
       },
       {
         "number": 12,
@@ -71,7 +71,7 @@ export const tm_cbse_class12_historythemesinindianhistorypartii_18um4xn: MasterS
       },
       {
         "number": 15,
-        "name": "Al-Biruni’s description of the caste system"
+        "name": "Al-Biruniâ€™s description of the caste system"
       },
       {
         "number": 16,
@@ -79,7 +79,7 @@ export const tm_cbse_class12_historythemesinindianhistorypartii_18um4xn: MasterS
       },
       {
         "number": 17,
-        "name": "Ibn Battuta’s Rihla"
+        "name": "Ibn Battutaâ€™s Rihla"
       },
       {
         "number": 18,
@@ -87,11 +87,11 @@ export const tm_cbse_class12_historythemesinindianhistorypartii_18um4xn: MasterS
       },
       {
         "number": 19,
-        "name": "Ibn Battuta’s journey to India"
+        "name": "Ibn Battutaâ€™s journey to India"
       },
       {
         "number": 20,
-        "name": "Muhammad bin Tughlaq and Ibn Battuta’s career"
+        "name": "Muhammad bin Tughlaq and Ibn Battutaâ€™s career"
       },
       {
         "number": 21,
@@ -127,7 +127,7 @@ export const tm_cbse_class12_historythemesinindianhistorypartii_18um4xn: MasterS
       },
       {
         "number": 29,
-        "name": "François Bernier in Mughal India"
+        "name": "FranÃ§ois Bernier in Mughal India"
       },
       {
         "number": 30,
@@ -139,7 +139,7 @@ export const tm_cbse_class12_historythemesinindianhistorypartii_18um4xn: MasterS
       },
       {
         "number": 32,
-        "name": "Bernier’s critique of crown ownership"
+        "name": "Bernierâ€™s critique of crown ownership"
       },
       {
         "number": 33,
@@ -147,7 +147,7 @@ export const tm_cbse_class12_historythemesinindianhistorypartii_18um4xn: MasterS
       },
       {
         "number": 34,
-        "name": "Rural society beyond Bernier’s description"
+        "name": "Rural society beyond Bernierâ€™s description"
       },
       {
         "number": 35,
@@ -393,7 +393,7 @@ export const tm_cbse_class12_historythemesinindianhistorypartii_18um4xn: MasterS
       },
       {
         "number": 15,
-        "name": "Krishnadeva Raya’s expansion and consolidation"
+        "name": "Krishnadeva Rayaâ€™s expansion and consolidation"
       },
       {
         "number": 16,
@@ -457,7 +457,7 @@ export const tm_cbse_class12_historythemesinindianhistorypartii_18um4xn: MasterS
       },
       {
         "number": 31,
-        "name": "Vijayanagara’s temple traditions"
+        "name": "Vijayanagaraâ€™s temple traditions"
       },
       {
         "number": 32,
@@ -487,7 +487,7 @@ export const tm_cbse_class12_historythemesinindianhistorypartii_18um4xn: MasterS
   },
   {
     "number": 8,
-    "name": "Peasants, Zamindars and the State: Agrarian Society and the Mughal Empire (c. sixteenth–seventeenth centuries)",
+    "name": "Peasants, Zamindars and the State: Agrarian Society and the Mughal Empire (c. sixteenthâ€“seventeenth centuries)",
     "chapterType": "theme",
     "topics": [
       {
@@ -592,7 +592,7 @@ export const tm_cbse_class12_historythemesinindianhistorypartii_18um4xn: MasterS
       },
       {
         "number": 26,
-        "name": "Women’s labour in production"
+        "name": "Womenâ€™s labour in production"
       },
       {
         "number": 27,
@@ -640,7 +640,7 @@ export const tm_cbse_class12_historythemesinindianhistorypartii_18um4xn: MasterS
       },
       {
         "number": 38,
-        "name": "Ain-i Akbari of Abu’l Fazl"
+        "name": "Ain-i Akbari of Abuâ€™l Fazl"
       },
       {
         "number": 39,
@@ -662,3 +662,4 @@ export const tm_cbse_class12_historythemesinindianhistorypartii_18um4xn: MasterS
   }
 ],
 };
+

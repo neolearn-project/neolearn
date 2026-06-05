@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class6_mathematicsganitaPrakash_1y6g4px: MasterSubject = {
   board: "cbse",
@@ -173,7 +173,7 @@ export const tm_cbse_class6_mathematicsganitaPrakash_1y6g4px: MasterSubject = {
       },
       {
         "number": 11,
-        "name": "3.10 An Unsolved Mystery — the Collatz Conjecture!"
+        "name": "3.10 An Unsolved Mystery â€” the Collatz Conjecture!"
       },
       {
         "number": 12,
@@ -478,7 +478,7 @@ export const tm_cbse_class6_mathematicsganitaPrakash_1y6g4px: MasterSubject = {
       },
       {
         "number": 2,
-        "name": "10.1 Bela’s Building of Fun"
+        "name": "10.1 Belaâ€™s Building of Fun"
       },
       {
         "number": 3,
@@ -520,3 +520,4 @@ export const tm_cbse_class6_mathematicsganitaPrakash_1y6g4px: MasterSubject = {
   }
 ],
 };
+

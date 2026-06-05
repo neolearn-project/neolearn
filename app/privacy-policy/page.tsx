@@ -1,7 +1,7 @@
-export default function PrivacyPolicyPage() {
+﻿export default function PrivacyPolicyPage() {
   return (
     <div style={{ maxWidth: 900, margin: "40px auto", padding: "0 16px" }}>
-      <h1>Privacy Policy – NeoLearn</h1>
+      <h1>Privacy Policy â€“ NeoLearn</h1>
 
       <p>
         NeoLearn ("we", "our", "us") is committed to protecting the privacy of
@@ -41,7 +41,7 @@ export default function PrivacyPolicyPage() {
 
       <h2>Contact</h2>
       <p>
-        Email: support@neolearn.ai
+        Email: support@neolearn.co.in
         <br />
         Phone: +91-XXXXXXXXXX
       </p>
@@ -52,3 +52,4 @@ export default function PrivacyPolicyPage() {
     </div>
   );
 }
+

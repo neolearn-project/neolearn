@@ -1,4 +1,4 @@
-// lib/supabaseAdmin.ts
+﻿// lib/supabaseAdmin.ts
 import { createClient } from "@supabase/supabase-js";
 
 export function supabasePublic() {
@@ -34,3 +34,4 @@ export function supabaseAdmin() {
     auth: { persistSession: false },
   });
 }
+

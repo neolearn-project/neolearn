@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class10_socialscienceunderstandingeconomicdevelopment_617qrt: MasterSubject = {
   board: "cbse",
@@ -282,7 +282,7 @@ export const tm_cbse_class10_socialscienceunderstandingeconomicdevelopment_617qr
       },
       {
         "number": 35,
-        "name": "Let’s recall and summing up"
+        "name": "Letâ€™s recall and summing up"
       },
       {
         "number": 36,
@@ -357,7 +357,7 @@ export const tm_cbse_class10_socialscienceunderstandingeconomicdevelopment_617qr
       },
       {
         "number": 16,
-        "name": "Credit situations: Swapna’s problem"
+        "name": "Credit situations: Swapnaâ€™s problem"
       },
       {
         "number": 17,
@@ -671,7 +671,7 @@ export const tm_cbse_class10_socialscienceunderstandingeconomicdevelopment_617qr
       },
       {
         "number": 16,
-        "name": "Reji’s suffering case study"
+        "name": "Rejiâ€™s suffering case study"
       },
       {
         "number": 17,
@@ -761,3 +761,4 @@ export const tm_cbse_class10_socialscienceunderstandingeconomicdevelopment_617qr
   }
 ],
 };
+

@@ -23,3 +23,4 @@ export default function Health(){
     <p className="mt-6 text-sm text-gray-600">If service_len is 0, set SUPABASE_SERVICE_ROLE in .env.local and restart.</p>
   </div>);
 }
+

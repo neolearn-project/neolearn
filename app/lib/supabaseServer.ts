@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+﻿import { createClient } from "@supabase/supabase-js";
 
 export function supabaseAdminClient() {
   const url = process.env.SUPABASE_URL;
@@ -10,3 +10,4 @@ export function supabaseAdminClient() {
 
   return createClient(url, key, { auth: { persistSession: false } });
 }
+

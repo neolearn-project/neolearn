@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class12_biologybiology_1xnvp7m: MasterSubject = {
   board: "cbse",
@@ -15,7 +15,7 @@ export const tm_cbse_class12_biologybiology_1xnvp7m: MasterSubject = {
     "topics": [
       {
         "number": 1,
-        "name": "Flower – A Fascinating Organ of Angiosperms"
+        "name": "Flower â€“ A Fascinating Organ of Angiosperms"
       },
       {
         "number": 2,
@@ -77,7 +77,7 @@ export const tm_cbse_class12_biologybiology_1xnvp7m: MasterSubject = {
     "topics": [
       {
         "number": 1,
-        "name": "Reproductive Health – Problems and Strategies"
+        "name": "Reproductive Health â€“ Problems and Strategies"
       },
       {
         "number": 2,
@@ -104,7 +104,7 @@ export const tm_cbse_class12_biologybiology_1xnvp7m: MasterSubject = {
     "topics": [
       {
         "number": 1,
-        "name": "Mendel’s Laws of Inheritance"
+        "name": "Mendelâ€™s Laws of Inheritance"
       },
       {
         "number": 2,
@@ -186,7 +186,7 @@ export const tm_cbse_class12_biologybiology_1xnvp7m: MasterSubject = {
       },
       {
         "number": 2,
-        "name": "Evolution of Life Forms – A Theory"
+        "name": "Evolution of Life Forms â€“ A Theory"
       },
       {
         "number": 3,
@@ -206,7 +206,7 @@ export const tm_cbse_class12_biologybiology_1xnvp7m: MasterSubject = {
       },
       {
         "number": 7,
-        "name": "Hardy–Weinberg Principle"
+        "name": "Hardyâ€“Weinberg Principle"
       },
       {
         "number": 8,
@@ -336,7 +336,7 @@ export const tm_cbse_class12_biologybiology_1xnvp7m: MasterSubject = {
     "topics": [
       {
         "number": 1,
-        "name": "Ecosystem – Structure and Function"
+        "name": "Ecosystem â€“ Structure and Function"
       },
       {
         "number": 2,
@@ -373,3 +373,4 @@ export const tm_cbse_class12_biologybiology_1xnvp7m: MasterSubject = {
   }
 ],
 };
+

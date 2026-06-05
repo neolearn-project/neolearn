@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_ncert_class9_scienceexploration_cdlble: MasterSubject = {
   board: "ncert",
@@ -517,7 +517,7 @@ export const tm_ncert_class9_scienceexploration_cdlble: MasterSubject = {
       },
       {
         "number": 4,
-        "name": "Work formula W = F × s"
+        "name": "Work formula W = F Ã— s"
       },
       {
         "number": 5,
@@ -1109,3 +1109,4 @@ export const tm_ncert_class9_scienceexploration_cdlble: MasterSubject = {
   }
 ],
 };
+

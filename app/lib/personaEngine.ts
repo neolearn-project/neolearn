@@ -1,4 +1,4 @@
-// app/lib/personaEngine.ts
+﻿// app/lib/personaEngine.ts
 export type PreferredSpeed = "slow" | "normal" | "fast";
 export type ExplainStyle = "simple" | "detailed" | "example_first" | "step_by_step";
 
@@ -74,8 +74,8 @@ export function decidePersona(
   // -------- style --------
   let style: ExplainStyle = profile?.explain_style || "step_by_step";
 
-  // If they ask “example” first
-  if (/(example|examples|udaharan|উদাহরণ)/i.test(q)) {
+  // If they ask â€œexampleâ€ first
+  if (/(example|examples|udaharan|à¦‰à¦¦à¦¾à¦¹à¦°à¦£)/i.test(q)) {
     style = "example_first";
     notes.push("asked_examples => example_first");
   } else if (/(prove|derivation|why|reason|explain why)/i.test(qLower)) {
@@ -127,7 +127,7 @@ export function buildPersonaInstruction(decision: PersonaDecision) {
       ? "Give deeper reasoning. Use 2 examples."
       : decision.style === "example_first"
       ? "Start with a quick example first, then explain the rule."
-      : "Explain step-by-step, then 1–2 examples.";
+      : "Explain step-by-step, then 1â€“2 examples.";
 
   const langLine =
     decision.language === "hi"
@@ -142,3 +142,4 @@ export function buildPersonaInstruction(decision: PersonaDecision) {
 
 
   
+

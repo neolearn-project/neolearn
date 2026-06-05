@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class12_politicalsciencepoliticsinindiasinceindependence_1arapde: MasterSubject = {
   board: "cbse",
@@ -35,7 +35,7 @@ export const tm_cbse_class12_politicalsciencepoliticsinindiasinceindependence_1a
       },
       {
         "number": 6,
-        "name": "Mahatma Gandhi’s sacrifice"
+        "name": "Mahatma Gandhiâ€™s sacrifice"
       },
       {
         "number": 7,
@@ -47,7 +47,7 @@ export const tm_cbse_class12_politicalsciencepoliticsinindiasinceindependence_1a
       },
       {
         "number": 9,
-        "name": "Government’s approach"
+        "name": "Governmentâ€™s approach"
       },
       {
         "number": 10,
@@ -147,7 +147,7 @@ export const tm_cbse_class12_politicalsciencepoliticsinindiasinceindependence_1a
   },
   {
     "number": 4,
-    "name": "India’s External Relations",
+    "name": "Indiaâ€™s External Relations",
     "chapterType": "chapter",
     "topics": [
       {
@@ -168,7 +168,7 @@ export const tm_cbse_class12_politicalsciencepoliticsinindiasinceindependence_1a
       },
       {
         "number": 5,
-        "name": "India’s nuclear policy"
+        "name": "Indiaâ€™s nuclear policy"
       }
     ]
   },
@@ -342,3 +342,4 @@ export const tm_cbse_class12_politicalsciencepoliticsinindiasinceindependence_1a
   }
 ],
 };
+

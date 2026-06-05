@@ -12,3 +12,4 @@ export const tm_cbse_class6_socialScience_4hr7a2: MasterSubject = {
     // Keep this array empty until batch is verified.
   ],
 };
+

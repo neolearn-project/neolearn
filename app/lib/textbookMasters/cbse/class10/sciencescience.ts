@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class10_sciencescience_hxea2i: MasterSubject = {
   board: "cbse",
@@ -636,7 +636,7 @@ export const tm_cbse_class10_sciencescience_hxea2i: MasterSubject = {
       },
       {
         "number": 6,
-        "name": "Mendel’s contributions"
+        "name": "Mendelâ€™s contributions"
       },
       {
         "number": 7,
@@ -674,7 +674,7 @@ export const tm_cbse_class10_sciencescience_hxea2i: MasterSubject = {
   },
   {
     "number": 9,
-    "name": "Light – Reflection and Refraction",
+    "name": "Light â€“ Reflection and Refraction",
     "chapterType": "chapter",
     "topics": [
       {
@@ -885,7 +885,7 @@ export const tm_cbse_class10_sciencescience_hxea2i: MasterSubject = {
       },
       {
         "number": 8,
-        "name": "Ohm’s law"
+        "name": "Ohmâ€™s law"
       },
       {
         "number": 9,
@@ -921,7 +921,7 @@ export const tm_cbse_class10_sciencescience_hxea2i: MasterSubject = {
       },
       {
         "number": 17,
-        "name": "Joule’s law of heating"
+        "name": "Jouleâ€™s law of heating"
       },
       {
         "number": 18,
@@ -952,7 +952,7 @@ export const tm_cbse_class10_sciencescience_hxea2i: MasterSubject = {
       },
       {
         "number": 2,
-        "name": "Oersted’s experiment"
+        "name": "Oerstedâ€™s experiment"
       },
       {
         "number": 3,
@@ -988,7 +988,7 @@ export const tm_cbse_class10_sciencescience_hxea2i: MasterSubject = {
       },
       {
         "number": 11,
-        "name": "Fleming’s left-hand rule"
+        "name": "Flemingâ€™s left-hand rule"
       },
       {
         "number": 12,
@@ -1097,3 +1097,4 @@ export const tm_cbse_class10_sciencescience_hxea2i: MasterSubject = {
   }
 ],
 };
+

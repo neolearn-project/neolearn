@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+﻿import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const revalidate = 0; // always fresh
 
@@ -107,3 +107,4 @@ export default async function BatchesPage() {
     </div>
   );
 }
+

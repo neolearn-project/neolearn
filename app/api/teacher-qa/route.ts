@@ -1,4 +1,4 @@
-// app/api/teacher-qa/route.ts
+﻿// app/api/teacher-qa/route.ts
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
@@ -12,7 +12,7 @@ export async function POST(req: Request) {
 
     const classLevel = body.classLevel || "Class 6";
     const subject = body.subject || "Maths";
-    const chapter = body.chapter || "Fractions – introduction";
+    const chapter = body.chapter || "Fractions â€“ introduction";
     const language = (body.language as "en" | "hi" | "bn") || "en";
     const question: string | undefined = body.question;
     const previous = (body.previousMessages as string | undefined) || "";
@@ -47,7 +47,7 @@ Your job:
 - Use short, clear sentences.
 - Do not give very advanced formulas.
 - Encourage the student at the end.
-- Keep it within 4–8 sentences.
+- Keep it within 4â€“8 sentences.
 
 ${languageInstruction}
     `.trim();
@@ -81,3 +81,4 @@ ${languageInstruction}
     );
   }
 }
+

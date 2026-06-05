@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
@@ -46,3 +46,4 @@ export async function GET() {
     );
   }
 }
+

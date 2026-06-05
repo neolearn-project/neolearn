@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { supabaseAdminClient } from "@/app/lib/supabaseServer";
 
 export async function GET(req: Request) {
@@ -24,3 +24,4 @@ export async function GET(req: Request) {
 
   return NextResponse.json({ ok: true, profile: data || null });
 }
+

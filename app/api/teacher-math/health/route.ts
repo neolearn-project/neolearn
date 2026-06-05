@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 
 export async function GET() {
   const hasOpenAI = !!(process.env.OPENAI_API_KEY || process.env.NEOLEARN_OPENAI_API_KEY);
@@ -17,3 +17,4 @@ export async function GET() {
     },
   });
 }
+

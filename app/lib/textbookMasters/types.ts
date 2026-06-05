@@ -19,3 +19,4 @@ export type MasterSubject = {
   textbookSeries?: string;
   chapters: MasterChapter[];
 };
+

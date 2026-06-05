@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class7_mathematicsganitaPrakash_my541i: MasterSubject = {
   board: "cbse",
@@ -91,7 +91,7 @@ export const tm_cbse_class7_mathematicsganitaPrakash_my541i: MasterSubject = {
       },
       {
         "number": 20,
-        "name": "Did You Ever Wonder…?"
+        "name": "Did You Ever Wonderâ€¦?"
       },
       {
         "number": 21,
@@ -570,7 +570,7 @@ export const tm_cbse_class7_mathematicsganitaPrakash_my541i: MasterSubject = {
       },
       {
         "number": 13,
-        "name": "Nature’s Favourite Sequence: The Virahāṅka–Fibonacci Sequence"
+        "name": "Natureâ€™s Favourite Sequence: The VirahÄá¹…kaâ€“Fibonacci Sequence"
       },
       {
         "number": 14,
@@ -578,7 +578,7 @@ export const tm_cbse_class7_mathematicsganitaPrakash_my541i: MasterSubject = {
       },
       {
         "number": 15,
-        "name": "Recognising the Virahāṅka sequence"
+        "name": "Recognising the VirahÄá¹…ka sequence"
       },
       {
         "number": 16,
@@ -762,3 +762,4 @@ export const tm_cbse_class7_mathematicsganitaPrakash_my541i: MasterSubject = {
   }
 ],
 };
+

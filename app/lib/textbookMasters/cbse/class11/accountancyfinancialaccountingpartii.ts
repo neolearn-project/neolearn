@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class11_accountancyfinancialaccountingpartii_1ojkd3e: MasterSubject = {
   board: "cbse",
@@ -90,7 +90,7 @@ export const tm_cbse_class11_accountancyfinancialaccountingpartii_1ojkd3e: Maste
       },
       {
         "number": 11,
-        "name": "Manager’s Commission"
+        "name": "Managerâ€™s Commission"
       },
       {
         "number": 12,
@@ -100,3 +100,4 @@ export const tm_cbse_class11_accountancyfinancialaccountingpartii_1ojkd3e: Maste
   }
 ],
 };
+

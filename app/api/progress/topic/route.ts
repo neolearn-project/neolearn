@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { supabaseServerAdmin } from "@/lib/supabase/server";
 
 type TopicStatus =
@@ -80,3 +80,4 @@ export async function POST(req: Request) {
     );
   }
 }
+

@@ -1,4 +1,4 @@
-// app/lib/teacherConfig.ts
+﻿// app/lib/teacherConfig.ts
 
 export type SubjectId = "maths" | "science" | "english";
 export type ClassId = "5" | "6" | "7" | "8" | "9" | "10" | "11" | "12";
@@ -114,3 +114,4 @@ export function getTeacherConfig(
   // Safe default
   return TEACHER_CONFIGS.find((c) => c.id === "maths-6")!;
 }
+

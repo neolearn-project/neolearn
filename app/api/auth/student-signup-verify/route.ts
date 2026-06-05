@@ -114,3 +114,4 @@ const up = await supabase.from("student_profile").upsert(
 
 
 
+

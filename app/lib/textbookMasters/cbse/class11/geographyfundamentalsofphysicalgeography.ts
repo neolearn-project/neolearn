@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class11_geographyfundamentalsofphysicalgeography_rpvyth: MasterSubject = {
   board: "cbse",
@@ -440,7 +440,7 @@ export const tm_cbse_class11_geographyfundamentalsofphysicalgeography_rpvyth: Ma
       },
       {
         "number": 4,
-        "name": "Spatial Distribution of Insolation at the Earth’s Surface"
+        "name": "Spatial Distribution of Insolation at the Earthâ€™s Surface"
       },
       {
         "number": 5,
@@ -585,7 +585,7 @@ export const tm_cbse_class11_geographyfundamentalsofphysicalgeography_rpvyth: Ma
       },
       {
         "number": 2,
-        "name": "Koeppen’s Scheme of Classification of Climate"
+        "name": "Koeppenâ€™s Scheme of Classification of Climate"
       },
       {
         "number": 3,
@@ -776,3 +776,4 @@ export const tm_cbse_class11_geographyfundamentalsofphysicalgeography_rpvyth: Ma
   }
 ],
 };
+

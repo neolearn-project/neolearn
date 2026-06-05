@@ -1,4 +1,4 @@
-import { decidePersona, buildPersonaInstruction } from "./personaEngine";
+﻿import { decidePersona, buildPersonaInstruction } from "./personaEngine";
 
 function run(name: string, profile: any, question: string, signals: any = {}) {
   const decision = decidePersona(profile, { question, ...signals });
@@ -15,7 +15,8 @@ const profileA = {
 };
 
 run("Confusion => slow + simple", profileA, "I don't understand, explain again", { topicId: "16" });
-run("Hindi detected", null, "मुझे समझ नहीं आया", { topicId: "16" });
-run("Bengali detected", null, "আমি বুঝতে পারছি না", { topicId: "16" });
+run("Hindi detected", null, "à¤®à¥à¤à¥‡ à¤¸à¤®à¤ à¤¨à¤¹à¥€à¤‚ à¤†à¤¯à¤¾", { topicId: "16" });
+run("Bengali detected", null, "à¦†à¦®à¦¿ à¦¬à§à¦à¦¤à§‡ à¦ªà¦¾à¦°à¦›à¦¿ à¦¨à¦¾", { topicId: "16" });
 run("Asked example => example_first", profileA, "Give me an example of fractions", { topicId: "16" });
 run("Why/prove => detailed", profileA, "Why does this work? explain why", { topicId: "16" });
+

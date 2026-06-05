@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_ncert_class8_socialScienceexploringSocietyIndiaandBeyond_1li2zu8: MasterSubject = {
   board: "ncert",
@@ -55,7 +55,7 @@ export const tm_ncert_class8_socialScienceexploringSocietyIndiaandBeyond_1li2zu8
       },
       {
         "number": 11,
-        "name": "Earth’s treasures formed over millions of years"
+        "name": "Earthâ€™s treasures formed over millions of years"
       },
       {
         "number": 12,
@@ -133,7 +133,7 @@ export const tm_ncert_class8_socialScienceexploringSocietyIndiaandBeyond_1li2zu8
   },
   {
     "number": 2,
-    "name": "Reshaping India’s Political Map",
+    "name": "Reshaping Indiaâ€™s Political Map",
     "chapterType": "sst",
     "topics": [
       {
@@ -158,7 +158,7 @@ export const tm_ncert_class8_socialScienceexploringSocietyIndiaandBeyond_1li2zu8
       },
       {
         "number": 6,
-        "name": "Timeline: Timur’s attack and Portuguese arrival"
+        "name": "Timeline: Timurâ€™s attack and Portuguese arrival"
       },
       {
         "number": 7,
@@ -305,11 +305,11 @@ export const tm_ncert_class8_socialScienceexploringSocietyIndiaandBeyond_1li2zu8
       },
       {
         "number": 2,
-        "name": "Ādnyāpatra quote on European traders"
+        "name": "Ä€dnyÄpatra quote on European traders"
       },
       {
         "number": 3,
-        "name": "Raigad Fort and Shivaji’s coronation"
+        "name": "Raigad Fort and Shivajiâ€™s coronation"
       },
       {
         "number": 4,
@@ -357,7 +357,7 @@ export const tm_ncert_class8_socialScienceexploringSocietyIndiaandBeyond_1li2zu8
       },
       {
         "number": 15,
-        "name": "Dakṣhiṇa digvijaya"
+        "name": "Daká¹£hiá¹‡a digvijaya"
       },
       {
         "number": 16,
@@ -532,7 +532,7 @@ export const tm_ncert_class8_socialScienceexploringSocietyIndiaandBeyond_1li2zu8
       },
       {
         "number": 24,
-        "name": "Bengal famine 1770–72"
+        "name": "Bengal famine 1770â€“72"
       },
       {
         "number": 25,
@@ -540,7 +540,7 @@ export const tm_ncert_class8_socialScienceexploringSocietyIndiaandBeyond_1li2zu8
       },
       {
         "number": 26,
-        "name": "India as the ‘jewel in the Crown’"
+        "name": "India as the â€˜jewel in the Crownâ€™"
       },
       {
         "number": 27,
@@ -556,7 +556,7 @@ export const tm_ncert_class8_socialScienceexploringSocietyIndiaandBeyond_1li2zu8
       },
       {
         "number": 30,
-        "name": "Drain of India’s wealth"
+        "name": "Drain of Indiaâ€™s wealth"
       },
       {
         "number": 31,
@@ -564,7 +564,7 @@ export const tm_ncert_class8_socialScienceexploringSocietyIndiaandBeyond_1li2zu8
       },
       {
         "number": 32,
-        "name": "Macaulay’s Minute on Indian Education"
+        "name": "Macaulayâ€™s Minute on Indian Education"
       },
       {
         "number": 33,
@@ -598,7 +598,7 @@ export const tm_ncert_class8_socialScienceexploringSocietyIndiaandBeyond_1li2zu8
   },
   {
     "number": 5,
-    "name": "Universal Franchise and India’s Electoral System",
+    "name": "Universal Franchise and Indiaâ€™s Electoral System",
     "chapterType": "sst",
     "topics": [
       {
@@ -639,7 +639,7 @@ export const tm_ncert_class8_socialScienceexploringSocietyIndiaandBeyond_1li2zu8
       },
       {
         "number": 10,
-        "name": "No one can vote on another’s behalf"
+        "name": "No one can vote on anotherâ€™s behalf"
       },
       {
         "number": 11,
@@ -667,7 +667,7 @@ export const tm_ncert_class8_socialScienceexploringSocietyIndiaandBeyond_1li2zu8
       },
       {
         "number": 17,
-        "name": "Women’s voting rights in India"
+        "name": "Womenâ€™s voting rights in India"
       },
       {
         "number": 18,
@@ -762,7 +762,7 @@ export const tm_ncert_class8_socialScienceexploringSocietyIndiaandBeyond_1li2zu8
       },
       {
         "number": 7,
-        "name": "Introduction to independent India’s governance"
+        "name": "Introduction to independent Indiaâ€™s governance"
       },
       {
         "number": 8,
@@ -786,7 +786,7 @@ export const tm_ncert_class8_socialScienceexploringSocietyIndiaandBeyond_1li2zu8
       },
       {
         "number": 13,
-        "name": "Government with people’s consent"
+        "name": "Government with peopleâ€™s consent"
       },
       {
         "number": 14,
@@ -814,7 +814,7 @@ export const tm_ncert_class8_socialScienceexploringSocietyIndiaandBeyond_1li2zu8
       },
       {
         "number": 20,
-        "name": "President’s role in Parliament"
+        "name": "Presidentâ€™s role in Parliament"
       },
       {
         "number": 21,
@@ -1023,3 +1023,4 @@ export const tm_ncert_class8_socialScienceexploringSocietyIndiaandBeyond_1li2zu8
   }
 ],
 };
+

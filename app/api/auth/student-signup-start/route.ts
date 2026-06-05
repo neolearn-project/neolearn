@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import twilio from "twilio";
 
 function toE164India(mobile: string) {
@@ -50,3 +50,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Failed to send OTP." }, { status: 500 });
   }
 }
+

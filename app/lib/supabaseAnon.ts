@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+﻿import { createClient } from "@supabase/supabase-js";
 
 export function supabaseAnon() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -10,3 +10,4 @@ export function supabaseAnon() {
 
   return createClient(url, anonKey);
 }
+

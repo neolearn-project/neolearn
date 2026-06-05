@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class7_englishpoorvi_1yyzb29: MasterSubject = {
   board: "cbse",
@@ -23,11 +23,11 @@ export const tm_cbse_class7_englishpoorvi_1yyzb29: MasterSubject = {
       },
       {
         "number": 3,
-        "name": "Jahnavi’s dream to go to school"
+        "name": "Jahnaviâ€™s dream to go to school"
       },
       {
         "number": 4,
-        "name": "The river’s advice and encouragement"
+        "name": "The riverâ€™s advice and encouragement"
       },
       {
         "number": 5,
@@ -35,7 +35,7 @@ export const tm_cbse_class7_englishpoorvi_1yyzb29: MasterSubject = {
       },
       {
         "number": 6,
-        "name": "Teacher’s support and conversation with family"
+        "name": "Teacherâ€™s support and conversation with family"
       },
       {
         "number": 7,
@@ -87,7 +87,7 @@ export const tm_cbse_class7_englishpoorvi_1yyzb29: MasterSubject = {
       },
       {
         "number": 19,
-        "name": "Comprehension: speaker’s advice"
+        "name": "Comprehension: speakerâ€™s advice"
       },
       {
         "number": 20,
@@ -166,7 +166,7 @@ export const tm_cbse_class7_englishpoorvi_1yyzb29: MasterSubject = {
       },
       {
         "number": 2,
-        "name": "Cat’s-food-Man advises Doctor Dolittle"
+        "name": "Catâ€™s-food-Man advises Doctor Dolittle"
       },
       {
         "number": 3,
@@ -266,7 +266,7 @@ export const tm_cbse_class7_englishpoorvi_1yyzb29: MasterSubject = {
       },
       {
         "number": 27,
-        "name": "Conversation: Mary’s behaviour and responses"
+        "name": "Conversation: Maryâ€™s behaviour and responses"
       },
       {
         "number": 28,
@@ -377,7 +377,7 @@ export const tm_cbse_class7_englishpoorvi_1yyzb29: MasterSubject = {
       },
       {
         "number": 18,
-        "name": "Child’s imagination and connection with the world"
+        "name": "Childâ€™s imagination and connection with the world"
       },
       {
         "number": 19,
@@ -425,7 +425,7 @@ export const tm_cbse_class7_englishpoorvi_1yyzb29: MasterSubject = {
       },
       {
         "number": 30,
-        "name": "India’s diversity of land, people and experiences"
+        "name": "Indiaâ€™s diversity of land, people and experiences"
       },
       {
         "number": 31,
@@ -484,7 +484,7 @@ export const tm_cbse_class7_englishpoorvi_1yyzb29: MasterSubject = {
       },
       {
         "number": 7,
-        "name": "Watchman’s duty and night inspection"
+        "name": "Watchmanâ€™s duty and night inspection"
       },
       {
         "number": 8,
@@ -524,7 +524,7 @@ export const tm_cbse_class7_englishpoorvi_1yyzb29: MasterSubject = {
       },
       {
         "number": 17,
-        "name": "Speaker’s longing for distant places"
+        "name": "Speakerâ€™s longing for distant places"
       },
       {
         "number": 18,
@@ -671,7 +671,7 @@ export const tm_cbse_class7_englishpoorvi_1yyzb29: MasterSubject = {
       },
       {
         "number": 16,
-        "name": "Speaker’s respect and affection for soldiers"
+        "name": "Speakerâ€™s respect and affection for soldiers"
       },
       {
         "number": 17,
@@ -723,7 +723,7 @@ export const tm_cbse_class7_englishpoorvi_1yyzb29: MasterSubject = {
       },
       {
         "number": 29,
-        "name": "Rani Abbakka’s legacy"
+        "name": "Rani Abbakkaâ€™s legacy"
       },
       {
         "number": 30,
@@ -739,7 +739,7 @@ export const tm_cbse_class7_englishpoorvi_1yyzb29: MasterSubject = {
       },
       {
         "number": 33,
-        "name": "Speaking: narration of a braveheart’s life"
+        "name": "Speaking: narration of a braveheartâ€™s life"
       },
       {
         "number": 34,
@@ -753,3 +753,4 @@ export const tm_cbse_class7_englishpoorvi_1yyzb29: MasterSubject = {
   }
 ],
 };
+

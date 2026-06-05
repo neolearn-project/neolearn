@@ -89,3 +89,4 @@ export function matchCatalogRows(rows: CatalogRow[], query: string): CatalogMatc
     .filter((x): x is CatalogMatch => Boolean(x))
     .sort((a, b) => b.score - a.score);
 }
+

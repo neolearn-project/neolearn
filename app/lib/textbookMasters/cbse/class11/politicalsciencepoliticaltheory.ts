@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class11_politicalsciencepoliticaltheory_11r8860: MasterSubject = {
   board: "cbse",
@@ -96,7 +96,7 @@ export const tm_cbse_class11_politicalsciencepoliticaltheory_11r8860: MasterSubj
       },
       {
         "number": 3,
-        "name": "John Rawls’ Theory of Justice"
+        "name": "John Rawlsâ€™ Theory of Justice"
       },
       {
         "number": 4,
@@ -214,3 +214,4 @@ export const tm_cbse_class11_politicalsciencepoliticaltheory_11r8860: MasterSubj
   }
 ],
 };
+

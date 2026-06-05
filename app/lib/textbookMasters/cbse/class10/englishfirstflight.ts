@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
   board: "cbse",
@@ -15,7 +15,7 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
     "topics": [
       {
         "number": 1,
-        "name": "Before You Read: faith, hope, and Lencho’s situation"
+        "name": "Before You Read: faith, hope, and Lenchoâ€™s situation"
       },
       {
         "number": 2,
@@ -23,7 +23,7 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 3,
-        "name": "Lencho’s house, field, and need for rain"
+        "name": "Lenchoâ€™s house, field, and need for rain"
       },
       {
         "number": 4,
@@ -31,7 +31,7 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 5,
-        "name": "Lencho’s faith in God"
+        "name": "Lenchoâ€™s faith in God"
       },
       {
         "number": 6,
@@ -39,11 +39,11 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 7,
-        "name": "Postmaster’s reaction and collection of money"
+        "name": "Postmasterâ€™s reaction and collection of money"
       },
       {
         "number": 8,
-        "name": "Lencho’s second letter and irony"
+        "name": "Lenchoâ€™s second letter and irony"
       },
       {
         "number": 9,
@@ -75,11 +75,11 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 16,
-        "name": "Poem: Dust of Snow — change of mood"
+        "name": "Poem: Dust of Snow â€” change of mood"
       },
       {
         "number": 17,
-        "name": "Poem: Fire and Ice — desire, hatred, and destruction"
+        "name": "Poem: Fire and Ice â€” desire, hatred, and destruction"
       },
       {
         "number": 18,
@@ -94,11 +94,11 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
     "topics": [
       {
         "number": 1,
-        "name": "Before You Read: apartheid and Mandela’s life"
+        "name": "Before You Read: apartheid and Mandelaâ€™s life"
       },
       {
         "number": 2,
-        "name": "News item on South Africa’s first Black president"
+        "name": "News item on South Africaâ€™s first Black president"
       },
       {
         "number": 3,
@@ -110,7 +110,7 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 5,
-        "name": "Mandela’s oath and speech"
+        "name": "Mandelaâ€™s oath and speech"
       },
       {
         "number": 6,
@@ -158,7 +158,7 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 17,
-        "name": "Poem: A Tiger in the Zoo — captivity and freedom"
+        "name": "Poem: A Tiger in the Zoo â€” captivity and freedom"
       },
       {
         "number": 18,
@@ -177,15 +177,15 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 2,
-        "name": "Part I: His First Flight — setting and fear"
+        "name": "Part I: His First Flight â€” setting and fear"
       },
       {
         "number": 3,
-        "name": "Young seagull’s hesitation on the ledge"
+        "name": "Young seagullâ€™s hesitation on the ledge"
       },
       {
         "number": 4,
-        "name": "Family’s encouragement, scolding, and training"
+        "name": "Familyâ€™s encouragement, scolding, and training"
       },
       {
         "number": 5,
@@ -193,7 +193,7 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 6,
-        "name": "Mother’s strategy with the fish"
+        "name": "Motherâ€™s strategy with the fish"
       },
       {
         "number": 7,
@@ -205,7 +205,7 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 9,
-        "name": "Part II: Black Aeroplane — narrator’s flight"
+        "name": "Part II: Black Aeroplane â€” narratorâ€™s flight"
       },
       {
         "number": 10,
@@ -237,11 +237,11 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 17,
-        "name": "Poem: How to Tell Wild Animals — humour and rhyme"
+        "name": "Poem: How to Tell Wild Animals â€” humour and rhyme"
       },
       {
         "number": 18,
-        "name": "Poem: The Ball Poem — loss and growing up"
+        "name": "Poem: The Ball Poem â€” loss and growing up"
       },
       {
         "number": 19,
@@ -264,15 +264,15 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 3,
-        "name": "Anne’s reason for writing a diary"
+        "name": "Anneâ€™s reason for writing a diary"
       },
       {
         "number": 4,
-        "name": "‘Paper has more patience than people’"
+        "name": "â€˜Paper has more patience than peopleâ€™"
       },
       {
         "number": 5,
-        "name": "Anne’s loneliness and need for a true friend"
+        "name": "Anneâ€™s loneliness and need for a true friend"
       },
       {
         "number": 6,
@@ -284,11 +284,11 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 8,
-        "name": "Essays on ‘A Chatterbox’"
+        "name": "Essays on â€˜A Chatterboxâ€™"
       },
       {
         "number": 9,
-        "name": "Anne’s wit, honesty, and self-expression"
+        "name": "Anneâ€™s wit, honesty, and self-expression"
       },
       {
         "number": 10,
@@ -320,7 +320,7 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 17,
-        "name": "Poem: Amanda! — childhood, control, and imagination"
+        "name": "Poem: Amanda! â€” childhood, control, and imagination"
       },
       {
         "number": 18,
@@ -339,7 +339,7 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 2,
-        "name": "Part I: A Baker from Goa — Portuguese influence"
+        "name": "Part I: A Baker from Goa â€” Portuguese influence"
       },
       {
         "number": 3,
@@ -351,11 +351,11 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 5,
-        "name": "Baker’s dress, earnings, and social importance"
+        "name": "Bakerâ€™s dress, earnings, and social importance"
       },
       {
         "number": 6,
-        "name": "Part II: Coorg — location and natural beauty"
+        "name": "Part II: Coorg â€” location and natural beauty"
       },
       {
         "number": 7,
@@ -367,7 +367,7 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 9,
-        "name": "Part III: Tea from Assam — Rajvir and Pranjol’s journey"
+        "name": "Part III: Tea from Assam â€” Rajvir and Pranjolâ€™s journey"
       },
       {
         "number": 10,
@@ -403,11 +403,11 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 18,
-        "name": "Poem: The Trees — nature, freedom, and liberation"
+        "name": "Poem: The Trees â€” nature, freedom, and liberation"
       },
       {
         "number": 19,
-        "name": "Poem: Fog — metaphor and brief imagery"
+        "name": "Poem: Fog â€” metaphor and brief imagery"
       }
     ]
   },
@@ -422,7 +422,7 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 2,
-        "name": "Gavin Maxwell’s decision to keep an otter"
+        "name": "Gavin Maxwellâ€™s decision to keep an otter"
       },
       {
         "number": 3,
@@ -430,11 +430,11 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 4,
-        "name": "Mijbil’s appearance and behaviour"
+        "name": "Mijbilâ€™s appearance and behaviour"
       },
       {
         "number": 5,
-        "name": "Otter’s love for water and play"
+        "name": "Otterâ€™s love for water and play"
       },
       {
         "number": 6,
@@ -478,7 +478,7 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 16,
-        "name": "Poem: The Tale of Custard the Dragon — comic ballad"
+        "name": "Poem: The Tale of Custard the Dragon â€” comic ballad"
       },
       {
         "number": 17,
@@ -501,7 +501,7 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 2,
-        "name": "Valli’s curiosity and favourite pastime"
+        "name": "Valliâ€™s curiosity and favourite pastime"
       },
       {
         "number": 3,
@@ -521,7 +521,7 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 7,
-        "name": "Town journey and Valli’s excitement"
+        "name": "Town journey and Valliâ€™s excitement"
       },
       {
         "number": 8,
@@ -561,7 +561,7 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 17,
-        "name": "Poem: Animals — human qualities and self-reflection"
+        "name": "Poem: Animals â€” human qualities and self-reflection"
       },
       {
         "number": 18,
@@ -584,11 +584,11 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 3,
-        "name": "Buddha’s search for truth and enlightenment"
+        "name": "Buddhaâ€™s search for truth and enlightenment"
       },
       {
         "number": 4,
-        "name": "Kisa Gotami’s grief after her son’s death"
+        "name": "Kisa Gotamiâ€™s grief after her sonâ€™s death"
       },
       {
         "number": 5,
@@ -596,7 +596,7 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 6,
-        "name": "Kisa Gotami’s journey from house to house"
+        "name": "Kisa Gotamiâ€™s journey from house to house"
       },
       {
         "number": 7,
@@ -604,7 +604,7 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 8,
-        "name": "Buddha’s teaching on suffering and mortality"
+        "name": "Buddhaâ€™s teaching on suffering and mortality"
       },
       {
         "number": 9,
@@ -632,7 +632,7 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 15,
-        "name": "Poem: For Anne Gregory — appearance and inner worth"
+        "name": "Poem: For Anne Gregory â€” appearance and inner worth"
       },
       {
         "number": 16,
@@ -663,11 +663,11 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 5,
-        "name": "Lomov’s visit and marriage proposal"
+        "name": "Lomovâ€™s visit and marriage proposal"
       },
       {
         "number": 6,
-        "name": "Chubukov’s joyful approval"
+        "name": "Chubukovâ€™s joyful approval"
       },
       {
         "number": 7,
@@ -675,7 +675,7 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 8,
-        "name": "Natalya’s change of behaviour after learning the proposal"
+        "name": "Natalyaâ€™s change of behaviour after learning the proposal"
       },
       {
         "number": 9,
@@ -683,7 +683,7 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
       },
       {
         "number": 10,
-        "name": "Lomov’s physical nervousness and comic exaggeration"
+        "name": "Lomovâ€™s physical nervousness and comic exaggeration"
       },
       {
         "number": 11,
@@ -725,3 +725,4 @@ export const tm_cbse_class10_englishfirstflight_1g9k2sy: MasterSubject = {
   }
 ],
 };
+

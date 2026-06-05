@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 
 export async function GET() {
   const ok = {
@@ -17,3 +17,4 @@ export async function GET() {
     note: all ? "Ready for Vercel deploy" : "Missing env vars. Fix and retry.",
   });
 }
+

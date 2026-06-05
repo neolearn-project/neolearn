@@ -9,3 +9,4 @@ export const tm_cbse_class7_science_1240ccg: MasterSubject = {
   textbookSeries: "NCERT Science",
   chapters: [],
 };
+

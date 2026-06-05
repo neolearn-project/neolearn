@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class11_physicsphysics_ii_11znhys: MasterSubject = {
   board: "cbse",
@@ -23,7 +23,7 @@ export const tm_cbse_class11_physicsphysics_ii_11znhys: MasterSubject = {
       },
       {
         "number": 3,
-        "name": "Hooke’s law"
+        "name": "Hookeâ€™s law"
       },
       {
         "number": 4,
@@ -58,7 +58,7 @@ export const tm_cbse_class11_physicsphysics_ii_11znhys: MasterSubject = {
       },
       {
         "number": 4,
-        "name": "Bernoulli’s principle"
+        "name": "Bernoulliâ€™s principle"
       },
       {
         "number": 5,
@@ -113,7 +113,7 @@ export const tm_cbse_class11_physicsphysics_ii_11znhys: MasterSubject = {
       },
       {
         "number": 10,
-        "name": "Newton’s law of cooling"
+        "name": "Newtonâ€™s law of cooling"
       }
     ]
   },
@@ -279,3 +279,4 @@ export const tm_cbse_class11_physicsphysics_ii_11znhys: MasterSubject = {
   }
 ],
 };
+

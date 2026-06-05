@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -297,7 +297,7 @@ export default function StudentLogin() {
                 className="ml-2 rounded-full px-2 text-sm text-gray-500 hover:bg-gray-100"
                 onClick={() => setOpen(false)}
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -351,8 +351,8 @@ export default function StudentLogin() {
                 <div>
                   <div className="font-semibold">{student.username}</div>
                   <div className="text-xs text-gray-600">
-                    {student.name ? `Name: ${student.name} • ` : ""}
-                    {student.classId ? `Class: ${student.classId} • ` : ""}
+                    {student.name ? `Name: ${student.name} â€¢ ` : ""}
+                    {student.classId ? `Class: ${student.classId} â€¢ ` : ""}
                     {student.mobile ? `Mobile: ${student.mobile}` : ""}
                   </div>
                 </div>
@@ -532,3 +532,4 @@ export default function StudentLogin() {
     </>
   );
 }
+

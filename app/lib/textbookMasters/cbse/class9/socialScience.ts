@@ -9,3 +9,4 @@ export const tm_cbse_class9_socialScience_160ldp: MasterSubject = {
   textbookSeries: "NCERT Social Science",
   chapters: [],
 };
+

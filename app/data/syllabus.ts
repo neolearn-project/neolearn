@@ -1,4 +1,4 @@
-// app/data/syllabus.ts
+﻿// app/data/syllabus.ts
 
 export type SyllabusChapter = {
   id: string;
@@ -20,19 +20,19 @@ export const syllabus: SyllabusMap = {
   CBSE: {
     "Class 6": {
       Maths: [
-        { id: "fractions-intro", title: "Fractions – Introduction" },
-        { id: "fractions-addition", title: "Fractions – Addition and Subtraction" },
+        { id: "fractions-intro", title: "Fractions â€“ Introduction" },
+        { id: "fractions-addition", title: "Fractions â€“ Addition and Subtraction" },
         { id: "decimals", title: "Decimals" },
         { id: "integers", title: "Integers" },
         { id: "geometry-basics", title: "Basic Geometrical Ideas" },
-        { id: "mensuration", title: "Mensuration – Perimeter and Area (Intro)" },
+        { id: "mensuration", title: "Mensuration â€“ Perimeter and Area (Intro)" },
       ],
     },
   },
   TBSE: {
     "Class 6": {
       Maths: [
-        { id: "fractions-intro", title: "Fractions – Concept and Representation" },
+        { id: "fractions-intro", title: "Fractions â€“ Concept and Representation" },
         { id: "fractions-operations", title: "Operations on Fractions" },
         { id: "decimals", title: "Decimals and Place Value" },
         { id: "integers", title: "Integers on Number Line" },
@@ -44,13 +44,14 @@ export const syllabus: SyllabusMap = {
   ICSE: {
     "Class 6": {
       Maths: [
-        { id: "fractions-intro", title: "Fractions – Proper, Improper & Mixed" },
+        { id: "fractions-intro", title: "Fractions â€“ Proper, Improper & Mixed" },
         { id: "fractions-operations", title: "Addition and Subtraction of Fractions" },
-        { id: "decimals", title: "Decimals – Conversion and Operations" },
-        { id: "integers", title: "Integers – Basic Concepts" },
+        { id: "decimals", title: "Decimals â€“ Conversion and Operations" },
+        { id: "integers", title: "Integers â€“ Basic Concepts" },
         { id: "geometry-basics", title: "Triangles and Quadrilaterals (Intro)" },
-        { id: "mensuration", title: "Perimeter – Closed Figures" },
+        { id: "mensuration", title: "Perimeter â€“ Closed Figures" },
       ],
     },
   },
 };
+

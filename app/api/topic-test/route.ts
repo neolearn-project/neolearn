@@ -1,4 +1,4 @@
-// app/api/topic-test/route.ts
+﻿// app/api/topic-test/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
@@ -60,16 +60,16 @@ if (!ent.features?.topicTest) {
         ? `
 Write all questions, options and explanations in very simple Bengali (Bangla)
 for ${classLevel} students in India (West Bengal / Tripura style).
-Use only Bengali sentences (বাংলা) – no English words except digits (0-9)
-and math symbols (+, -, ×, ÷, =, %).
+Use only Bengali sentences (à¦¬à¦¾à¦‚à¦²à¦¾) â€“ no English words except digits (0-9)
+and math symbols (+, -, Ã—, Ã·, =, %).
 Do NOT use any religious greeting or phrase. Use neutral school-style tone.
 `.trim()
         : language === "hi"
         ? `
 Write all questions, options and explanations in very simple Hindi
 for ${classLevel} students in India.
-Use only Hindi sentences – no English words except digits (0-9)
-and math symbols (+, -, ×, ÷, =, %).
+Use only Hindi sentences â€“ no English words except digits (0-9)
+and math symbols (+, -, Ã—, Ã·, =, %).
 Do NOT use any religious greeting or phrase. Use a neutral school tone.
 `.trim()
         : `
@@ -105,7 +105,7 @@ Return ONLY valid JSON (no markdown, no backticks), in this exact format:
 Rules:
 - 4 options per question.
 - correctIndex is 0, 1, 2 or 3 matching the correct option.
-- explanation should be 1–3 short sentences.
+- explanation should be 1â€“3 short sentences.
 - No religious or political content.
 - No extra fields.
 `.trim();
@@ -196,3 +196,4 @@ Return ONLY JSON in the exact array format described.
     );
   }
 }
+

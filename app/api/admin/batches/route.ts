@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { supabaseServerAdmin } from "@/lib/supabaseClient";
 
 function assertAdmin(req: Request) {
@@ -48,3 +48,4 @@ export async function POST(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, data });
 }
+

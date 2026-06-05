@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 
@@ -34,7 +34,7 @@ export default function RazorpayPayButton() {
         return;
       }
 
-      // ✅ SAFE TEST: ₹10 only (server will also cap)
+      // âœ… SAFE TEST: â‚¹10 only (server will also cap)
       const res = await fetch("/api/razorpay/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -63,7 +63,7 @@ export default function RazorpayPayButton() {
         theme: { color: "#2563eb" },
         handler: async function (response: any) {
           // response has razorpay_payment_id, razorpay_order_id, razorpay_signature
-          // ✅ We will verify using webhook in next step
+          // âœ… We will verify using webhook in next step
           alert("Payment success! PaymentId: " + response.razorpay_payment_id);
         },
       };
@@ -81,7 +81,8 @@ export default function RazorpayPayButton() {
       disabled={loading}
       className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
     >
-      {loading ? "Opening..." : "Pay ₹10 (Safe Test)"}
+      {loading ? "Opening..." : "Pay â‚¹10 (Safe Test)"}
     </button>
   );
 }
+

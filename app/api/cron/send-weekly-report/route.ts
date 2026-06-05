@@ -1,4 +1,4 @@
-// app/api/cron/send-weekly-report/route.ts
+﻿// app/api/cron/send-weekly-report/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -136,12 +136,12 @@ export async function GET(req: NextRequest) {
         `Dear Parent,`,
         `This is the progress report for ${s.studentName}:`,
         ``,
-        `• Topics completed: ${s.topicsCompleted}`,
-        `• Tests taken: ${s.testsTaken}`,
-        avgScore !== null ? `• Average score: ${avgScore}%` : `• Average score: N/A`,
+        `â€¢ Topics completed: ${s.topicsCompleted}`,
+        `â€¢ Tests taken: ${s.testsTaken}`,
+        avgScore !== null ? `â€¢ Average score: ${avgScore}%` : `â€¢ Average score: N/A`,
         ``,
         `We will keep helping your child learn step by step.`,
-        `– NeoLearn AI Teacher`,
+        `â€“ NeoLearn AI Teacher`,
       ];
 
       messages.push({
@@ -182,3 +182,4 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+

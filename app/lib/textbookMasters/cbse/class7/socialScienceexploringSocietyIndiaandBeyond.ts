@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: MasterSubject = {
   board: "cbse",
@@ -19,7 +19,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 2,
-        "name": "India from space: Rakesh Sharma’s observation"
+        "name": "India from space: Rakesh Sharmaâ€™s observation"
       },
       {
         "number": 3,
@@ -86,7 +86,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 2,
-        "name": "India’s agricultural landscape and meaning of agriculture"
+        "name": "Indiaâ€™s agricultural landscape and meaning of agriculture"
       },
       {
         "number": 3,
@@ -98,7 +98,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 5,
-        "name": "Women’s role in agriculture and rural work"
+        "name": "Womenâ€™s role in agriculture and rural work"
       },
       {
         "number": 6,
@@ -122,7 +122,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 11,
-        "name": "Surapāla’s Vṛikṣhāyurveda and traditional agricultural knowledge"
+        "name": "SurapÄlaâ€™s Vá¹›iká¹£hÄyurveda and traditional agricultural knowledge"
       },
       {
         "number": 12,
@@ -276,7 +276,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 3,
-        "name": "India’s land boundary and maritime position"
+        "name": "Indiaâ€™s land boundary and maritime position"
       },
       {
         "number": 4,
@@ -324,7 +324,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 15,
-        "name": "Hydropower, rivers and Bhutan’s development"
+        "name": "Hydropower, rivers and Bhutanâ€™s development"
       },
       {
         "number": 16,
@@ -332,7 +332,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 17,
-        "name": "Myanmar: India’s gateway to Southeast Asia"
+        "name": "Myanmar: Indiaâ€™s gateway to Southeast Asia"
       },
       {
         "number": 18,
@@ -340,11 +340,11 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 19,
-        "name": "India’s maritime neighbours"
+        "name": "Indiaâ€™s maritime neighbours"
       },
       {
         "number": 20,
-        "name": "Sri Lanka: India’s nearest maritime neighbour"
+        "name": "Sri Lanka: Indiaâ€™s nearest maritime neighbour"
       },
       {
         "number": 21,
@@ -360,7 +360,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 24,
-        "name": "From Dvārakā to Dvāravatī and Ayodhyā to Ayutthayā"
+        "name": "From DvÄrakÄ to DvÄravatÄ« and AyodhyÄ to AyutthayÄ"
       },
       {
         "number": 25,
@@ -387,11 +387,11 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 3,
-        "name": "Seasons and Earth’s revolution"
+        "name": "Seasons and Earthâ€™s revolution"
       },
       {
         "number": 4,
-        "name": "Indian seasonal cycle and six traditional ṛitus"
+        "name": "Indian seasonal cycle and six traditional á¹›itus"
       },
       {
         "number": 5,
@@ -399,7 +399,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 6,
-        "name": "Factors that make India’s climate diverse"
+        "name": "Factors that make Indiaâ€™s climate diverse"
       },
       {
         "number": 7,
@@ -454,7 +454,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 3,
-        "name": "Timeline: Harṣhavardhana, Chālukyas, Pallavas, Arabs, Pālas and Cholas"
+        "name": "Timeline: Hará¹£havardhana, ChÄlukyas, Pallavas, Arabs, PÄlas and Cholas"
       },
       {
         "number": 4,
@@ -466,7 +466,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 6,
-        "name": "The ‘Great King of Kings’: Harṣhavardhana"
+        "name": "The â€˜Great King of Kingsâ€™: Hará¹£havardhana"
       },
       {
         "number": 7,
@@ -474,11 +474,11 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 8,
-        "name": "Harṣha’s inscriptions and copper plates"
+        "name": "Hará¹£haâ€™s inscriptions and copper plates"
       },
       {
         "number": 9,
-        "name": "Xuanzang’s travels in India"
+        "name": "Xuanzangâ€™s travels in India"
       },
       {
         "number": 10,
@@ -486,7 +486,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 11,
-        "name": "Harṣha’s expansion and limits"
+        "name": "Hará¹£haâ€™s expansion and limits"
       },
       {
         "number": 12,
@@ -494,19 +494,19 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 13,
-        "name": "Gurjara-Pratīhāras"
+        "name": "Gurjara-PratÄ«hÄras"
       },
       {
         "number": 14,
-        "name": "Pālas and eastern India"
+        "name": "PÄlas and eastern India"
       },
       {
         "number": 15,
-        "name": "Rāṣhṭrakūṭas and the Deccan"
+        "name": "RÄá¹£há¹­rakÅ«á¹­as and the Deccan"
       },
       {
         "number": 16,
-        "name": "Pallava-Chālukya struggle"
+        "name": "Pallava-ChÄlukya struggle"
       },
       {
         "number": 17,
@@ -549,11 +549,11 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
     "topics": [
       {
         "number": 1,
-        "name": "Chapter opener: Arthaśāstra quotation and big questions"
+        "name": "Chapter opener: ArthaÅ›Ästra quotation and big questions"
       },
       {
         "number": 2,
-        "name": "Recall of Indus/Harappan/Sindhu-Sarasvatī urbanisation"
+        "name": "Recall of Indus/Harappan/Sindhu-SarasvatÄ« urbanisation"
       },
       {
         "number": 3,
@@ -581,11 +581,11 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 9,
-        "name": "Mahājanapadas and their importance"
+        "name": "MahÄjanapadas and their importance"
       },
       {
         "number": 10,
-        "name": "Magadha and Rājagṛiha/Rajgir"
+        "name": "Magadha and RÄjagá¹›iha/Rajgir"
       },
       {
         "number": 11,
@@ -593,7 +593,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 12,
-        "name": "Systems of governance in janapadas and mahājanapadas"
+        "name": "Systems of governance in janapadas and mahÄjanapadas"
       },
       {
         "number": 13,
@@ -616,7 +616,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
     "topics": [
       {
         "number": 1,
-        "name": "Chapter opener: 11th–12th century transition"
+        "name": "Chapter opener: 11thâ€“12th century transition"
       },
       {
         "number": 2,
@@ -632,11 +632,11 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 5,
-        "name": "The Hindu Shāhis and resistance"
+        "name": "The Hindu ShÄhis and resistance"
       },
       {
         "number": 6,
-        "name": "Mahmūd of Ghazni’s campaigns"
+        "name": "MahmÅ«d of Ghazniâ€™s campaigns"
       },
       {
         "number": 7,
@@ -644,23 +644,23 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 8,
-        "name": "Al-Bīrūnī and his observations on India"
+        "name": "Al-BÄ«rÅ«nÄ« and his observations on India"
       },
       {
         "number": 9,
-        "name": "Eastern India during the 11th–12th centuries"
+        "name": "Eastern India during the 11thâ€“12th centuries"
       },
       {
         "number": 10,
-        "name": "Further south: Cholas, Chālukyas, Hoysalas and Kākatīyas"
+        "name": "Further south: Cholas, ChÄlukyas, Hoysalas and KÄkatÄ«yas"
       },
       {
         "number": 11,
-        "name": "Rājarāja Chola I"
+        "name": "RÄjarÄja Chola I"
       },
       {
         "number": 12,
-        "name": "Rājendra Chola I and naval expeditions"
+        "name": "RÄjendra Chola I and naval expeditions"
       },
       {
         "number": 13,
@@ -668,11 +668,11 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 14,
-        "name": "King Bhoja of the Paramāras"
+        "name": "King Bhoja of the ParamÄras"
       },
       {
         "number": 15,
-        "name": "Bhāskarāchārya and Līlāvatī"
+        "name": "BhÄskarÄchÄrya and LÄ«lÄvatÄ«"
       },
       {
         "number": 16,
@@ -684,15 +684,15 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 18,
-        "name": "Muhammad Ghurī’s invasions"
+        "name": "Muhammad GhurÄ«â€™s invasions"
       },
       {
         "number": 19,
-        "name": "Pṛithvīrāja III and the Battles of Tarain"
+        "name": "Pá¹›ithvÄ«rÄja III and the Battles of Tarain"
       },
       {
         "number": 20,
-        "name": "Bakhtiyār Khiljī and Kāmarūpa"
+        "name": "BakhtiyÄr KhiljÄ« and KÄmarÅ«pa"
       },
       {
         "number": 21,
@@ -723,7 +723,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 2,
-        "name": "Paṭaliputra as an imperial centre"
+        "name": "Paá¹­aliputra as an imperial centre"
       },
       {
         "number": 3,
@@ -747,7 +747,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 8,
-        "name": "Chandragupta Maurya and Kauṭilya"
+        "name": "Chandragupta Maurya and Kauá¹­ilya"
       },
       {
         "number": 9,
@@ -755,7 +755,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 10,
-        "name": "Aśhoka and inscriptions"
+        "name": "AÅ›hoka and inscriptions"
       },
       {
         "number": 11,
@@ -810,7 +810,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 7,
-        "name": "Swami Vivekananda’s reflection on India’s openness"
+        "name": "Swami Vivekanandaâ€™s reflection on Indiaâ€™s openness"
       },
       {
         "number": 8,
@@ -846,11 +846,11 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 16,
-        "name": "The Baha’i community in India"
+        "name": "The Bahaâ€™i community in India"
       },
       {
         "number": 17,
-        "name": "The ‘Good Maharaja’ and Polish children"
+        "name": "The â€˜Good Maharajaâ€™ and Polish children"
       },
       {
         "number": 18,
@@ -889,7 +889,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 3,
-        "name": "BCE–CE timeline activity"
+        "name": "BCEâ€“CE timeline activity"
       },
       {
         "number": 4,
@@ -897,7 +897,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 5,
-        "name": "Śhungas and regional powers"
+        "name": "Åšhungas and regional powers"
       },
       {
         "number": 6,
@@ -905,15 +905,15 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 7,
-        "name": "Śhakas/Indo-Scythians"
+        "name": "Åšhakas/Indo-Scythians"
       },
       {
         "number": 8,
-        "name": "Kuṣhāṇas and cultural exchange"
+        "name": "Kuá¹£hÄá¹‡as and cultural exchange"
       },
       {
         "number": 9,
-        "name": "Sātavāhanas and Deccan region"
+        "name": "SÄtavÄhanas and Deccan region"
       },
       {
         "number": 10,
@@ -921,7 +921,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 11,
-        "name": "Cholas, Cheras, and Pāṇḍyas"
+        "name": "Cholas, Cheras, and PÄá¹‡á¸yas"
       },
       {
         "number": 12,
@@ -996,7 +996,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 13,
-        "name": "Kauṭilya on the duties of government"
+        "name": "Kauá¹­ilya on the duties of government"
       },
       {
         "number": 14,
@@ -1067,7 +1067,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
     "topics": [
       {
         "number": 1,
-        "name": "Chapter opener: Kālidāsa quote and big questions"
+        "name": "Chapter opener: KÄlidÄsa quote and big questions"
       },
       {
         "number": 2,
@@ -1075,11 +1075,11 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 3,
-        "name": "Map of Gupta, Vākāṭaka, Kāmarūpa, and Pallava regions"
+        "name": "Map of Gupta, VÄkÄá¹­aka, KÄmarÅ«pa, and Pallava regions"
       },
       {
         "number": 4,
-        "name": "Gupta Empire and Pāṭaliputra"
+        "name": "Gupta Empire and PÄá¹­aliputra"
       },
       {
         "number": 5,
@@ -1095,7 +1095,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 8,
-        "name": "Kālidāsa and literary culture"
+        "name": "KÄlidÄsa and literary culture"
       },
       {
         "number": 9,
@@ -1107,7 +1107,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 11,
-        "name": "Vākāṭakas and central India"
+        "name": "VÄkÄá¹­akas and central India"
       },
       {
         "number": 12,
@@ -1115,7 +1115,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 13,
-        "name": "Kāmarūpa and eastern/northeastern India"
+        "name": "KÄmarÅ«pa and eastern/northeastern India"
       },
       {
         "number": 14,
@@ -1129,7 +1129,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
   },
   {
     "number": 7,
-    "name": "Infrastructure: Engine of India’s Development",
+    "name": "Infrastructure: Engine of Indiaâ€™s Development",
     "chapterType": "chapter",
     "topics": [
       {
@@ -1154,11 +1154,11 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 6,
-        "name": "Rishabh’s journey and role of connected infrastructure"
+        "name": "Rishabhâ€™s journey and role of connected infrastructure"
       },
       {
         "number": 7,
-        "name": "Infrastructure and farmers’ access to markets"
+        "name": "Infrastructure and farmersâ€™ access to markets"
       },
       {
         "number": 8,
@@ -1407,7 +1407,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
     "topics": [
       {
         "number": 1,
-        "name": "Chapter opener: ruler’s duties and big questions"
+        "name": "Chapter opener: rulerâ€™s duties and big questions"
       },
       {
         "number": 2,
@@ -1469,7 +1469,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
   },
   {
     "number": 10,
-    "name": "The Constitution of India — An Introduction",
+    "name": "The Constitution of India â€” An Introduction",
     "chapterType": "chapter",
     "topics": [
       {
@@ -1620,7 +1620,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 4,
-        "name": "Meaning of market/bazaar/haat/mārukatté"
+        "name": "Meaning of market/bazaar/haat/mÄrukattÃ©"
       },
       {
         "number": 5,
@@ -1652,7 +1652,7 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
       },
       {
         "number": 12,
-        "name": "Role of markets in people’s lives"
+        "name": "Role of markets in peopleâ€™s lives"
       },
       {
         "number": 13,
@@ -1670,3 +1670,4 @@ export const tm_cbse_class7_socialScienceexploringSocietyIndiaandBeyond_6f6758: 
   }
 ],
 };
+

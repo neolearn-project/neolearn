@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { supabaseServerAdmin } from "@/lib/supabaseClient";
 
 function assertAdmin(req: Request) {
@@ -57,3 +57,4 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ok: true, student, enrollment });
 }
+

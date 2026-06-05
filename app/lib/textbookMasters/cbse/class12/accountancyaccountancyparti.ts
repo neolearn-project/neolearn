@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class12_accountancyaccountancyparti_k2hzkm: MasterSubject = {
   board: "cbse",
@@ -189,7 +189,7 @@ export const tm_cbse_class12_accountancyaccountancyparti_k2hzkm: MasterSubject =
       },
       {
         "number": 10,
-        "name": "Adjustment of Partners’ Capitals"
+        "name": "Adjustment of Partnersâ€™ Capitals"
       },
       {
         "number": 11,
@@ -228,11 +228,11 @@ export const tm_cbse_class12_accountancyaccountancyparti_k2hzkm: MasterSubject =
       },
       {
         "number": 7,
-        "name": "Partner’s Loan Account"
+        "name": "Partnerâ€™s Loan Account"
       },
       {
         "number": 8,
-        "name": "Partner’s Capital Accounts"
+        "name": "Partnerâ€™s Capital Accounts"
       },
       {
         "number": 9,
@@ -242,3 +242,4 @@ export const tm_cbse_class12_accountancyaccountancyparti_k2hzkm: MasterSubject =
   }
 ],
 };
+

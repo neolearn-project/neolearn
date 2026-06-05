@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class10_mathematicsmathematics_xd59ey: MasterSubject = {
   board: "cbse",
@@ -19,11 +19,11 @@ export const tm_cbse_class10_mathematicsmathematics_xd59ey: MasterSubject = {
       },
       {
         "number": 2,
-        "name": "Euclid’s division algorithm: statement and meaning"
+        "name": "Euclidâ€™s division algorithm: statement and meaning"
       },
       {
         "number": 3,
-        "name": "Using Euclid’s division algorithm to find HCF"
+        "name": "Using Euclidâ€™s division algorithm to find HCF"
       },
       {
         "number": 4,
@@ -59,7 +59,7 @@ export const tm_cbse_class10_mathematicsmathematics_xd59ey: MasterSubject = {
       },
       {
         "number": 12,
-        "name": "Irrationality of square roots such as √2, √3 and √5"
+        "name": "Irrationality of square roots such as âˆš2, âˆš3 and âˆš5"
       },
       {
         "number": 13,
@@ -252,7 +252,7 @@ export const tm_cbse_class10_mathematicsmathematics_xd59ey: MasterSubject = {
       },
       {
         "number": 2,
-        "name": "Standard form ax² + bx + c = 0"
+        "name": "Standard form axÂ² + bx + c = 0"
       },
       {
         "number": 3,
@@ -359,7 +359,7 @@ export const tm_cbse_class10_mathematicsmathematics_xd59ey: MasterSubject = {
       },
       {
         "number": 9,
-        "name": "Derivation and use of an = a + (n − 1)d"
+        "name": "Derivation and use of an = a + (n âˆ’ 1)d"
       },
       {
         "number": 10,
@@ -379,7 +379,7 @@ export const tm_cbse_class10_mathematicsmathematics_xd59ey: MasterSubject = {
       },
       {
         "number": 14,
-        "name": "Using Sn = n/2[2a + (n − 1)d]"
+        "name": "Using Sn = n/2[2a + (n âˆ’ 1)d]"
       },
       {
         "number": 15,
@@ -592,7 +592,7 @@ export const tm_cbse_class10_mathematicsmathematics_xd59ey: MasterSubject = {
       },
       {
         "number": 10,
-        "name": "Trigonometric ratios for 0°, 30°, 45°, 60° and 90°"
+        "name": "Trigonometric ratios for 0Â°, 30Â°, 45Â°, 60Â° and 90Â°"
       },
       {
         "number": 11,
@@ -604,15 +604,15 @@ export const tm_cbse_class10_mathematicsmathematics_xd59ey: MasterSubject = {
       },
       {
         "number": 13,
-        "name": "Proof of sin²A + cos²A = 1"
+        "name": "Proof of sinÂ²A + cosÂ²A = 1"
       },
       {
         "number": 14,
-        "name": "Identities involving sec²A and tan²A"
+        "name": "Identities involving secÂ²A and tanÂ²A"
       },
       {
         "number": 15,
-        "name": "Identities involving cosec²A and cot²A"
+        "name": "Identities involving cosecÂ²A and cotÂ²A"
       },
       {
         "number": 16,
@@ -647,7 +647,7 @@ export const tm_cbse_class10_mathematicsmathematics_xd59ey: MasterSubject = {
       },
       {
         "number": 5,
-        "name": "Horizontal line and observer’s eye level"
+        "name": "Horizontal line and observerâ€™s eye level"
       },
       {
         "number": 6,
@@ -655,11 +655,11 @@ export const tm_cbse_class10_mathematicsmathematics_xd59ey: MasterSubject = {
       },
       {
         "number": 7,
-        "name": "Using tan θ for height and distance problems"
+        "name": "Using tan Î¸ for height and distance problems"
       },
       {
         "number": 8,
-        "name": "Using sin θ and cos θ in applications"
+        "name": "Using sin Î¸ and cos Î¸ in applications"
       },
       {
         "number": 9,
@@ -793,7 +793,7 @@ export const tm_cbse_class10_mathematicsmathematics_xd59ey: MasterSubject = {
       },
       {
         "number": 9,
-        "name": "Special case of 60°, 90° and 120° sectors"
+        "name": "Special case of 60Â°, 90Â° and 120Â° sectors"
       },
       {
         "number": 10,
@@ -809,7 +809,7 @@ export const tm_cbse_class10_mathematicsmathematics_xd59ey: MasterSubject = {
       },
       {
         "number": 13,
-        "name": "Use of π approximations"
+        "name": "Use of Ï€ approximations"
       },
       {
         "number": 14,
@@ -1044,3 +1044,4 @@ export const tm_cbse_class10_mathematicsmathematics_xd59ey: MasterSubject = {
   }
 ],
 };
+

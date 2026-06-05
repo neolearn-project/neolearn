@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class6_sciencecuriosity_159pu3i: MasterSubject = {
   board: "cbse",
@@ -67,7 +67,7 @@ export const tm_cbse_class6_sciencecuriosity_159pu3i: MasterSubject = {
       },
       {
         "number": 14,
-        "name": "Nature’s treasures"
+        "name": "Natureâ€™s treasures"
       },
       {
         "number": 15,
@@ -780,7 +780,7 @@ export const tm_cbse_class6_sciencecuriosity_159pu3i: MasterSubject = {
       },
       {
         "number": 3,
-        "name": "8.1 Investigating Water’s Disappearing Act"
+        "name": "8.1 Investigating Waterâ€™s Disappearing Act"
       },
       {
         "number": 4,
@@ -1084,7 +1084,7 @@ export const tm_cbse_class6_sciencecuriosity_159pu3i: MasterSubject = {
   },
   {
     "number": 11,
-    "name": "Nature’s Treasures",
+    "name": "Natureâ€™s Treasures",
     "chapterType": "science",
     "topics": [
       {
@@ -1298,3 +1298,4 @@ export const tm_cbse_class6_sciencecuriosity_159pu3i: MasterSubject = {
   }
 ],
 };
+

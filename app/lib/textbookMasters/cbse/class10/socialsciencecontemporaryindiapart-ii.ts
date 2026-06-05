@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class10_socialsciencecontemporaryindiapart_ii_11rjpzl: MasterSubject = {
   board: "cbse",
@@ -364,7 +364,7 @@ export const tm_cbse_class10_socialsciencecontemporaryindiapart_ii_11rjpzl: Mast
       },
       {
         "number": 19,
-        "name": "Horticulture crops and India’s fruit/vegetable production"
+        "name": "Horticulture crops and Indiaâ€™s fruit/vegetable production"
       },
       {
         "number": 20,
@@ -771,3 +771,4 @@ export const tm_cbse_class10_socialsciencecontemporaryindiapart_ii_11rjpzl: Mast
   }
 ],
 };
+

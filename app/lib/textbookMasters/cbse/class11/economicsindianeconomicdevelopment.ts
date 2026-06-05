@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class11_economicsindianeconomicdevelopment_eaiu3y: MasterSubject = {
   board: "cbse",
@@ -53,7 +53,7 @@ export const tm_cbse_class11_economicsindianeconomicdevelopment_eaiu3y: MasterSu
   },
   {
     "number": 2,
-    "name": "Indian Economy 1950–1990",
+    "name": "Indian Economy 1950â€“1990",
     "chapterType": "chapter",
     "topics": [
       {
@@ -249,11 +249,11 @@ export const tm_cbse_class11_economicsindianeconomicdevelopment_eaiu3y: MasterSu
       },
       {
         "number": 2,
-        "name": "Environment — Definition and Functions"
+        "name": "Environment â€” Definition and Functions"
       },
       {
         "number": 3,
-        "name": "State of India’s Environment"
+        "name": "State of Indiaâ€™s Environment"
       },
       {
         "number": 4,
@@ -280,7 +280,7 @@ export const tm_cbse_class11_economicsindianeconomicdevelopment_eaiu3y: MasterSu
       },
       {
         "number": 2,
-        "name": "Developmental Path—A Snapshot View"
+        "name": "Developmental Pathâ€”A Snapshot View"
       },
       {
         "number": 3,
@@ -296,7 +296,7 @@ export const tm_cbse_class11_economicsindianeconomicdevelopment_eaiu3y: MasterSu
       },
       {
         "number": 6,
-        "name": "Development Strategies — An Appraisal"
+        "name": "Development Strategies â€” An Appraisal"
       },
       {
         "number": 7,
@@ -306,3 +306,4 @@ export const tm_cbse_class11_economicsindianeconomicdevelopment_eaiu3y: MasterSu
   }
 ],
 };
+

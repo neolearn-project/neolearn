@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class6_socialScienceexploringSocietyIndiaandBeyond_i8qdw5: MasterSubject = {
   board: "cbse",
@@ -291,7 +291,7 @@ export const tm_cbse_class6_socialScienceexploringSocietyIndiaandBeyond_i8qdw5: 
       },
       {
         "number": 8,
-        "name": "Continuity and change in India’s identity"
+        "name": "Continuity and change in Indiaâ€™s identity"
       },
       {
         "number": 9,
@@ -322,11 +322,11 @@ export const tm_cbse_class6_socialScienceexploringSocietyIndiaandBeyond_i8qdw5: 
       },
       {
         "number": 4,
-        "name": "The Harappan / Indus-Sarasvatī Civilisation"
+        "name": "The Harappan / Indus-SarasvatÄ« Civilisation"
       },
       {
         "number": 5,
-        "name": "The Sarasvatī River"
+        "name": "The SarasvatÄ« River"
       },
       {
         "number": 6,
@@ -388,7 +388,7 @@ export const tm_cbse_class6_socialScienceexploringSocietyIndiaandBeyond_i8qdw5: 
   },
   {
     "number": 7,
-    "name": "India’s Cultural Roots",
+    "name": "Indiaâ€™s Cultural Roots",
     "chapterType": "culture",
     "topics": [
       {
@@ -413,7 +413,7 @@ export const tm_cbse_class6_socialScienceexploringSocietyIndiaandBeyond_i8qdw5: 
       },
       {
         "number": 6,
-        "name": "Śhvetaketu and the seed of reality"
+        "name": "Åšhvetaketu and the seed of reality"
       },
       {
         "number": 7,
@@ -421,7 +421,7 @@ export const tm_cbse_class6_socialScienceexploringSocietyIndiaandBeyond_i8qdw5: 
       },
       {
         "number": 8,
-        "name": "Gārgī and Yājñavalkya debate"
+        "name": "GÄrgÄ« and YÄjÃ±avalkya debate"
       },
       {
         "number": 9,
@@ -437,7 +437,7 @@ export const tm_cbse_class6_socialScienceexploringSocietyIndiaandBeyond_i8qdw5: 
       },
       {
         "number": 12,
-        "name": "Life and teachings of Mahāvīra"
+        "name": "Life and teachings of MahÄvÄ«ra"
       },
       {
         "number": 13,
@@ -467,7 +467,7 @@ export const tm_cbse_class6_socialScienceexploringSocietyIndiaandBeyond_i8qdw5: 
   },
   {
     "number": 8,
-    "name": "Unity in Diversity, or ‘Many in the One’",
+    "name": "Unity in Diversity, or â€˜Many in the Oneâ€™",
     "chapterType": "culture",
     "topics": [
       {
@@ -585,7 +585,7 @@ export const tm_cbse_class6_socialScienceexploringSocietyIndiaandBeyond_i8qdw5: 
   },
   {
     "number": 10,
-    "name": "Grassroots Democracy – Part 1: Governance",
+    "name": "Grassroots Democracy â€“ Part 1: Governance",
     "chapterType": "civics",
     "topics": [
       {
@@ -640,7 +640,7 @@ export const tm_cbse_class6_socialScienceexploringSocietyIndiaandBeyond_i8qdw5: 
   },
   {
     "number": 11,
-    "name": "Grassroots Democracy – Part 2: Local Government in Rural Areas",
+    "name": "Grassroots Democracy â€“ Part 2: Local Government in Rural Areas",
     "chapterType": "civics",
     "topics": [
       {
@@ -691,7 +691,7 @@ export const tm_cbse_class6_socialScienceexploringSocietyIndiaandBeyond_i8qdw5: 
   },
   {
     "number": 12,
-    "name": "Grassroots Democracy – Part 3: Local Government in Urban Areas",
+    "name": "Grassroots Democracy â€“ Part 3: Local Government in Urban Areas",
     "chapterType": "civics",
     "topics": [
       {
@@ -763,7 +763,7 @@ export const tm_cbse_class6_socialScienceexploringSocietyIndiaandBeyond_i8qdw5: 
       },
       {
         "number": 7,
-        "name": "Sevā: selfless service"
+        "name": "SevÄ: selfless service"
       },
       {
         "number": 8,
@@ -844,3 +844,4 @@ export const tm_cbse_class6_socialScienceexploringSocietyIndiaandBeyond_i8qdw5: 
   }
 ],
 };
+

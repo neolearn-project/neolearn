@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class12_mathematicsmathematicsparti_pxf1b2: MasterSubject = {
   board: "cbse",
@@ -144,7 +144,7 @@ export const tm_cbse_class12_mathematicsmathematicsparti_pxf1b2: MasterSubject =
       },
       {
         "number": 5,
-        "name": "Determinant of a matrix of order 3 × 3"
+        "name": "Determinant of a matrix of order 3 Ã— 3"
       },
       {
         "number": 6,
@@ -252,3 +252,4 @@ export const tm_cbse_class12_mathematicsmathematicsparti_pxf1b2: MasterSubject =
   }
 ],
 };
+

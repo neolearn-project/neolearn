@@ -1,4 +1,4 @@
-type RealtimeLanguage =
+﻿type RealtimeLanguage =
   | "English"
   | "Hindi"
   | "Bengali"

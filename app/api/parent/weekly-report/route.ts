@@ -1,4 +1,4 @@
-// app/api/parent/weekly-report/route.ts
+﻿// app/api/parent/weekly-report/route.ts
 import { NextResponse } from "next/server";
 
 function makeWeeklySummary(opts: {
@@ -99,3 +99,4 @@ export async function GET(req: Request) {
     );
   }
 }
+

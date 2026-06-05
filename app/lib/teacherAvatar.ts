@@ -1,4 +1,4 @@
-// app/lib/teacherAvatar.ts
+﻿// app/lib/teacherAvatar.ts
 
 export function getAvatarForSubject(subjectName: string): string {
   const name = subjectName.toLowerCase();
@@ -16,3 +16,4 @@ export function getAvatarForSubject(subjectName: string): string {
   // default fallback
   return "/avatars/niya-math.png";
 }
+

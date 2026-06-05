@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class8_englishpoorvi_14d6atm: MasterSubject = {
   board: "cbse",
@@ -31,7 +31,7 @@ export const tm_cbse_class8_englishpoorvi_14d6atm: MasterSubject = {
       },
       {
         "number": 5,
-        "name": "Rama’s strategy using paddy seeds"
+        "name": "Ramaâ€™s strategy using paddy seeds"
       },
       {
         "number": 6,
@@ -86,7 +86,7 @@ export const tm_cbse_class8_englishpoorvi_14d6atm: MasterSubject = {
       },
       {
         "number": 3,
-        "name": "Speaker’s response to artificial beauty"
+        "name": "Speakerâ€™s response to artificial beauty"
       },
       {
         "number": 4,
@@ -153,11 +153,11 @@ export const tm_cbse_class8_englishpoorvi_14d6atm: MasterSubject = {
       },
       {
         "number": 5,
-        "name": "The merchant’s problem"
+        "name": "The merchantâ€™s problem"
       },
       {
         "number": 6,
-        "name": "Scene II: the king’s court"
+        "name": "Scene II: the kingâ€™s court"
       },
       {
         "number": 7,
@@ -216,7 +216,7 @@ export const tm_cbse_class8_englishpoorvi_14d6atm: MasterSubject = {
       },
       {
         "number": 6,
-        "name": "Major Sharma’s leadership and final stand"
+        "name": "Major Sharmaâ€™s leadership and final stand"
       },
       {
         "number": 7,
@@ -254,7 +254,7 @@ export const tm_cbse_class8_englishpoorvi_14d6atm: MasterSubject = {
   },
   {
     "number": 5,
-    "name": "Somebody’s Mother",
+    "name": "Somebodyâ€™s Mother",
     "chapterType": "poem",
     "topics": [
       {
@@ -271,11 +271,11 @@ export const tm_cbse_class8_englishpoorvi_14d6atm: MasterSubject = {
       },
       {
         "number": 4,
-        "name": "The boy’s act of kindness"
+        "name": "The boyâ€™s act of kindness"
       },
       {
         "number": 5,
-        "name": "The mother’s blessing and moral message"
+        "name": "The motherâ€™s blessing and moral message"
       },
       {
         "number": 6,
@@ -313,7 +313,7 @@ export const tm_cbse_class8_englishpoorvi_14d6atm: MasterSubject = {
   },
   {
     "number": 6,
-    "name": "Verghese Kurien— I Too Had A Dream",
+    "name": "Verghese Kurienâ€” I Too Had A Dream",
     "chapterType": "biographical narrative",
     "topics": [
       {
@@ -389,7 +389,7 @@ export const tm_cbse_class8_englishpoorvi_14d6atm: MasterSubject = {
       },
       {
         "number": 3,
-        "name": "Chief Brown’s unsolved jewellery robbery"
+        "name": "Chief Brownâ€™s unsolved jewellery robbery"
       },
       {
         "number": 4,
@@ -456,11 +456,11 @@ export const tm_cbse_class8_englishpoorvi_14d6atm: MasterSubject = {
       },
       {
         "number": 4,
-        "name": "The Zamindar’s greed"
+        "name": "The Zamindarâ€™s greed"
       },
       {
         "number": 5,
-        "name": "Gopi’s courage and escape"
+        "name": "Gopiâ€™s courage and escape"
       },
       {
         "number": 6,
@@ -507,7 +507,7 @@ export const tm_cbse_class8_englishpoorvi_14d6atm: MasterSubject = {
       },
       {
         "number": 2,
-        "name": "India’s unique and mysterious natural wonders"
+        "name": "Indiaâ€™s unique and mysterious natural wonders"
       },
       {
         "number": 3,
@@ -570,7 +570,7 @@ export const tm_cbse_class8_englishpoorvi_14d6atm: MasterSubject = {
       },
       {
         "number": 3,
-        "name": "Grandfather’s lesson about luck and use"
+        "name": "Grandfatherâ€™s lesson about luck and use"
       },
       {
         "number": 4,
@@ -590,7 +590,7 @@ export const tm_cbse_class8_englishpoorvi_14d6atm: MasterSubject = {
       },
       {
         "number": 8,
-        "name": "Rakesh’s bond with the cherry tree"
+        "name": "Rakeshâ€™s bond with the cherry tree"
       },
       {
         "number": 9,
@@ -633,15 +633,15 @@ export const tm_cbse_class8_englishpoorvi_14d6atm: MasterSubject = {
       },
       {
         "number": 2,
-        "name": "Men’s voices: Lord of lotus and harvest"
+        "name": "Menâ€™s voices: Lord of lotus and harvest"
       },
       {
         "number": 3,
-        "name": "Women’s voices: Queen of gourd-flower and harvest"
+        "name": "Womenâ€™s voices: Queen of gourd-flower and harvest"
       },
       {
         "number": 4,
-        "name": "Nature’s bounty: sowing, furrows, rain and dewfall"
+        "name": "Natureâ€™s bounty: sowing, furrows, rain and dewfall"
       },
       {
         "number": 5,
@@ -696,7 +696,7 @@ export const tm_cbse_class8_englishpoorvi_14d6atm: MasterSubject = {
       },
       {
         "number": 3,
-        "name": "Farmers’ worries and dependence on rainfall"
+        "name": "Farmersâ€™ worries and dependence on rainfall"
       },
       {
         "number": 4,
@@ -767,7 +767,7 @@ export const tm_cbse_class8_englishpoorvi_14d6atm: MasterSubject = {
       },
       {
         "number": 5,
-        "name": "Claribel’s adjustment to space"
+        "name": "Claribelâ€™s adjustment to space"
       },
       {
         "number": 6,
@@ -881,7 +881,7 @@ export const tm_cbse_class8_englishpoorvi_14d6atm: MasterSubject = {
       },
       {
         "number": 2,
-        "name": "Bibha Chowdhuri’s early life and persistence"
+        "name": "Bibha Chowdhuriâ€™s early life and persistence"
       },
       {
         "number": 3,
@@ -939,3 +939,4 @@ export const tm_cbse_class8_englishpoorvi_14d6atm: MasterSubject = {
   }
 ],
 };
+

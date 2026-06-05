@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class11_historythemesinworldhistory_s7gthy: MasterSubject = {
   board: "cbse",
@@ -59,7 +59,7 @@ export const tm_cbse_class11_historythemesinworldhistory_s7gthy: MasterSubject =
       },
       {
         "number": 12,
-        "name": "The Seal – An Urban Artefact"
+        "name": "The Seal â€“ An Urban Artefact"
       },
       {
         "number": 13,
@@ -114,7 +114,7 @@ export const tm_cbse_class11_historythemesinworldhistory_s7gthy: MasterSubject =
       },
       {
         "number": 5,
-        "name": "The Emperor Trajan’s Dream – A Conquest of India?"
+        "name": "The Emperor Trajanâ€™s Dream â€“ A Conquest of India?"
       },
       {
         "number": 6,
@@ -193,7 +193,7 @@ export const tm_cbse_class11_historythemesinworldhistory_s7gthy: MasterSubject =
       },
       {
         "number": 8,
-        "name": "Ghazan Khan’s Speech"
+        "name": "Ghazan Khanâ€™s Speech"
       },
       {
         "number": 9,
@@ -327,7 +327,7 @@ export const tm_cbse_class11_historythemesinworldhistory_s7gthy: MasterSubject =
       },
       {
         "number": 6,
-        "name": "Science and Philosophy: The Arabs’ Contribution"
+        "name": "Science and Philosophy: The Arabsâ€™ Contribution"
       },
       {
         "number": 7,
@@ -367,7 +367,7 @@ export const tm_cbse_class11_historythemesinworldhistory_s7gthy: MasterSubject =
       },
       {
         "number": 16,
-        "name": "Was there a European ‘Renaissance’ in the Fourteenth Century?"
+        "name": "Was there a European â€˜Renaissanceâ€™ in the Fourteenth Century?"
       }
     ]
   },
@@ -390,7 +390,7 @@ export const tm_cbse_class11_historythemesinworldhistory_s7gthy: MasterSubject =
       },
       {
         "number": 4,
-        "name": "Names given by Europeans to Countries of the ‘New World’"
+        "name": "Names given by Europeans to Countries of the â€˜New Worldâ€™"
       },
       {
         "number": 5,
@@ -438,7 +438,7 @@ export const tm_cbse_class11_historythemesinworldhistory_s7gthy: MasterSubject =
       },
       {
         "number": 16,
-        "name": "The Winds of Change…"
+        "name": "The Winds of Changeâ€¦"
       },
       {
         "number": 17,
@@ -501,7 +501,7 @@ export const tm_cbse_class11_historythemesinworldhistory_s7gthy: MasterSubject =
       },
       {
         "number": 9,
-        "name": "‘Westernisation’ and ‘Tradition’"
+        "name": "â€˜Westernisationâ€™ and â€˜Traditionâ€™"
       },
       {
         "number": 10,
@@ -513,7 +513,7 @@ export const tm_cbse_class11_historythemesinworldhistory_s7gthy: MasterSubject =
       },
       {
         "number": 12,
-        "name": "‘Overcoming Modernity’"
+        "name": "â€˜Overcoming Modernityâ€™"
       },
       {
         "number": 13,
@@ -591,3 +591,4 @@ export const tm_cbse_class11_historythemesinworldhistory_s7gthy: MasterSubject =
   }
 ],
 };
+

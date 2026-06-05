@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class12_psychologypsychology_1e0td64: MasterSubject = {
   board: "cbse",
@@ -439,7 +439,7 @@ export const tm_cbse_class12_psychologypsychology_1e0td64: MasterSubject = {
       },
       {
         "number": 4,
-        "name": "Steps in the Formulation of a Client’s Problem (Box 5.1)"
+        "name": "Steps in the Formulation of a Clientâ€™s Problem (Box 5.1)"
       },
       {
         "number": 5,
@@ -510,7 +510,7 @@ export const tm_cbse_class12_psychologypsychology_1e0td64: MasterSubject = {
       },
       {
         "number": 4,
-        "name": "A ‘Green Environment’: The A-B-C Components of an Attitude (Box 6.1)"
+        "name": "A â€˜Green Environmentâ€™: The A-B-C Components of an Attitude (Box 6.1)"
       },
       {
         "number": 5,
@@ -631,3 +631,4 @@ export const tm_cbse_class12_psychologypsychology_1e0td64: MasterSubject = {
   }
 ],
 };
+

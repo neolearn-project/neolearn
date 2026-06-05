@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class12_englishvistassupplementary_yd92m7: MasterSubject = {
   board: "cbse",
@@ -412,3 +412,4 @@ export const tm_cbse_class12_englishvistassupplementary_yd92m7: MasterSubject = 
   }
 ],
 };
+

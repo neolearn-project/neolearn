@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import LoginForm from "./LoginForm";
@@ -52,7 +52,7 @@ export default function AuthModal({
             className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-sm hover:bg-slate-50"
             aria-label="Close"
           >
-            ✕
+            âœ•
           </button>
         </div>
 

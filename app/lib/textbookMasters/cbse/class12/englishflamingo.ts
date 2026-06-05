@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class12_englishflamingo_xh3wl9: MasterSubject = {
   board: "cbse",
@@ -27,7 +27,7 @@ export const tm_cbse_class12_englishflamingo_xh3wl9: MasterSubject = {
       },
       {
         "number": 4,
-        "name": "Reading text: Unusual silence in school and M. Hamel’s last French lesson"
+        "name": "Reading text: Unusual silence in school and M. Hamelâ€™s last French lesson"
       },
       {
         "number": 5,
@@ -35,7 +35,7 @@ export const tm_cbse_class12_englishflamingo_xh3wl9: MasterSubject = {
       },
       {
         "number": 6,
-        "name": "Reading text: M. Hamel’s final writing lesson and emotional farewell"
+        "name": "Reading text: M. Hamelâ€™s final writing lesson and emotional farewell"
       },
       {
         "number": 7,
@@ -106,7 +106,7 @@ export const tm_cbse_class12_englishflamingo_xh3wl9: MasterSubject = {
       },
       {
         "number": 9,
-        "name": "Talking about the text: Mukesh’s dream, hazards and child labour"
+        "name": "Talking about the text: Mukeshâ€™s dream, hazards and child labour"
       },
       {
         "number": 10,
@@ -188,7 +188,7 @@ export const tm_cbse_class12_englishflamingo_xh3wl9: MasterSubject = {
     "topics": [
       {
         "number": 1,
-        "name": "About the author: Selma Lagerlöf and the fairy-tale mode of narration"
+        "name": "About the author: Selma LagerlÃ¶f and the fairy-tale mode of narration"
       },
       {
         "number": 2,
@@ -196,11 +196,11 @@ export const tm_cbse_class12_englishflamingo_xh3wl9: MasterSubject = {
       },
       {
         "number": 3,
-        "name": "Reading text: the peddler’s life and the world-as-rattrap metaphor"
+        "name": "Reading text: the peddlerâ€™s life and the world-as-rattrap metaphor"
       },
       {
         "number": 4,
-        "name": "Reading text: the crofter’s hospitality and thirty kronor"
+        "name": "Reading text: the crofterâ€™s hospitality and thirty kronor"
       },
       {
         "number": 5,
@@ -212,11 +212,11 @@ export const tm_cbse_class12_englishflamingo_xh3wl9: MasterSubject = {
       },
       {
         "number": 7,
-        "name": "Reading text: Edla Willmansson’s kindness and Christmas Eve"
+        "name": "Reading text: Edla Willmanssonâ€™s kindness and Christmas Eve"
       },
       {
         "number": 8,
-        "name": "Reading text: the peddler’s transformation and final gift"
+        "name": "Reading text: the peddlerâ€™s transformation and final gift"
       },
       {
         "number": 9,
@@ -259,7 +259,7 @@ export const tm_cbse_class12_englishflamingo_xh3wl9: MasterSubject = {
       },
       {
         "number": 3,
-        "name": "Reading text: Rajkumar Shukla and Gandhi’s journey to Champaran"
+        "name": "Reading text: Rajkumar Shukla and Gandhiâ€™s journey to Champaran"
       },
       {
         "number": 4,
@@ -271,11 +271,11 @@ export const tm_cbse_class12_englishflamingo_xh3wl9: MasterSubject = {
       },
       {
         "number": 6,
-        "name": "Reading text: inquiry, lawyers and peasants’ courage"
+        "name": "Reading text: inquiry, lawyers and peasantsâ€™ courage"
       },
       {
         "number": 7,
-        "name": "Reading text: refund settlement and Gandhi’s wider programme"
+        "name": "Reading text: refund settlement and Gandhiâ€™s wider programme"
       },
       {
         "number": 8,
@@ -322,7 +322,7 @@ export const tm_cbse_class12_englishflamingo_xh3wl9: MasterSubject = {
       },
       {
         "number": 4,
-        "name": "Reading text: office boy, hierarchy and narrator’s cubicle"
+        "name": "Reading text: office boy, hierarchy and narratorâ€™s cubicle"
       },
       {
         "number": 5,
@@ -334,11 +334,11 @@ export const tm_cbse_class12_englishflamingo_xh3wl9: MasterSubject = {
       },
       {
         "number": 7,
-        "name": "Reading text: Moral Re-Armament and the English poet’s visit"
+        "name": "Reading text: Moral Re-Armament and the English poetâ€™s visit"
       },
       {
         "number": 8,
-        "name": "Reading text: discovery of the visitor’s identity and literary links"
+        "name": "Reading text: discovery of the visitorâ€™s identity and literary links"
       },
       {
         "number": 9,
@@ -401,7 +401,7 @@ export const tm_cbse_class12_englishflamingo_xh3wl9: MasterSubject = {
       },
       {
         "number": 8,
-        "name": "Understanding the text: Eco’s views, writing time, academic style and success of the novel"
+        "name": "Understanding the text: Ecoâ€™s views, writing time, academic style and success of the novel"
       },
       {
         "number": 9,
@@ -440,11 +440,11 @@ export const tm_cbse_class12_englishflamingo_xh3wl9: MasterSubject = {
       },
       {
         "number": 3,
-        "name": "Reading text: Sophie’s dreams of a boutique and family reality"
+        "name": "Reading text: Sophieâ€™s dreams of a boutique and family reality"
       },
       {
         "number": 4,
-        "name": "Reading text: Sophie’s bond with Geoff and fantasies of wider places"
+        "name": "Reading text: Sophieâ€™s bond with Geoff and fantasies of wider places"
       },
       {
         "number": 5,
@@ -490,3 +490,4 @@ export const tm_cbse_class12_englishflamingo_xh3wl9: MasterSubject = {
   }
 ],
 };
+

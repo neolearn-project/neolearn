@@ -9,3 +9,4 @@ export const tm_cbse_class7_mathematics_1ptfpo0: MasterSubject = {
   textbookSeries: "NCERT Mathematics",
   chapters: [],
 };
+

@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class11_businessstudiesbusinessstudies_wev4s3: MasterSubject = {
   board: "cbse",
@@ -75,7 +75,7 @@ export const tm_cbse_class11_businessstudiesbusinessstudies_wev4s3: MasterSubjec
       },
       {
         "number": 16,
-        "name": "Starting a Business — Basic Factors"
+        "name": "Starting a Business â€” Basic Factors"
       }
     ]
   },
@@ -177,7 +177,7 @@ export const tm_cbse_class11_businessstudiesbusinessstudies_wev4s3: MasterSubjec
       },
       {
         "number": 9,
-        "name": "Joint Ventures — Meaning"
+        "name": "Joint Ventures â€” Meaning"
       },
       {
         "number": 10,
@@ -679,3 +679,4 @@ export const tm_cbse_class11_businessstudiesbusinessstudies_wev4s3: MasterSubjec
   }
 ],
 };
+

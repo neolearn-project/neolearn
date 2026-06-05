@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 function toSafeUserId(raw: string) {
@@ -129,3 +129,4 @@ export async function POST(req: Request) {
     );
   }
 }
+

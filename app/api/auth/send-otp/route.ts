@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import twilio from "twilio";
 
 export async function POST(req: Request) {
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, status: verification.status });
   } catch (e: any) {
-    // ✅ This will expose useful Twilio error messages in your browser response
+    // âœ… This will expose useful Twilio error messages in your browser response
     const msg =
       e?.message ||
       e?.details ||
@@ -44,3 +44,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+

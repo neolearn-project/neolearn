@@ -1,4 +1,4 @@
-// app/api/generate-lesson/route.ts
+﻿// app/api/generate-lesson/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
@@ -15,37 +15,37 @@ export async function POST(req: NextRequest) {
     const subject = (body.subject as string) || "Mathematics";
     const topic = (body.topic as string) || "Fractions";
 
-    // 👇 from frontend: "en" | "hi" | "bn"
+    // ðŸ‘‡ from frontend: "en" | "hi" | "bn"
     const language: "en" | "hi" | "bn" = (body.language as any) || "en";
 
-    // 🔹 This block is exactly your old language behaviour
+    // ðŸ”¹ This block is exactly your old language behaviour
     const languageInstruction =
   language === "bn"
     ? `
 Explain everything in very simple Bengali (Bangla) suitable for ${classLevel} students.
-Use only Bengali sentences (বাংলা), do NOT mix English words except digits (0-9)
-and necessary math symbols such as +, -, ×, ÷, =, %.
-Do NOT use any religious greeting or phrase (for example "আসসালামু আলাইকুম",
-"নমস্কার", "জয় …"). Use a neutral school-style greeting like
-"হ্যালো, আজ আমরা শিখব…" if you greet at all.
+Use only Bengali sentences (à¦¬à¦¾à¦‚à¦²à¦¾), do NOT mix English words except digits (0-9)
+and necessary math symbols such as +, -, Ã—, Ã·, =, %.
+Do NOT use any religious greeting or phrase (for example "à¦†à¦¸à¦¸à¦¾à¦²à¦¾à¦®à§ à¦†à¦²à¦¾à¦‡à¦•à§à¦®",
+"à¦¨à¦®à¦¸à§à¦•à¦¾à¦°", "à¦œà¦¯à¦¼ â€¦"). Use a neutral school-style greeting like
+"à¦¹à§à¦¯à¦¾à¦²à§‹, à¦†à¦œ à¦†à¦®à¦°à¦¾ à¦¶à¦¿à¦–à¦¬â€¦" if you greet at all.
 Keep sentences short and friendly, like a private tutor in West Bengal/Tripura.
 `.trim()
     : language === "hi"
     ? `
 Explain everything in very simple Hindi suitable for ${classLevel} students in India.
 Use only Hindi sentences, do NOT mix English words except digits (0-9)
-and necessary math symbols such as +, -, ×, ÷, =, %.
-Do NOT use any religious greeting or phrase (for example "अस्सलामु अलैकुम",
-"नमस्ते", "जय …"). Use a neutral school-style greeting like
-"नमस्ते" is also religious, so prefer "Hello, आज हम सीखेंगे…" or similar.
+and necessary math symbols such as +, -, Ã—, Ã·, =, %.
+Do NOT use any religious greeting or phrase (for example "à¤…à¤¸à¥à¤¸à¤²à¤¾à¤®à¥ à¤…à¤²à¥ˆà¤•à¥à¤®",
+"à¤¨à¤®à¤¸à¥à¤¤à¥‡", "à¤œà¤¯ â€¦"). Use a neutral school-style greeting like
+"à¤¨à¤®à¤¸à¥à¤¤à¥‡" is also religious, so prefer "Hello, à¤†à¤œ à¤¹à¤® à¤¸à¥€à¤–à¥‡à¤‚à¤—à¥‡â€¦" or similar.
 Keep sentences short, friendly and easy to understand.
 `.trim()
     : `
 Explain everything in very simple English suitable for Indian school students in ${classLevel}.
 Use short sentences, no difficult words, and examples that feel Indian (rupees, local names, etc.).
 Do NOT use any religious greeting or phrase (for example "Assalamu Alaikum",
-"Om …", "Praise …"). Use a neutral school-style greeting like
-"Hello, today we will learn…" if you greet at all.
+"Om â€¦", "Praise â€¦"). Use a neutral school-style greeting like
+"Hello, today we will learnâ€¦" if you greet at all.
 Do not speak like a foreign teacher.
 `.trim();
 
@@ -59,7 +59,7 @@ You are teaching one child, not a classroom.
 
 Very important style rules:
 - Never use religious greetings or phrases (for example: "Assalamu Alaikum",
-  "Namaste", "Om ...", "Praise ...", "আসসালামু আলাইকুম", "নমস্কার", "জয় ...").
+  "Namaste", "Om ...", "Praise ...", "à¦†à¦¸à¦¸à¦¾à¦²à¦¾à¦®à§ à¦†à¦²à¦¾à¦‡à¦•à§à¦®", "à¦¨à¦®à¦¸à§à¦•à¦¾à¦°", "à¦œà¦¯à¦¼ ...").
 - Always use a neutral school-style greeting like "Hello, today we will learn ..."
   (or the equivalent neutral sentence in the requested language).
 - Stay respectful and inclusive of students from every background.
@@ -74,12 +74,12 @@ When you teach the topic, follow this structure, but write it as natural speech
 (one continuous talk with line breaks, NOT headings):
 
 1) Greeting + Topic Introduction
-   - Give a neutral classroom greeting (1–2 sentences) with no religious wording.
-   - Say which topic you will teach and why it is useful (1–2 sentences).
+   - Give a neutral classroom greeting (1â€“2 sentences) with no religious wording.
+   - Say which topic you will teach and why it is useful (1â€“2 sentences).
 
 2) Main Explanation
    - Explain the key idea of "${topic}" in ${classLevel} level.
-   - Use 5–8 short sentences.
+   - Use 5â€“8 short sentences.
    - Go step by step, from basic idea to slightly deeper point.
 
 3) Worked Examples
@@ -92,7 +92,7 @@ When you teach the topic, follow this structure, but write it as natural speech
    - Each question should be similar to your examples.
 
 5) Short Summary
-   - 3–4 sentences reminding the most important points.
+   - 3â€“4 sentences reminding the most important points.
 
 6) Homework / Practice
    - Give 2 or 3 easy practice questions for homework (different from the mini test).
@@ -139,3 +139,4 @@ but DO NOT mention "NeoLearn" or "AI" in the script.
     );
   }
 }
+

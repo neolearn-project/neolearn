@@ -6,3 +6,4 @@ export async function GET() {
     admin_pw_len: (process.env.ADMIN_PASSWORD || "").length,
   });
 }
+

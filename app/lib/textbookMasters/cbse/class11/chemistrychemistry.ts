@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class11_chemistrychemistry_74889l: MasterSubject = {
   board: "cbse",
@@ -87,7 +87,7 @@ export const tm_cbse_class11_chemistrychemistry_74889l: MasterSubject = {
       },
       {
         "number": 19,
-        "name": "Gay Lussac’s Law of Gaseous Volumes"
+        "name": "Gay Lussacâ€™s Law of Gaseous Volumes"
       },
       {
         "number": 20,
@@ -95,7 +95,7 @@ export const tm_cbse_class11_chemistrychemistry_74889l: MasterSubject = {
       },
       {
         "number": 21,
-        "name": "Dalton’s Atomic Theory"
+        "name": "Daltonâ€™s Atomic Theory"
       },
       {
         "number": 22,
@@ -178,7 +178,7 @@ export const tm_cbse_class11_chemistrychemistry_74889l: MasterSubject = {
       },
       {
         "number": 8,
-        "name": "Rutherford’s Nuclear Model of Atom"
+        "name": "Rutherfordâ€™s Nuclear Model of Atom"
       },
       {
         "number": 9,
@@ -194,7 +194,7 @@ export const tm_cbse_class11_chemistrychemistry_74889l: MasterSubject = {
       },
       {
         "number": 12,
-        "name": "Developments Leading to the Bohr’s Model of Atom"
+        "name": "Developments Leading to the Bohrâ€™s Model of Atom"
       },
       {
         "number": 13,
@@ -202,7 +202,7 @@ export const tm_cbse_class11_chemistrychemistry_74889l: MasterSubject = {
       },
       {
         "number": 14,
-        "name": "Particle Nature of Electromagnetic Radiation: Planck’s Quantum Theory"
+        "name": "Particle Nature of Electromagnetic Radiation: Planckâ€™s Quantum Theory"
       },
       {
         "number": 15,
@@ -210,7 +210,7 @@ export const tm_cbse_class11_chemistrychemistry_74889l: MasterSubject = {
       },
       {
         "number": 16,
-        "name": "Bohr’s Model for Hydrogen Atom"
+        "name": "Bohrâ€™s Model for Hydrogen Atom"
       },
       {
         "number": 17,
@@ -218,7 +218,7 @@ export const tm_cbse_class11_chemistrychemistry_74889l: MasterSubject = {
       },
       {
         "number": 18,
-        "name": "Limitations of Bohr’s Model"
+        "name": "Limitations of Bohrâ€™s Model"
       },
       {
         "number": 19,
@@ -230,7 +230,7 @@ export const tm_cbse_class11_chemistrychemistry_74889l: MasterSubject = {
       },
       {
         "number": 21,
-        "name": "Heisenberg’s Uncertainty Principle"
+        "name": "Heisenbergâ€™s Uncertainty Principle"
       },
       {
         "number": 22,
@@ -262,7 +262,7 @@ export const tm_cbse_class11_chemistrychemistry_74889l: MasterSubject = {
       },
       {
         "number": 29,
-        "name": "Hund’s Rule of Maximum Multiplicity"
+        "name": "Hundâ€™s Rule of Maximum Multiplicity"
       },
       {
         "number": 30,
@@ -289,15 +289,15 @@ export const tm_cbse_class11_chemistrychemistry_74889l: MasterSubject = {
       },
       {
         "number": 3,
-        "name": "Dobereiner’s Triads"
+        "name": "Dobereinerâ€™s Triads"
       },
       {
         "number": 4,
-        "name": "Newlands’ Law of Octaves"
+        "name": "Newlandsâ€™ Law of Octaves"
       },
       {
         "number": 5,
-        "name": "Mendeleev’s Periodic Table"
+        "name": "Mendeleevâ€™s Periodic Table"
       },
       {
         "number": 6,
@@ -380,7 +380,7 @@ export const tm_cbse_class11_chemistrychemistry_74889l: MasterSubject = {
     "topics": [
       {
         "number": 1,
-        "name": "Kössel-Lewis Approach to Chemical Bonding"
+        "name": "KÃ¶ssel-Lewis Approach to Chemical Bonding"
       },
       {
         "number": 2,
@@ -559,7 +559,7 @@ export const tm_cbse_class11_chemistrychemistry_74889l: MasterSubject = {
       },
       {
         "number": 14,
-        "name": "Measurement of ΔU and ΔH: Calorimetry"
+        "name": "Measurement of Î”U and Î”H: Calorimetry"
       },
       {
         "number": 15,
@@ -583,7 +583,7 @@ export const tm_cbse_class11_chemistrychemistry_74889l: MasterSubject = {
       },
       {
         "number": 20,
-        "name": "Hess’s Law of Constant Heat Summation"
+        "name": "Hessâ€™s Law of Constant Heat Summation"
       },
       {
         "number": 21,
@@ -698,7 +698,7 @@ export const tm_cbse_class11_chemistrychemistry_74889l: MasterSubject = {
       },
       {
         "number": 22,
-        "name": "Brønsted-Lowry Acids and Bases"
+        "name": "BrÃ¸nsted-Lowry Acids and Bases"
       },
       {
         "number": 23,
@@ -748,3 +748,4 @@ export const tm_cbse_class11_chemistrychemistry_74889l: MasterSubject = {
   }
 ],
 };
+

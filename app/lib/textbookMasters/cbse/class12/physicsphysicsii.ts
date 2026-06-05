@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class12_physicsphysicsii_1jxnge0: MasterSubject = {
   board: "cbse",
@@ -283,7 +283,7 @@ export const tm_cbse_class12_physicsphysicsii_1jxnge0: MasterSubject = {
       },
       {
         "number": 11,
-        "name": "Nuclear fusion – energy generation in stars"
+        "name": "Nuclear fusion â€“ energy generation in stars"
       },
       {
         "number": 12,
@@ -340,3 +340,4 @@ export const tm_cbse_class12_physicsphysicsii_1jxnge0: MasterSubject = {
   }
 ],
 };
+

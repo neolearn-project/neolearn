@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class10_englishfootprintswithoutfeet_16ucyte: MasterSubject = {
   board: "cbse",
@@ -19,7 +19,7 @@ export const tm_cbse_class10_englishfootprintswithoutfeet_16ucyte: MasterSubject
       },
       {
         "number": 2,
-        "name": "Read and Find Out: Tricki’s illness"
+        "name": "Read and Find Out: Trickiâ€™s illness"
       },
       {
         "number": 3,
@@ -31,7 +31,7 @@ export const tm_cbse_class10_englishfootprintswithoutfeet_16ucyte: MasterSubject
       },
       {
         "number": 5,
-        "name": "Tricki’s treatment at the surgery"
+        "name": "Trickiâ€™s treatment at the surgery"
       },
       {
         "number": 6,
@@ -70,11 +70,11 @@ export const tm_cbse_class10_englishfootprintswithoutfeet_16ucyte: MasterSubject
       },
       {
         "number": 3,
-        "name": "Anil’s trust and kindness"
+        "name": "Anilâ€™s trust and kindness"
       },
       {
         "number": 4,
-        "name": "Hari Singh’s plan and theft"
+        "name": "Hari Singhâ€™s plan and theft"
       },
       {
         "number": 5,
@@ -113,11 +113,11 @@ export const tm_cbse_class10_englishfootprintswithoutfeet_16ucyte: MasterSubject
       },
       {
         "number": 2,
-        "name": "Read and Find Out: Ausable’s difference"
+        "name": "Read and Find Out: Ausableâ€™s difference"
       },
       {
         "number": 3,
-        "name": "Fowler’s disappointment and first thrill"
+        "name": "Fowlerâ€™s disappointment and first thrill"
       },
       {
         "number": 4,
@@ -129,7 +129,7 @@ export const tm_cbse_class10_englishfootprintswithoutfeet_16ucyte: MasterSubject
       },
       {
         "number": 6,
-        "name": "Ausable’s presence of mind"
+        "name": "Ausableâ€™s presence of mind"
       },
       {
         "number": 7,
@@ -172,7 +172,7 @@ export const tm_cbse_class10_englishfootprintswithoutfeet_16ucyte: MasterSubject
       },
       {
         "number": 5,
-        "name": "Horace Danby’s contradictions"
+        "name": "Horace Danbyâ€™s contradictions"
       },
       {
         "number": 6,
@@ -215,7 +215,7 @@ export const tm_cbse_class10_englishfootprintswithoutfeet_16ucyte: MasterSubject
       },
       {
         "number": 4,
-        "name": "Griffin’s lawlessness"
+        "name": "Griffinâ€™s lawlessness"
       },
       {
         "number": 5,
@@ -258,7 +258,7 @@ export const tm_cbse_class10_englishfootprintswithoutfeet_16ucyte: MasterSubject
       },
       {
         "number": 3,
-        "name": "Role of Ebright’s mother"
+        "name": "Role of Ebrightâ€™s mother"
       },
       {
         "number": 4,
@@ -352,7 +352,7 @@ export const tm_cbse_class10_englishfootprintswithoutfeet_16ucyte: MasterSubject
       },
       {
         "number": 2,
-        "name": "Read and Find Out: father’s worry"
+        "name": "Read and Find Out: fatherâ€™s worry"
       },
       {
         "number": 3,
@@ -364,11 +364,11 @@ export const tm_cbse_class10_englishfootprintswithoutfeet_16ucyte: MasterSubject
       },
       {
         "number": 5,
-        "name": "The teacher’s role"
+        "name": "The teacherâ€™s role"
       },
       {
         "number": 6,
-        "name": "Bholi’s transformation"
+        "name": "Bholiâ€™s transformation"
       },
       {
         "number": 7,
@@ -411,7 +411,7 @@ export const tm_cbse_class10_englishfootprintswithoutfeet_16ucyte: MasterSubject
       },
       {
         "number": 4,
-        "name": "Think-Tank’s personality"
+        "name": "Think-Tankâ€™s personality"
       },
       {
         "number": 5,
@@ -445,3 +445,4 @@ export const tm_cbse_class10_englishfootprintswithoutfeet_16ucyte: MasterSubject
   }
 ],
 };
+

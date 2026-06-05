@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class12_historythemesinindianhistorypartiii_hxmura: MasterSubject = {
   board: "cbse",
@@ -115,7 +115,7 @@ export const tm_cbse_class12_historythemesinindianhistorypartiii_hxmura: MasterS
       },
       {
         "number": 26,
-        "name": "Reading surveyors’ observations critically"
+        "name": "Reading surveyorsâ€™ observations critically"
       },
       {
         "number": 27,
@@ -361,7 +361,7 @@ export const tm_cbse_class12_historythemesinindianhistorypartiii_hxmura: MasterS
       },
       {
         "number": 3,
-        "name": "Gandhi’s return to India in 1915"
+        "name": "Gandhiâ€™s return to India in 1915"
       },
       {
         "number": 4,
@@ -417,7 +417,7 @@ export const tm_cbse_class12_historythemesinindianhistorypartiii_hxmura: MasterS
       },
       {
         "number": 17,
-        "name": "A people’s leader"
+        "name": "A peopleâ€™s leader"
       },
       {
         "number": 18,
@@ -425,7 +425,7 @@ export const tm_cbse_class12_historythemesinindianhistorypartiii_hxmura: MasterS
       },
       {
         "number": 19,
-        "name": "Gandhi’s appeal among peasants"
+        "name": "Gandhiâ€™s appeal among peasants"
       },
       {
         "number": 20,
@@ -698,3 +698,4 @@ export const tm_cbse_class12_historythemesinindianhistorypartiii_hxmura: MasterS
   }
 ],
 };
+

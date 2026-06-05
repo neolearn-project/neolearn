@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 
@@ -76,14 +76,14 @@ export default function LeadsPage() {
           disabled={loading}
           className="bg-blue-600 text-white px-4 py-2 rounded-md"
         >
-          {loading ? "Loading…" : "Load"}
+          {loading ? "Loadingâ€¦" : "Load"}
         </button>
         <a
           href="/admin/batches"
           className="ml-auto underline text-sm"
           title="Go manage batches"
         >
-          Manage Batches →
+          Manage Batches â†’
         </a>
       </div>
 
@@ -115,7 +115,7 @@ export default function LeadsPage() {
             {!rows.length && !loading && (
               <tr>
                 <td className="p-4 text-center text-gray-500" colSpan={6}>
-                  No data yet. Enter admin password and click “Load”.
+                  No data yet. Enter admin password and click â€œLoadâ€.
                 </td>
               </tr>
             )}
@@ -125,3 +125,4 @@ export default function LeadsPage() {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class11_chemistrychemistryii_zuiy7n: MasterSubject = {
   board: "cbse",
@@ -15,7 +15,7 @@ export const tm_cbse_class11_chemistrychemistryii_zuiy7n: MasterSubject = {
     "topics": [
       {
         "number": 1,
-        "name": "Classical Idea of Redox Reactions – Oxidation and Reduction Reactions"
+        "name": "Classical Idea of Redox Reactions â€“ Oxidation and Reduction Reactions"
       },
       {
         "number": 2,
@@ -53,7 +53,7 @@ export const tm_cbse_class11_chemistrychemistryii_zuiy7n: MasterSubject = {
   },
   {
     "number": 8,
-    "name": "Organic Chemistry – Some Basic Principles and Techniques",
+    "name": "Organic Chemistry â€“ Some Basic Principles and Techniques",
     "chapterType": "unit",
     "topics": [
       {
@@ -70,7 +70,7 @@ export const tm_cbse_class11_chemistrychemistryii_zuiy7n: MasterSubject = {
       },
       {
         "number": 4,
-        "name": "Some Characteristic Features of π Bonds"
+        "name": "Some Characteristic Features of Ï€ Bonds"
       },
       {
         "number": 5,
@@ -307,3 +307,4 @@ export const tm_cbse_class11_chemistrychemistryii_zuiy7n: MasterSubject = {
   }
 ],
 };
+

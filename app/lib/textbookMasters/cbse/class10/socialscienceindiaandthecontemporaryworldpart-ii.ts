@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class10_socialscienceindiaandthecontemporaryworldpart_ii_1b6c1zj: MasterSubject = {
   board: "cbse",
@@ -23,11 +23,11 @@ export const tm_cbse_class10_socialscienceindiaandthecontemporaryworldpart_ii_1b
       },
       {
         "number": 3,
-        "name": "Frédéric Sorrieu’s dream of democratic and social republics"
+        "name": "FrÃ©dÃ©ric Sorrieuâ€™s dream of democratic and social republics"
       },
       {
         "number": 4,
-        "name": "The statue of Liberty, flags and national costumes in Sorrieu’s print"
+        "name": "The statue of Liberty, flags and national costumes in Sorrieuâ€™s print"
       },
       {
         "number": 5,
@@ -43,7 +43,7 @@ export const tm_cbse_class10_socialscienceindiaandthecontemporaryworldpart_ii_1b
       },
       {
         "number": 8,
-        "name": "Renan’s attributes of a nation"
+        "name": "Renanâ€™s attributes of a nation"
       },
       {
         "number": 9,
@@ -155,7 +155,7 @@ export const tm_cbse_class10_socialscienceindiaandthecontemporaryworldpart_ii_1b
       },
       {
         "number": 36,
-        "name": "The age of revolutions: 1830–1848"
+        "name": "The age of revolutions: 1830â€“1848"
       },
       {
         "number": 37,
@@ -175,7 +175,7 @@ export const tm_cbse_class10_socialscienceindiaandthecontemporaryworldpart_ii_1b
       },
       {
         "number": 41,
-        "name": "Karol Kurpiński and Polish national struggle"
+        "name": "Karol KurpiÅ„ski and Polish national struggle"
       },
       {
         "number": 42,
@@ -330,7 +330,7 @@ export const tm_cbse_class10_socialscienceindiaandthecontemporaryworldpart_ii_1b
       },
       {
         "number": 5,
-        "name": "Congress and Mahatma Gandhi’s role in mass nationalism"
+        "name": "Congress and Mahatma Gandhiâ€™s role in mass nationalism"
       },
       {
         "number": 6,
@@ -362,11 +362,11 @@ export const tm_cbse_class10_socialscienceindiaandthecontemporaryworldpart_ii_1b
       },
       {
         "number": 13,
-        "name": "Gandhi’s early satyagraha in Champaran"
+        "name": "Gandhiâ€™s early satyagraha in Champaran"
       },
       {
         "number": 14,
-        "name": "Ahmedabad mill workers’ satyagraha"
+        "name": "Ahmedabad mill workersâ€™ satyagraha"
       },
       {
         "number": 15,
@@ -454,7 +454,7 @@ export const tm_cbse_class10_socialscienceindiaandthecontemporaryworldpart_ii_1b
       },
       {
         "number": 36,
-        "name": "Inland Emigration Act and plantation labourers’ idea of freedom"
+        "name": "Inland Emigration Act and plantation labourersâ€™ idea of freedom"
       },
       {
         "number": 37,
@@ -566,7 +566,7 @@ export const tm_cbse_class10_socialscienceindiaandthecontemporaryworldpart_ii_1b
       },
       {
         "number": 64,
-        "name": "Abanindranath Tagore’s Bharat Mata painting"
+        "name": "Abanindranath Tagoreâ€™s Bharat Mata painting"
       },
       {
         "number": 65,
@@ -582,7 +582,7 @@ export const tm_cbse_class10_socialscienceindiaandthecontemporaryworldpart_ii_1b
       },
       {
         "number": 68,
-        "name": "Gandhi’s swaraj flag"
+        "name": "Gandhiâ€™s swaraj flag"
       },
       {
         "number": 69,
@@ -677,7 +677,7 @@ export const tm_cbse_class10_socialscienceindiaandthecontemporaryworldpart_ii_1b
       },
       {
         "number": 20,
-        "name": "America’s isolation and lack of immunity"
+        "name": "Americaâ€™s isolation and lack of immunity"
       },
       {
         "number": 21,
@@ -689,7 +689,7 @@ export const tm_cbse_class10_socialscienceindiaandthecontemporaryworldpart_ii_1b
       },
       {
         "number": 23,
-        "name": "The nineteenth century, 1815–1914"
+        "name": "The nineteenth century, 1815â€“1914"
       },
       {
         "number": 24,
@@ -709,7 +709,7 @@ export const tm_cbse_class10_socialscienceindiaandthecontemporaryworldpart_ii_1b
       },
       {
         "number": 28,
-        "name": "Technology’s role in global flows"
+        "name": "Technologyâ€™s role in global flows"
       },
       {
         "number": 29,
@@ -1243,7 +1243,7 @@ export const tm_cbse_class10_socialscienceindiaandthecontemporaryworldpart_ii_1b
       },
       {
         "number": 25,
-        "name": "Gutenberg’s background and movable type"
+        "name": "Gutenbergâ€™s background and movable type"
       },
       {
         "number": 26,
@@ -1327,7 +1327,7 @@ export const tm_cbse_class10_socialscienceindiaandthecontemporaryworldpart_ii_1b
       },
       {
         "number": 46,
-        "name": "Children’s books and schoolbooks"
+        "name": "Childrenâ€™s books and schoolbooks"
       },
       {
         "number": 47,
@@ -1423,7 +1423,7 @@ export const tm_cbse_class10_socialscienceindiaandthecontemporaryworldpart_ii_1b
       },
       {
         "number": 70,
-        "name": "Women’s education and reading debates"
+        "name": "Womenâ€™s education and reading debates"
       },
       {
         "number": 71,
@@ -1473,3 +1473,4 @@ export const tm_cbse_class10_socialscienceindiaandthecontemporaryworldpart_ii_1b
   }
 ],
 };
+

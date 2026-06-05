@@ -1,4 +1,4 @@
-// app/api/wa-test/route.ts
+﻿// app/api/wa-test/route.ts
 import { NextResponse } from 'next/server';
 
 export const runtime = 'edge';           // or 'nodejs' is also fine
@@ -41,3 +41,4 @@ export async function POST(req: Request) {
 export async function GET() {
   return NextResponse.json({ ok: true, route: 'wa-test' });
 }
+

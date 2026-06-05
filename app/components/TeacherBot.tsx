@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
 
@@ -27,24 +27,24 @@ const CHAPTERS = [
     id: "fractions",
     labels: {
       en: "Fractions",
-      hi: "भिन्न",
-      bn: "ভগ্নাংশ",
+      hi: "à¤­à¤¿à¤¨à¥à¤¨",
+      bn: "à¦­à¦—à§à¦¨à¦¾à¦‚à¦¶",
     },
   },
   {
     id: "decimals",
     labels: {
       en: "Decimals",
-      hi: "दशमलव",
-      bn: "দশমিক সংখ্যা",
+      hi: "à¤¦à¤¶à¤®à¤²à¤µ",
+      bn: "à¦¦à¦¶à¦®à¦¿à¦• à¦¸à¦‚à¦–à§à¦¯à¦¾",
     },
   },
   {
     id: "ratio-and-percentage",
     labels: {
       en: "Ratio and Percentage",
-      hi: "अनुपात और प्रतिशत",
-      bn: "অনুপাত ও শতকরা",
+      hi: "à¤…à¤¨à¥à¤ªà¤¾à¤¤ à¤”à¤° à¤ªà¥à¤°à¤¤à¤¿à¤¶à¤¤",
+      bn: "à¦…à¦¨à§à¦ªà¦¾à¦¤ à¦“ à¦¶à¦¤à¦•à¦°à¦¾",
     },
   },
 ];
@@ -156,8 +156,8 @@ export default function TeacherBot() {
           onChange={(e) => setLang(e.target.value as LangCode)}
         >
           <option value="en">English</option>
-          <option value="hi">हिन्दी</option>
-          <option value="bn">বাংলা</option>
+          <option value="hi">à¤¹à¤¿à¤¨à¥à¤¦à¥€</option>
+          <option value="bn">à¦¬à¦¾à¦‚à¦²à¦¾</option>
         </select>
       </div>
 
@@ -165,7 +165,7 @@ export default function TeacherBot() {
         <textarea
           className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           rows={3}
-          placeholder="Example: Sir/Ma'am, I don’t understand how to add fractions like 3/4 + 1/6."
+          placeholder="Example: Sir/Ma'am, I donâ€™t understand how to add fractions like 3/4 + 1/6."
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
         />
@@ -180,7 +180,7 @@ export default function TeacherBot() {
       </form>
 
       {mode === "loading" && (
-        <div className="text-xs text-gray-500">Teacher is thinking…</div>
+        <div className="text-xs text-gray-500">Teacher is thinkingâ€¦</div>
       )}
 
       {/* POPUP ANSWER MODAL */}
@@ -196,7 +196,7 @@ export default function TeacherBot() {
                 className="ml-2 rounded-full px-2 text-sm text-gray-500 hover:bg-gray-100"
                 onClick={() => setShowPopup(false)}
               >
-                ✕
+                âœ•
               </button>
             </div>
 
@@ -218,12 +218,12 @@ export default function TeacherBot() {
                 {lang === "en"
                   ? "English"
                   : lang === "hi"
-                  ? "हिन्दी"
-                  : "বাংলা"}
+                  ? "à¤¹à¤¿à¤¨à¥à¤¦à¥€"
+                  : "à¦¬à¦¾à¦‚à¦²à¦¾"}
               </div>
               <div>
                 <span className="font-semibold">Doubt:</span>{" "}
-                <span className="text-gray-700">{question || "—"}</span>
+                <span className="text-gray-700">{question || "â€”"}</span>
               </div>
             </div>
 
@@ -255,3 +255,4 @@ export default function TeacherBot() {
     </div>
   );
 }
+

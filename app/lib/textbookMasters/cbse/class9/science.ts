@@ -9,3 +9,4 @@ export const tm_cbse_class9_science_1ykavyy: MasterSubject = {
   textbookSeries: "NCERT Science",
   chapters: [],
 };
+

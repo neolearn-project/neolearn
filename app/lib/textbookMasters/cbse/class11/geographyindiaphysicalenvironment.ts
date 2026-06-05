@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class11_geographyindiaphysicalenvironment_1b40to2: MasterSubject = {
   board: "cbse",
@@ -10,12 +10,12 @@ export const tm_cbse_class11_geographyindiaphysicalenvironment_1b40to2: MasterSu
   chapters: [
   {
     "number": 1,
-    "name": "India – Location",
+    "name": "India â€“ Location",
     "chapterType": "chapter",
     "topics": [
       {
         "number": 1,
-        "name": "India’s latitudinal and longitudinal extent"
+        "name": "Indiaâ€™s latitudinal and longitudinal extent"
       },
       {
         "number": 2,
@@ -35,27 +35,27 @@ export const tm_cbse_class11_geographyindiaphysicalenvironment_1b40to2: MasterSu
       },
       {
         "number": 6,
-        "name": "Indian Standard Time and standard meridian 82°30′ E"
+        "name": "Indian Standard Time and standard meridian 82Â°30â€² E"
       },
       {
         "number": 7,
-        "name": "India’s area and rank in the world"
+        "name": "Indiaâ€™s area and rank in the world"
       },
       {
         "number": 8,
-        "name": "Physical diversity resulting from India’s size"
+        "name": "Physical diversity resulting from Indiaâ€™s size"
       },
       {
         "number": 9,
-        "name": "India’s boundaries and neighbouring regions"
+        "name": "Indiaâ€™s boundaries and neighbouring regions"
       },
       {
         "number": 10,
-        "name": "India’s strategic location in the Indian Ocean"
+        "name": "Indiaâ€™s strategic location in the Indian Ocean"
       },
       {
         "number": 11,
-        "name": "India’s links with West Asia, Africa, Europe, Southeast Asia and East Asia"
+        "name": "Indiaâ€™s links with West Asia, Africa, Europe, Southeast Asia and East Asia"
       },
       {
         "number": 12,
@@ -636,3 +636,4 @@ export const tm_cbse_class11_geographyindiaphysicalenvironment_1b40to2: MasterSu
   }
 ],
 };
+

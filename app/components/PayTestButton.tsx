@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 export default function PayTestButton() {
   const payNow = async () => {
@@ -30,7 +30,7 @@ export default function PayTestButton() {
       description: "Test Payment",
       order_id: order.id,
       handler: function () {
-        alert("Payment done ✅. Now webhook will confirm.");
+        alert("Payment done âœ…. Now webhook will confirm.");
       },
       prefill: {
         name: "NeoLearn Tester",
@@ -47,7 +47,8 @@ export default function PayTestButton() {
       onClick={payNow}
       className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
     >
-      Pay ₹10 (Live Test)
+      Pay â‚¹10 (Live Test)
     </button>
   );
 }
+

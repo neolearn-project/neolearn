@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class12_sociologyindiansociety_1uni4b: MasterSubject = {
   board: "cbse",
@@ -66,7 +66,7 @@ export const tm_cbse_class12_sociologyindiansociety_1uni4b: MasterSubject = {
       },
       {
         "number": 7,
-        "name": "Size and Growth of India’s Population"
+        "name": "Size and Growth of Indiaâ€™s Population"
       },
       {
         "number": 8,
@@ -259,7 +259,7 @@ export const tm_cbse_class12_sociologyindiansociety_1uni4b: MasterSubject = {
       },
       {
         "number": 11,
-        "name": "Struggle for Women’s Equality and Rights"
+        "name": "Struggle for Womenâ€™s Equality and Rights"
       },
       {
         "number": 12,
@@ -379,3 +379,4 @@ export const tm_cbse_class12_sociologyindiansociety_1uni4b: MasterSubject = {
   }
 ],
 };
+

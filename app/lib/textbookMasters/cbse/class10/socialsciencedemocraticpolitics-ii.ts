@@ -1,4 +1,4 @@
-import { MasterSubject } from "../../types";
+﻿import { MasterSubject } from "../../types";
 
 export const tm_cbse_class10_socialsciencedemocraticpolitics_ii_1l5in6u: MasterSubject = {
   board: "cbse",
@@ -261,7 +261,7 @@ export const tm_cbse_class10_socialsciencedemocraticpolitics_ii_1l5in6u: MasterS
       },
       {
         "number": 5,
-        "name": "Women’s political mobilisation"
+        "name": "Womenâ€™s political mobilisation"
       },
       {
         "number": 6,
@@ -273,11 +273,11 @@ export const tm_cbse_class10_socialsciencedemocraticpolitics_ii_1l5in6u: MasterS
       },
       {
         "number": 8,
-        "name": "Women’s literacy and educational inequality"
+        "name": "Womenâ€™s literacy and educational inequality"
       },
       {
         "number": 9,
-        "name": "Women’s work: paid, unpaid and invisible labour"
+        "name": "Womenâ€™s work: paid, unpaid and invisible labour"
       },
       {
         "number": 10,
@@ -293,7 +293,7 @@ export const tm_cbse_class10_socialsciencedemocraticpolitics_ii_1l5in6u: MasterS
       },
       {
         "number": 13,
-        "name": "Women’s political representation"
+        "name": "Womenâ€™s political representation"
       },
       {
         "number": 14,
@@ -507,7 +507,7 @@ export const tm_cbse_class10_socialsciencedemocraticpolitics_ii_1l5in6u: MasterS
       },
       {
         "number": 2,
-        "name": "How do we assess democracy’s outcomes?"
+        "name": "How do we assess democracyâ€™s outcomes?"
       },
       {
         "number": 3,
@@ -579,7 +579,7 @@ export const tm_cbse_class10_socialsciencedemocraticpolitics_ii_1l5in6u: MasterS
       },
       {
         "number": 20,
-        "name": "Citizens’ expectations from democracy"
+        "name": "Citizensâ€™ expectations from democracy"
       },
       {
         "number": 21,
@@ -601,3 +601,4 @@ export const tm_cbse_class10_socialsciencedemocraticpolitics_ii_1l5in6u: MasterS
   }
 ],
 };
+
