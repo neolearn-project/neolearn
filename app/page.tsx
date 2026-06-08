@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -11,6 +11,12 @@ const WP = process.env.NEXT_PUBLIC_WHATSAPP || "918000000000";
 
 export default function Page() {
   const [authOpen, setAuthOpen] = useState<null | "login" | "signup">(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("login") === "student") setAuthOpen("login");
+    if (params.get("signup") === "student") setAuthOpen("signup");
+  }, []);
 
   return (
     <div className="flex min-h-screen flex-col bg-[#f0f2f5]">
@@ -29,7 +35,7 @@ export default function Page() {
 
             <div className="hidden items-center gap-3 sm:flex">
               <Link
-                href="/parent/login"
+                href="https://app.neolearn.co.in/parent/login"
                 className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
               >
                 Parent Login
@@ -93,7 +99,7 @@ export default function Page() {
 
             <div className="mt-4 flex flex-wrap gap-3 sm:hidden">
               <Link
-                href="/parent/login"
+                href="https://app.neolearn.co.in/parent/login"
                 className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
               >
                 Parent Login
@@ -130,14 +136,14 @@ export default function Page() {
 
               <button
                 type="button"
-                onClick={() => setAuthOpen("login")}
+                onClick={() => { window.location.href = "https://app.neolearn.co.in/?login=student"; }}
                 className="mt-5 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 active:bg-blue-700"
               >
                 Student Login
               </button>
 
               <Link
-                href="/parent/login"
+                href="https://app.neolearn.co.in/parent/login"
                 className="mt-3 flex w-full items-center justify-center rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-gray-900 hover:bg-gray-50"
               >
                 Parent Login
@@ -149,7 +155,7 @@ export default function Page() {
 
               <button
                 type="button"
-                onClick={() => setAuthOpen("signup")}
+                onClick={() => { window.location.href = "https://app.neolearn.co.in/?signup=student"; }}
                 className="mt-3 w-full rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold text-white hover:bg-green-700"
               >
                 Create new account
@@ -163,7 +169,7 @@ export default function Page() {
               <div className="mt-4 flex items-center justify-center gap-3 text-xs text-gray-500">
                 <button
                   type="button"
-                  onClick={() => setAuthOpen("login")}
+                  onClick={() => { window.location.href = "https://app.neolearn.co.in/?login=student"; }}
                   className="underline decoration-gray-300 underline-offset-2 hover:text-gray-700"
                 >
                   Student Login
@@ -172,7 +178,7 @@ export default function Page() {
                 <span>•</span>
 
                 <Link
-                  href="/parent/login"
+                  href="https://app.neolearn.co.in/parent/login"
                   className="underline decoration-gray-300 underline-offset-2 hover:text-gray-700"
                 >
                   Parent Login
@@ -182,7 +188,7 @@ export default function Page() {
 
                 <a
                   className="underline decoration-gray-300 underline-offset-2 hover:text-gray-700"
-                  href="mailto:neo.neolearn.ai@gmail.com"
+                  href="mailto:support@neolearn.co.in"
                 >
                   Support
                 </a>
@@ -240,9 +246,9 @@ export default function Page() {
             Made in India •{" "}
             <a
               className="underline underline-offset-2 hover:text-gray-900"
-              href="mailto:neo.neolearn.ai@gmail.com"
+              href="mailto:support@neolearn.co.in"
             >
-              neo.neolearn.ai@gmail.com
+              support@neolearn.co.in
             </a>
           </div>
         </div>

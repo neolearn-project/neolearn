@@ -1,6 +1,8 @@
 ﻿import Link from "next/link";
 import { COMPANY } from "@/app/lib/company";
 
+const STUDENT_LOGIN_URL = "https://app.neolearn.co.in/?login=student";
+
 const plans = [
   {
     name: "Free Trial",
@@ -101,7 +103,7 @@ export default function PricingPage() {
             </Link>
 
             <Link
-              href="/"
+              href={STUDENT_LOGIN_URL}
               className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
             >
               Start Learning
