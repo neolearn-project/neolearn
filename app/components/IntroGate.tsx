@@ -70,7 +70,7 @@ export default function IntroGate({ children }: Props) {
         </div>
 
         <div className="neosplash-tagline">The Future of Learning</div>
-        <div className="neosplash-skip">Loadingâ€¦</div>
+        <div className="neosplash-skip">Loading...</div>
       </div>
     </div>
   );
