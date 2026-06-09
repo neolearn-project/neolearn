@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from "next/server";
 import twilio from "twilio";
 import { supabaseAdmin } from "@/app/lib/supabaseAdmin";
+import { sendWhatsAppText, isWhatsAppConfigured } from "@/lib/whatsapp";
 
 type Track = "regular" | "competitive";
 
@@ -351,7 +352,56 @@ export async function POST(req: Request) {
       throw new Error(tableError("children", childRow.error));
     }
 
-    return NextResponse.json(
+    
+    const learningTrackLabel =
+      track === "regular"
+        ? `Regular School - ${board} Class ${classNumber}`
+        : `Competitive Exam - ${competitiveExam}`;
+
+    if (isWhatsAppConfigured()) {
+      const parentWelcomeMessage = [
+        "Welcome to NeoLearn!",
+        "",
+        `Dear ${parentName}, your family account has been created successfully.`,
+        "",
+        `Student: ${studentName}`,
+        `Student Login ID: ${studentUserId}`,
+        `Track: ${learningTrackLabel}`,
+        "",
+        "Parent Login: https://app.neolearn.co.in/parent/login",
+        "Student App: https://app.neolearn.co.in",
+        "",
+        "- NeoLearn",
+      ].join("\n");
+
+      const studentWelcomeMessage = [
+        "Welcome to NeoLearn!",
+        "",
+        `Hi ${studentName}, your student account is ready.`,
+        "",
+        `Login ID: ${studentUserId}`,
+        `Track: ${learningTrackLabel}`,
+        "",
+        "Open NeoLearn: https://app.neolearn.co.in",
+        "",
+        "Start learning with your AI teacher.",
+        "",
+        "- NeoLearn",
+      ].join("\n");
+
+      try {
+        await sendWhatsAppText(parentMobile, parentWelcomeMessage);
+      } catch (waErr) {
+        console.error("WA parent welcome send error in family-signup-verify:", waErr);
+      }
+
+      try {
+        await sendWhatsAppText(studentMobile, studentWelcomeMessage);
+      } catch (waErr) {
+        console.error("WA student welcome send error in family-signup-verify:", waErr);
+      }
+    }
+return NextResponse.json(
       {
         ok: true,
         parent: { userId: parentUser.id, mobile: parentMobile },
