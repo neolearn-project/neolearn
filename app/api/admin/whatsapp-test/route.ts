@@ -16,9 +16,9 @@ export async function POST(req: Request) {
       String(body?.message || "").trim() ||
       "Hello from NeoLearn. This is a WhatsApp Cloud API test message.";
 
-    await sendWhatsAppText(to, message);
+    const result = await sendWhatsAppText(to, message);
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, result });
   } catch (err: any) {
     return NextResponse.json(
       { ok: false, error: err?.message || "WhatsApp test failed" },

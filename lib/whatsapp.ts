@@ -1,4 +1,4 @@
-// lib/whatsapp.ts
+﻿// lib/whatsapp.ts
 
 const PAGE_URL = "https://graph.facebook.com/v20.0";
 
