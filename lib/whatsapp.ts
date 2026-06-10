@@ -26,10 +26,10 @@ export function isWhatsAppConfigured(): boolean {
 /**
  * Send a simple text WhatsApp message using Cloud API.
  */
-export async function sendWhatsAppText(to: string, text: string): Promise<void> {
+export async function sendWhatsAppText(to: string, text: string): Promise<any> {
   if (!isWhatsAppConfigured()) {
     console.warn("WA not configured, skipping send");
-    return;
+    return { skipped: true, reason: "WA not configured" };
   }
 
   const phone = normalizePhone(to);
@@ -54,12 +54,22 @@ export async function sendWhatsAppText(to: string, text: string): Promise<void> 
     body: JSON.stringify(payload),
   });
 
+  const data = await res.json().catch(async () => {
+    const raw = await res.text().catch(() => "");
+    return { raw };
+  });
+
   if (!res.ok) {
-    const err = await res.text();
-    console.error("WhatsApp send error:", err);
-  } else {
-    console.log("WhatsApp sent OK to", phone);
+    console.error("WhatsApp send error:", data);
+    throw new Error(
+      data?.error?.message ||
+        data?.raw ||
+        `WhatsApp send failed with status ${res.status}`
+    );
   }
+
+  console.log("WhatsApp sent OK to", phone, data);
+  return data;
 }
 
 // --- Weekly Summary helper (ADD BELOW sendWhatsAppText) ---
