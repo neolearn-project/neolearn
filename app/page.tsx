@@ -35,7 +35,7 @@ export default function Page() {
 
             <div className="hidden items-center gap-3 sm:flex">
               <Link
-                href="https://app.neolearn.co.in/parent/login"
+                href="/parent/login"
                 className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
               >
                 Parent Login
@@ -99,7 +99,7 @@ export default function Page() {
 
             <div className="mt-4 flex flex-wrap gap-3 sm:hidden">
               <Link
-                href="https://app.neolearn.co.in/parent/login"
+                href="/parent/login"
                 className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
               >
                 Parent Login
@@ -136,14 +136,14 @@ export default function Page() {
 
               <button
                 type="button"
-                onClick={() => { window.location.href = "https://app.neolearn.co.in/?login=student"; }}
+                onClick={() => { window.location.href = "/?login=student"; }}
                 className="mt-5 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 active:bg-blue-700"
               >
                 Student Login
               </button>
 
               <Link
-                href="https://app.neolearn.co.in/parent/login"
+                href="/parent/login"
                 className="mt-3 flex w-full items-center justify-center rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-gray-900 hover:bg-gray-50"
               >
                 Parent Login
@@ -155,7 +155,7 @@ export default function Page() {
 
               <button
                 type="button"
-                onClick={() => { window.location.href = "https://app.neolearn.co.in/?signup=student"; }}
+                onClick={() => { window.location.href = "/?signup=student"; }}
                 className="mt-3 w-full rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold text-white hover:bg-green-700"
               >
                 Create new account
@@ -169,7 +169,7 @@ export default function Page() {
               <div className="mt-4 flex items-center justify-center gap-3 text-xs text-gray-500">
                 <button
                   type="button"
-                  onClick={() => { window.location.href = "https://app.neolearn.co.in/?login=student"; }}
+                  onClick={() => { window.location.href = "/?login=student"; }}
                   className="underline decoration-gray-300 underline-offset-2 hover:text-gray-700"
                 >
                   Student Login
@@ -178,7 +178,7 @@ export default function Page() {
                 <span>•</span>
 
                 <Link
-                  href="https://app.neolearn.co.in/parent/login"
+                  href="/parent/login"
                   className="underline decoration-gray-300 underline-offset-2 hover:text-gray-700"
                 >
                   Parent Login

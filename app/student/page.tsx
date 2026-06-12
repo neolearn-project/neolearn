@@ -458,26 +458,50 @@ function saveSessionHistory(item: StoredSession) {
 
 // End class session + save transcript chapter-wise
 const endClassSession = () => {
-  if (!classSession || !student) return;
+  if (!student) return;
 
   const subject = currentSubject?.subject_name || "Unknown Subject";
   const chapter = currentChapter?.chapter_name || "Unknown Chapter";
   const topic = currentTopic?.topic_name || "Unknown Topic";
 
+  const transcriptText =
+    sessionTranscript.trim() ||
+    messages
+      .map((m) => `${m.author}: ${m.text}`)
+      .join("\n\n")
+      .trim();
+
+  if (!transcriptText) {
+    alert("No class transcript or chat found to save.");
+    setClassSession((prev) => (prev ? { ...prev, isLive: false } : null));
+    setRemainingSeconds(0);
+    return;
+  }
+
+  const now = Date.now();
+  const sessionId = classSession?.id || crypto.randomUUID();
+  const startedAt = classSession?.startTime || now;
+
   saveSessionHistory({
-    id: classSession.id,
+    id: sessionId,
     studentMobile: student.mobile,
     subject,
     chapter,
     topic,
     language,
-    startedAt: new Date(classSession.startTime).toISOString(),
+    startedAt: new Date(startedAt).toISOString(),
     endedAt: new Date().toISOString(),
-    transcript: sessionTranscript.trim(),
+    transcript: transcriptText,
   });
 
-  setClassSession((prev) => (prev ? { ...prev, isLive: false } : null));
+  setSavedSessions(loadSessionHistory().filter((s) => s.studentMobile === student.mobile));
+  setSelectedSessionId(sessionId);
+
+  setClassSession(null);
   setRemainingSeconds(0);
+  setSessionTranscript("");
+
+  alert("Class ended and saved successfully.");
 };
 
   // syllabus
@@ -657,6 +681,7 @@ const [speed, setSpeed] = useState<"Slow" | "Normal" | "Fast">("Normal");
 
 const messagesEndRef = useRef<HTMLDivElement | null>(null);
 const messageIdRef = useRef(1);
+const lessonRequestInFlightRef = useRef(false);
 
 
 useEffect(() => {
@@ -1185,7 +1210,8 @@ useEffect(() => {
 
   // Start Lesson -> /api/generate-lesson + /api/lesson-audio
 const handleStartLesson = useCallback(async () => {
-  if (isStartingLesson) return;
+  if (isStartingLesson || lessonRequestInFlightRef.current) return;
+  lessonRequestInFlightRef.current = true;
 
   if (!currentSubject || !currentChapter || !currentTopic) {
     pushMessage(
@@ -1336,6 +1362,7 @@ const handleStartLesson = useCallback(async () => {
     console.error("handleStartLesson error:", err);
     setAudioError("Unexpected error while generating the lesson.");
   } finally {
+    lessonRequestInFlightRef.current = false;
     setIsStartingLesson(false);
     loadEntitlements();
   }
@@ -2936,6 +2963,7 @@ function ClassroomView(props: {
   const [isListening, setIsListening] = useState(false);
   const [realtimeStatus, setRealtimeStatus] = useState<string>("Ready");
   const [realtimeTranscript, setRealtimeTranscript] = useState("");
+  const lastRealtimeTranscriptRef = useRef("");
 
   const [topicTest, setTopicTest] = useState<TopicTestQuestion[] | null>(null);
   const [topicTestAnswers, setTopicTestAnswers] = useState<
@@ -3113,8 +3141,20 @@ const ensureRealtimeConnected = async (silent = false) => {
       onStatus: (s) => setRealtimeStatus(s),
       onError: (msg) => setRealtimeStatus(`Realtime error: ${msg}`),
       onTranscript: (text) => {
-        setRealtimeTranscript(text);
-        onAppendTranscript(text);
+        const safeText = String(text || "");
+
+        setRealtimeTranscript(safeText);
+
+        const previous = lastRealtimeTranscriptRef.current || "";
+
+        if (safeText && safeText.startsWith(previous)) {
+          const delta = safeText.slice(previous.length);
+          if (delta) onAppendTranscript(delta);
+        } else if (safeText && safeText !== previous) {
+          onAppendTranscript(`\n${safeText}`);
+        }
+
+        lastRealtimeTranscriptRef.current = safeText;
       },
     });
 
@@ -3207,7 +3247,7 @@ const handleToggleRealtime = async () => {
   const ent = await loadEntitlementsLocal();
   if (!ent?.features?.realtimeVoice) {
     setRealtimeStatus(
-      "Realtime voice is available only for paid or override access."
+      "Realtime voice is available only after subscription. You can continue text Q&A here, or open Payments manually."
     );
     onOpenPayments();
     return;
@@ -3253,7 +3293,7 @@ const handleMicToggle = async () => {
   const ent = await loadEntitlementsLocal();
   if (!ent?.features?.realtimeVoice) {
     setRealtimeStatus(
-      "Realtime voice is available only for paid or override access."
+      "Realtime voice is available only after subscription. You can continue text Q&A here, or open Payments manually."
     );
     onOpenPayments();
     return;
@@ -3266,11 +3306,13 @@ const handleMicToggle = async () => {
     }
 
     if (isListening) {
+      realtimeClient.stopMicAndSend();
       setIsListening(false);
-      setRealtimeStatus("Mic off");
+      setRealtimeStatus("Stopped listening. Teacher is answering...");
     } else {
+      await realtimeClient.startMic();
       setIsListening(true);
-      setRealtimeStatus("Listening...");
+      setRealtimeStatus("Listening... speak now.");
     }
   } catch (err: any) {
     console.error("mic toggle error:", err);
@@ -3389,6 +3431,21 @@ const handleStartTopicTest = async () => {
       console.error(err);
       setRealtimeStatus(err?.message || "Submit crashed.");
     }
+  };
+
+  const handleEndClassClick = () => {
+    try {
+      realtimeClient?.disconnect();
+    } catch {}
+
+    setRealtimeClient(null);
+    setIsRealtimeOn(false);
+    setIsListening(false);
+    setRealtimeStatus("Class ended and saved.");
+    setRealtimeTranscript("");
+    lastRealtimeTranscriptRef.current = "";
+
+    onEndClass();
   };
 
   const renderBoardVisual = () => {
@@ -3630,7 +3687,7 @@ const handleStartTopicTest = async () => {
 
           <button
             type="button"
-            onClick={onEndClass}
+            onClick={handleEndClassClick}
             className="w-full rounded-2xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
           >
             End Class & Save
@@ -3787,7 +3844,7 @@ const handleStartTopicTest = async () => {
     }`}
   >
     {isClassLive
-      ? `Live {Math.floor(remainingSeconds / 60)}m ${remainingSeconds % 60}s`
+      ? `Live ${Math.floor(remainingSeconds / 60)}m ${remainingSeconds % 60}s`
       : "Not started"}
   </div>
 

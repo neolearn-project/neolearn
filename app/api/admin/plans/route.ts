@@ -1,9 +1,42 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseKey =
   process.env.SUPABASE_SERVICE_ROLE || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+
+const FALLBACK_PLANS = [
+  {
+    id: 1,
+    code: "REGULAR_MONTHLY",
+    name: "Regular Monthly",
+    track: "regular",
+    price: 399,
+    validity_days: 30,
+    is_active: true,
+    sort_order: 1,
+  },
+  {
+    id: 2,
+    code: "REGULAR_QUARTERLY",
+    name: "Regular Quarterly",
+    track: "regular",
+    price: 1099,
+    validity_days: 90,
+    is_active: true,
+    sort_order: 2,
+  },
+  {
+    id: 3,
+    code: "COMPETITIVE_MONTHLY",
+    name: "Competitive Monthly",
+    track: "competitive",
+    price: 999,
+    validity_days: 30,
+    is_active: true,
+    sort_order: 3,
+  },
+];
 
 function getSupabase() {
   if (!supabaseUrl) throw new Error("NEXT_PUBLIC_SUPABASE_URL missing.");
@@ -30,15 +63,28 @@ export async function GET() {
       .order("id", { ascending: true });
 
     if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      console.error("plans GET Supabase error:", error);
+      return NextResponse.json({
+        ok: true,
+        plans: FALLBACK_PLANS,
+        fallback: true,
+        warning: error.message,
+      });
     }
 
-    return NextResponse.json({ ok: true, plans: data || [] });
+    return NextResponse.json({
+      ok: true,
+      plans: Array.isArray(data) && data.length > 0 ? data : FALLBACK_PLANS,
+      fallback: !Array.isArray(data) || data.length === 0,
+    });
   } catch (e: any) {
-    return NextResponse.json(
-      { ok: false, error: e?.message || "Failed to load plans." },
-      { status: e?.message === "Unauthorized" ? 401 : 500 }
-    );
+    console.error("plans GET fallback:", e);
+    return NextResponse.json({
+      ok: true,
+      plans: FALLBACK_PLANS,
+      fallback: true,
+      warning: e?.message || "Failed to load plans from database.",
+    });
   }
 }
 

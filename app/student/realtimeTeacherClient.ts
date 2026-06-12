@@ -194,6 +194,8 @@ export class RealtimeTeacherClient {
       this.ws?.close();
     } catch {}
     this.ws = null;
+    this.currentTranscript = "";
+    this.events.onTranscript?.("");
     this.stopAudio();
     this.stopMicInternal();
   }

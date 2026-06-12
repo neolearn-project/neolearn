@@ -1,7 +1,7 @@
 ﻿import Link from "next/link";
 import { COMPANY } from "@/app/lib/company";
 
-const STUDENT_LOGIN_URL = "https://app.neolearn.co.in/?login=student";
+const STUDENT_LOGIN_URL = "/?login=student";
 
 const plans = [
   {
