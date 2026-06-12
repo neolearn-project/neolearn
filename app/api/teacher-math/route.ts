@@ -88,8 +88,7 @@ try {
     const subjectDbId = String(body?.subjectDbId || "");
     const chapterDbId = String(body?.chapterDbId || "");
     const topicDbId = String(body?.topicDbId || "");
-
-    // âœ… Student identity
+// âœ… Student identity
 const studentMobile = String(body?.studentMobile || "").trim();
 
 // Prefer Supabase Auth UID (recommended)
@@ -102,6 +101,13 @@ const topicId = String(body?.topicId || "").trim();
     const teacher = getTeacherConfig(subjectId, classId);
     const chapter =
       teacher.chapters.find((c) => c.id === chapterId) || teacher.chapters[0];
+
+    const selectedSubjectName = String(body?.subject || teacher.displayName).trim();
+    const selectedChapterName = String(body?.chapter || chapter?.title || "").trim();
+    const selectedTopicName = String(body?.topic || "").trim();
+
+    const isRepeatRequest =
+      /\b(repeat|again|explain again|didnt get|didn't get|not understand|samjha nahi|dobara|fir se|phir se)\b/i.test(question);
 
     
     const boardLabel =
@@ -185,7 +191,7 @@ const languageInstruction =
     // If it fails, weâ€™ll adjust separately.
     // ------------------------
     try {
-      if (supabase && question && subjectDbId && chapterDbId && topicDbId) {
+      if (!isRepeatRequest && supabase && question && subjectDbId && chapterDbId && topicDbId) {
         // If your match_teacher_memory expects query_embedding instead of query_text,
         // we must change this. Leaving as-is ONLY if it works in your DB.
         const { data, error } = await supabase.rpc("match_teacher_memory", {
@@ -226,7 +232,7 @@ ${languageInstruction}
 Your job is to:
 - Restate the child's doubt in one simple line.
 - Explain step-by-step clearly.
-- Give 1â€“2 small worked examples related to ${chapter.title}.
+- Give 1 to 2 small worked examples related only to the selected topic: ${selectedTopicName || selectedChapterName || chapter.title}.
 - Use short, simple sentences.
 - End with one follow-up question to check understanding.
 `.trim();
