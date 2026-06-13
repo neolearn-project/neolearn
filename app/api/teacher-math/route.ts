@@ -102,12 +102,20 @@ const topicId = String(body?.topicId || "").trim();
     const chapter =
       teacher.chapters.find((c) => c.id === chapterId) || teacher.chapters[0];
 
-    const selectedSubjectName = String(body?.subject || teacher.displayName).trim();
-    const selectedChapterName = String(body?.chapter || chapter?.title || "").trim();
-    const selectedTopicName = String(body?.topic || "").trim();
+    const selectedSubjectName = String(
+      body?.selectedSubject || body?.subject || teacher.displayName
+    ).trim();
+
+    const selectedChapterName = String(
+      body?.selectedChapter || body?.chapter || chapter?.title || ""
+    ).trim();
+
+    const selectedTopicName = String(
+      body?.selectedTopic || body?.topic || ""
+    ).trim();
 
     const isRepeatRequest =
-      /\b(repeat|again|explain again|didnt get|didn't get|not understand|samjha nahi|dobara|fir se|phir se)\b/i.test(question);
+      /\b(repeat|again|explain again|didnt get|didn't get|did not get|not understand|did not understand|don't understand|samjha nahi|dobara|fir se|phir se)\b/i.test(question);
 
     
     const boardLabel =

@@ -1270,19 +1270,16 @@ const handleStartLesson = useCallback(async () => {
     return;
   }
 
+  const now = Date.now();
   setSessionTranscript("");
-  setClassSession((prev) => {
-    if (prev?.isLive) return prev;
-    const now = Date.now();
-    return {
-      id: crypto.randomUUID(),
-      startTime: now,
-      endTime: now + 40 * 60 * 1000,
-      isLive: true,
-      subjects: [currentSubject.subject_name],
-    };
+  setClassSession({
+    id: crypto.randomUUID(),
+    startTime: now,
+    endTime: now + 40 * 60 * 1000,
+    isLive: true,
+    subjects: [currentSubject.subject_name],
   });
-  setRemainingSeconds((prev) => (prev > 0 ? prev : 40 * 60));
+  setRemainingSeconds(40 * 60);
 
   setAudioUrl((old) => {
     if (old && old.startsWith("blob:")) {
@@ -1464,23 +1461,32 @@ const handleStartLesson = useCallback(async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         question: trimmed,
-        studentId: student?.studentId || "",
-        subjectDbId: String(currentSubject?.id ?? ""),
-        chapterDbId: String(currentChapter?.id ?? ""),
-        topicDbId: String(currentTopic?.id ?? ""),
-        subjectId: currentSubject?.subject_code || "maths6",
-        classId: effectiveStudentClassId,
-        studentMobile: student?.mobile,
+
+        // full selected context - prevents fallback to maths/fractions
         board: "cbse",
-        lang:
-          language === "Hindi"
-            ? "hi"
-            : language === "Bengali"
-            ? "bn"
-            : "en",
-        subject: currentSubject?.subject_name,
-        chapter: currentChapter?.chapter_name,
-        topic: currentTopic?.topic_name,
+        classId: String(student?.classId || "6"),
+        classLevel: `Class ${student?.classId || "6"}`,
+        lang: getLangCode(language),
+        language: getLangCode(language),
+
+        subject: currentSubject.subject_name,
+        chapter: currentChapter.chapter_name,
+        topic: currentTopic.topic_name,
+
+        subjectId: String(currentSubject.id),
+        chapterId: String(currentChapter.id),
+        topicId: String(currentTopic.id),
+
+        subjectDbId: String(currentSubject.id),
+        chapterDbId: String(currentChapter.id),
+        topicDbId: String(currentTopic.id),
+
+        selectedSubject: currentSubject.subject_name,
+        selectedChapter: currentChapter.chapter_name,
+        selectedTopic: currentTopic.topic_name,
+
+        studentMobile: student?.mobile,
+        studentId: (student as any)?.student_id || (student as any)?.id || "",
       }),
     });
 
