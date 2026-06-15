@@ -414,6 +414,23 @@ const [classSession, setClassSession] = useState<ClassSession | null>(null);
 const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
 // Store the full realtime transcript for this class session
 const [sessionTranscript, setSessionTranscript] = useState<string>("");
+const sessionTranscriptRef = useRef<string>("");
+
+const resetSessionTranscript = useCallback(() => {
+  sessionTranscriptRef.current = "";
+  setSessionTranscript("");
+}, []);
+
+const appendSessionTranscript = useCallback((line: string) => {
+  const clean = String(line || "").trim();
+  if (!clean) return;
+
+  sessionTranscriptRef.current = [sessionTranscriptRef.current.trim(), clean]
+    .filter(Boolean)
+    .join("\n\n");
+
+  setSessionTranscript(sessionTranscriptRef.current);
+}, []);
 
   const handleLogout = () => {
     if (typeof window !== "undefined") {
@@ -477,7 +494,7 @@ const endClassSession = () => {
     .slice(-30);
 
   const transcriptText =
-    sessionTranscript.trim() ||
+    sessionTranscriptRef.current.trim() ||
     fallbackMessages
       .map((m) => `${m.author}: ${m.text}`)
       .join("\n\n")
@@ -514,7 +531,7 @@ const endClassSession = () => {
 
   setClassSession(null);
   setRemainingSeconds(0);
-  setSessionTranscript("");
+  resetSessionTranscript();
 
   alert("Class ended and saved successfully.");
 };
@@ -1271,7 +1288,7 @@ const handleStartLesson = useCallback(async () => {
   }
 
   const now = Date.now();
-  setSessionTranscript("");
+  resetSessionTranscript();
   setClassSession({
     id: crypto.randomUUID(),
     startTime: now,
