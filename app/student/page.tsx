@@ -484,21 +484,7 @@ const endClassSession = () => {
   const chapter = currentChapter?.chapter_name || "Unknown Chapter";
   const topic = currentTopic?.topic_name || "Unknown Topic";
 
-  const fallbackMessages = messages
-    .filter((m) => {
-      const text = String(m.text || "").trim();
-      if (!text) return false;
-      if (text.includes("Select your subject, chapter, and topic")) return false;
-      return true;
-    })
-    .slice(-30);
-
-  const transcriptText =
-    sessionTranscriptRef.current.trim() ||
-    fallbackMessages
-      .map((m) => `${m.author}: ${m.text}`)
-      .join("\n\n")
-      .trim();
+  const transcriptText = sessionTranscriptRef.current.trim();
 
   if (!transcriptText) {
     alert("No class transcript or chat found to save.");
@@ -1289,6 +1275,7 @@ const handleStartLesson = useCallback(async () => {
 
   const now = Date.now();
   resetSessionTranscript();
+  setMessages([]);
   setClassSession({
     id: crypto.randomUUID(),
     startTime: now,

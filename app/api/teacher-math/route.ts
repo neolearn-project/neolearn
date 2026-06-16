@@ -115,7 +115,7 @@ const topicId = String(body?.topicId || "").trim();
     ).trim();
 
     const isRepeatRequest =
-      /\b(repeat|again|explain again|didnt get|didn't get|did not get|not understand|did not understand|dont understand|don't understand|i dont understand|i don't understand|confused|samjha nahi|dobara|fir se|phir se)\b/i.test(question);
+      /\b(repeat|again|explain again|didnt get|didn't get|did not get|not understand|did not understand|dont understand|don't understand|i dont understand|i don't understand|confused|samjha nahi|samajh nahi|samajh nehi|samajh me nahi|samajh me nehi|samajh me nahi aaya|samajh me nehi aaya|samajh mein nahi|samajh mein nehi|dobara|fir se|phir se)\b/i.test(question);
 
     
     const boardLabel =
