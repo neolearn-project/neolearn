@@ -125,6 +125,61 @@ const topicId = String(body?.topicId || "").trim();
         ? "TBSE / Tripura Board"
         : "CBSE (NCERT)";
 
+    // HARD TOPIC LOCK: Lines and Angles -> Point
+    // Prevents wrong interpretation as decimal point / place value.
+    const qLowerForTopicLock = question.toLowerCase();
+    const chapterLowerForTopicLock = selectedChapterName.toLowerCase();
+    const topicLowerForTopicLock = selectedTopicName.toLowerCase();
+
+    const isGenericConfusionOrRepeat =
+      qLowerForTopicLock.includes("repeat") ||
+      qLowerForTopicLock.includes("again") ||
+      qLowerForTopicLock.includes("understand") ||
+      qLowerForTopicLock.includes("confused") ||
+      qLowerForTopicLock.includes("doubt") ||
+      qLowerForTopicLock.includes("samajh") ||
+      qLowerForTopicLock.includes("nahi") ||
+      qLowerForTopicLock.includes("nehi");
+
+    const isLinesAnglesPoint =
+      chapterLowerForTopicLock.includes("line") &&
+      chapterLowerForTopicLock.includes("angle") &&
+      topicLowerForTopicLock.includes("point");
+
+    if (isLinesAnglesPoint && isGenericConfusionOrRepeat) {
+      const answer = [
+        "Restating your doubt: You want me to explain Point again in Lines and Angles.",
+        "",
+        "A point is an exact position or location.",
+        "We show a point by a small dot on paper.",
+        "A point has no length, no breadth, and no height.",
+        "It has no size. It only shows one exact place.",
+        "We usually name a point with a capital letter like A, B, C, or P.",
+        "",
+        "Example 1:",
+        "Draw a small dot on your notebook and write A beside it. This is point A.",
+        "",
+        "Example 2:",
+        "Draw two dots and name them B and C. These are two different points. Later, we can join two points to make a line segment.",
+        "",
+        "Remember: this is a geometry point in Lines and Angles. It is not a decimal point.",
+        "",
+        "Follow-up question: Can you draw one dot and name it point P?"
+      ].join("\n");
+
+      return NextResponse.json(
+        {
+          answer,
+          modelUsed: "rule-lines-angles-point",
+          cached: false,
+          source: "topic-lock",
+          audio: null,
+        },
+        { status: 200 }
+      );
+    }
+
+
     // ------------------------
     // Clients
     // ------------------------
