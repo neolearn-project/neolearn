@@ -184,6 +184,76 @@ const topicId = String(body?.topicId || "").trim();
     // Clients
     // ------------------------
     const openai = getOpenAIClient();
+
+    // DIRECT TOPIC LOCK FOR REPEAT / CONFUSION QUESTIONS
+    // Bypasses memory/persona/weak-topic fallback to avoid wrong old chapters.
+    if (isRepeatRequest && selectedTopicName) {
+      if (!openai) {
+        return NextResponse.json(
+          { error: "Teacher unavailable (missing OpenAI API key)." },
+          { status: 500 }
+        );
+      }
+
+      const directPrompt = `
+You are a kind Indian school teacher.
+
+The student is confused and wants the current lesson repeated.
+
+STRICT CURRENT CONTEXT:
+Subject: ${selectedSubjectName}
+Chapter: ${selectedChapterName}
+Topic: ${selectedTopicName}
+Class: ${teacher.classId}
+Board: ${boardLabel}
+
+Student message: ${question}
+
+Rules:
+- Explain ONLY the selected topic above.
+- Do NOT explain Knowing Our Numbers unless the selected topic/chapter is actually Knowing Our Numbers.
+- Do NOT explain place value, face value, decimals, fractions, or number system unless that is the selected topic.
+- Do NOT use old memory, old weak topic, or any previous lesson.
+- If Subject is English, explain the selected story/literature topic only.
+- If Subject is Science, explain the selected science topic only.
+- If Subject is Sanskrit or Hindi, explain the selected grammar/literature topic only.
+- Use simple child-friendly language.
+- Start with: "Restating your doubt:"
+- Then explain in 4 to 6 short steps.
+- Give 1 or 2 examples from the selected topic.
+- End with one follow-up question.
+`.trim();
+
+      const directResponse = await openai.responses.create({
+        model: "gpt-5-mini",
+        input: [
+          {
+            role: "system",
+            content:
+              "You must obey the selected subject, chapter, and topic exactly. Never switch to another chapter.",
+          },
+          {
+            role: "user",
+            content: directPrompt,
+          },
+        ],
+      });
+
+      const answer = String((directResponse as any).output_text || "").trim();
+
+      return NextResponse.json(
+        {
+          answer:
+            answer ||
+            `Restating your doubt: You want me to explain ${selectedTopicName} again.\n\nThis topic belongs to ${selectedSubjectName}, chapter ${selectedChapterName}. Let us understand this same topic step by step.`,
+          modelUsed: "direct-repeat-topic-lock",
+          cached: false,
+          source: "direct-topic-lock",
+          audio: null,
+        },
+        { status: 200 }
+      );
+    }
     if (!openai) {
       return NextResponse.json(
         { error: "Teacher unavailable (missing OpenAI API key)." },
