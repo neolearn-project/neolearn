@@ -115,7 +115,7 @@ const topicId = String(body?.topicId || "").trim();
     ).trim();
 
     const isRepeatRequest =
-      /\b(repeat|again|explain again|didnt get|didn't get|did not get|not understand|did not understand|dont understand|don't understand|i dont understand|i don't understand|confused|samjha nahi|samajh nahi|samajh nehi|samajh me nahi|samajh me nehi|samajh me nahi aaya|samajh me nehi aaya|samajh mein nahi|samajh mein nehi|dobara|fir se|phir se)\b/i.test(question);
+      /\b(repeat|again|explain again|describe again|explain it again|describe this chapter|cant understand|can't understand|cannot understand|i cant understand|i can't understand|didnt get|didn't get|did'nt get|did not get|not understand|did not understand|dont understand|don't understand|i dont understand|i don't understand|confused|ok|okay|samjha nahi|samajh nahi|samajh nehi|samajh me nahi|samajh me nehi|samajh me nahi aaya|samajh me nehi aaya|samajh mein nahi|samajh mein nehi|dobara|fir se|phir se)\b/i.test(question);
 
     
     const boardLabel =
@@ -187,7 +187,7 @@ const topicId = String(body?.topicId || "").trim();
 
     // DIRECT TOPIC LOCK FOR REPEAT / CONFUSION QUESTIONS
     // Bypasses memory/persona/weak-topic fallback to avoid wrong old chapters.
-    if (isRepeatRequest && selectedTopicName) {
+    if (selectedTopicName) {
       if (!openai) {
         return NextResponse.json(
           { error: "Teacher unavailable (missing OpenAI API key)." },
@@ -198,7 +198,7 @@ const topicId = String(body?.topicId || "").trim();
       const directPrompt = `
 You are a kind Indian school teacher.
 
-The student is confused and wants the current lesson repeated.
+The student is asking a doubt or response inside the current lesson. Answer only inside the selected subject, chapter, and topic.
 
 STRICT CURRENT CONTEXT:
 Subject: ${selectedSubjectName}
@@ -210,7 +210,7 @@ Board: ${boardLabel}
 Student message: ${question}
 
 Rules:
-- Explain ONLY the selected topic above.
+- Explain or respond ONLY about the selected topic above.
 - Do NOT explain Knowing Our Numbers unless the selected topic/chapter is actually Knowing Our Numbers.
 - Do NOT explain place value, face value, decimals, fractions, or number system unless that is the selected topic.
 - Do NOT use old memory, old weak topic, or any previous lesson.
@@ -324,7 +324,7 @@ const languageInstruction =
     // If it fails, weâ€™ll adjust separately.
     // ------------------------
     try {
-      if (!isRepeatRequest && supabase && question && subjectDbId && chapterDbId && topicDbId) {
+      if (false && !isRepeatRequest && supabase && question && subjectDbId && chapterDbId && topicDbId) {
         // If your match_teacher_memory expects query_embedding instead of query_text,
         // we must change this. Leaving as-is ONLY if it works in your DB.
         const { data, error } = await supabase.rpc("match_teacher_memory", {
