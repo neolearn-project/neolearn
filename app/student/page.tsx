@@ -484,7 +484,21 @@ const endClassSession = () => {
   const chapter = currentChapter?.chapter_name || "Unknown Chapter";
   const topic = currentTopic?.topic_name || "Unknown Topic";
 
-  const transcriptText = sessionTranscriptRef.current.trim();
+  const currentVisibleMessages = messages
+    .filter((m) => {
+      const t = String(m.text || "").trim();
+      if (!t) return false;
+      if (t.includes("Select your subject, chapter, and topic")) return false;
+      return true;
+    });
+
+  const transcriptText =
+    sessionTranscriptRef.current.trim() ||
+    sessionTranscript.trim() ||
+    currentVisibleMessages
+      .map((m) => `${m.author}: ${m.text}`)
+      .join("\n\n")
+      .trim();
 
   if (!transcriptText) {
     alert("No class transcript or chat found to save.");
