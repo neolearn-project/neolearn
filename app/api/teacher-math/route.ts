@@ -210,6 +210,16 @@ Board: ${boardLabel}
 Student message: ${question}
 
 Rules:
+- SANSKRIT ACCURACY GUARD:
+  If Subject is Sanskrit, keep Sanskrit examples grammatically correct.
+  Do not convert Sanskrit forms into Hindi plural words.
+  Explain meaning in simple Hindi or English, but examples must remain Sanskrit.
+  For Sanskrit neuter noun examples, use:
+  फलम् → फले → फलानि
+  पुस्तकम् → पुस्तके → पुस्तकानि
+  गृहम् → गृहे → गृहाणि
+  पत्रम् → पत्रे → पत्राणि
+  Never write doubtful mixed forms like "पुस्तकें?" when the correct Sanskrit form is "पुस्तके".
 - Explain or respond ONLY about the selected topic above.
 - Do NOT explain Knowing Our Numbers unless the selected topic/chapter is actually Knowing Our Numbers.
 - Do NOT explain place value, face value, decimals, fractions, or number system unless that is the selected topic.
@@ -230,7 +240,7 @@ Rules:
           {
             role: "system",
             content:
-              "You must obey the selected subject, chapter, and topic exactly. Never switch to another chapter.",
+              "You must obey the selected subject, chapter, and topic exactly. Never switch to another chapter. For Sanskrit, examples must use correct Sanskrit grammar forms and must not be converted into Hindi plural forms.",
           },
           {
             role: "user",
