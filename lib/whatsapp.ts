@@ -114,3 +114,68 @@ export async function sendWeeklySummaryWhatsApp(to: string, message: string) {
   return sendWhatsAppText(to, message);
 }
 
+
+
+/**
+ * Send an approved WhatsApp template message using Cloud API.
+ * Required when the user has not messaged the business number within 24 hours.
+ */
+export async function sendWhatsAppTemplate(opts: {
+  to: string;
+  templateName: string;
+  languageCode?: string;
+  components?: any[];
+}): Promise<any> {
+  if (!isWhatsAppConfigured()) {
+    console.warn("WA not configured, skipping template send");
+    return { skipped: true, reason: "WA not configured" };
+  }
+
+  const phone = normalizePhone(opts.to);
+  const token = process.env.WA_ACCESS_TOKEN!;
+  const phoneId = process.env.WA_PHONE_NUMBER_ID!;
+
+  const url = `${PAGE_URL}/${phoneId}/messages`;
+
+  const payload: any = {
+    messaging_product: "whatsapp",
+    to: phone,
+    type: "template",
+    template: {
+      name: opts.templateName,
+      language: {
+        code: opts.languageCode || "en",
+      },
+    },
+  };
+
+  if (Array.isArray(opts.components) && opts.components.length > 0) {
+    payload.template.components = opts.components;
+  }
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json().catch(async () => {
+    const raw = await res.text().catch(() => "");
+    return { raw };
+  });
+
+  if (!res.ok) {
+    console.error("WhatsApp template send error:", data);
+    throw new Error(
+      data?.error?.message ||
+        data?.raw ||
+        `WhatsApp template send failed with status ${res.status}`
+    );
+  }
+
+  console.log("WhatsApp template sent OK to", phone, data);
+  return data;
+}
