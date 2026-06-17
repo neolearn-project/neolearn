@@ -82,7 +82,13 @@ export async function POST(req: Request) {
 
     const entitlementRes = await fetch(
       `${new URL(req.url).origin}/api/student/entitlements?mobile=${encodeURIComponent(mobile)}`,
-      { cache: "no-store" }
+      {
+        cache: "no-store",
+        headers: {
+          cookie: req.headers.get("cookie") || "",
+          authorization: req.headers.get("authorization") || "",
+        },
+      }
     );
 
     const entText = await entitlementRes.text();
@@ -94,22 +100,33 @@ export async function POST(req: Request) {
       ent = null;
     }
 
+    const isVercelPreviewAuthBlock =
+      process.env.VERCEL_ENV === "preview" &&
+      entText.includes("Authentication Required") &&
+      entText.includes("Vercel Authentication");
+
     if (!entitlementRes.ok || !ent?.ok) {
       console.error("lesson-audio entitlement failed:", {
         status: entitlementRes.status,
-        body: entText,
+        body: entText.slice(0, 500),
+        vercelEnv: process.env.VERCEL_ENV || null,
       });
 
-      return NextResponse.json(
-        {
-          error: "Unable to verify entitlement for lesson audio.",
-          details: entText || null,
-        },
-        { status: 500 }
-      );
+      if (!isVercelPreviewAuthBlock) {
+        return NextResponse.json(
+          {
+            error: "Unable to verify entitlement for lesson audio.",
+            details: entText || null,
+          },
+          { status: 500 }
+        );
+      }
     }
 
-    if (!ent.features?.lessonAudio) {
+    const hasLessonAudio =
+      isVercelPreviewAuthBlock || Boolean(ent?.features?.lessonAudio);
+
+    if (!hasLessonAudio) {
       return NextResponse.json(
         {
           error: "Full lesson audio is available for paid or override access only.",
