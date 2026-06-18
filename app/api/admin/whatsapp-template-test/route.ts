@@ -14,33 +14,41 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => null);
 
     const to = String(body?.to || "").trim();
-    const templateName = String(body?.templateName || "neolearn_signup_welcome").trim();
+    const templateName = String(body?.templateName || "").trim();
     const languageCode = String(body?.languageCode || "en").trim();
+    const bodyParams = Array.isArray(body?.bodyParams) ? body.bodyParams.map(String) : [];
 
-    if (!to) {
-      return NextResponse.json({ ok: false, error: "Missing to number." }, { status: 400 });
+    if (!to || !templateName) {
+      return NextResponse.json(
+        { ok: false, error: "to and templateName are required." },
+        { status: 400 }
+      );
     }
+
+    const components =
+      bodyParams.length > 0
+        ? [
+            {
+              type: "body",
+              parameters: bodyParams.map((value: string) => ({
+                type: "text",
+                text: String(value ?? ""),
+              })),
+            },
+          ]
+        : [];
 
     const result = await sendWhatsAppTemplate({
       to,
       templateName,
       languageCode,
-      components: Array.isArray(body?.components) ? body.components : undefined,
+      components,
     });
 
-    return NextResponse.json({
-      ok: true,
-      to,
-      templateName,
-      languageCode,
-      result,
-    });
+    return NextResponse.json({ ok: true, result });
   } catch (err: any) {
     return NextResponse.json(
-      {
-        ok: false,
-        error: err?.message || "WhatsApp template test failed",
-      },
+      { ok: false, error: err?.message || "WhatsApp template test failed" },
       { status: 500 }
     );
   }
