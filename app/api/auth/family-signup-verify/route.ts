@@ -1,7 +1,7 @@
 ﻿import { NextResponse } from "next/server";
 import twilio from "twilio";
 import { supabaseAdmin } from "@/app/lib/supabaseAdmin";
-import { sendWhatsAppText, isWhatsAppConfigured } from "@/lib/whatsapp";
+import { sendWhatsAppText, sendWhatsAppTemplate, isWhatsAppConfigured } from "@/lib/whatsapp";
 
 type Track = "regular" | "competitive";
 
@@ -389,16 +389,62 @@ export async function POST(req: Request) {
         "- NeoLearn",
       ].join("\n");
 
+      const signupTemplateComponents = [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: studentName || "Student" },
+            { type: "text", text: studentUserId || "student" },
+            {
+              type: "text",
+              text:
+                track === "regular"
+                  ? `Regular School - ${board || "CBSE"}`
+                  : `Competitive Exam - ${competitiveExam || "Competitive"}`,
+            },
+            {
+              type: "text",
+              text:
+                track === "regular"
+                  ? `Class ${classNumber || ""}`.trim()
+                  : String(competitiveExam || "Competitive"),
+            },
+          ],
+        },
+      ];
+
       try {
-        await sendWhatsAppText(parentMobile, parentWelcomeMessage);
+        await sendWhatsAppTemplate({
+          to: parentMobile,
+          templateName: "neolearn_signup_welcome",
+          languageCode: "en",
+          components: signupTemplateComponents,
+        });
       } catch (waErr) {
-        console.error("WA parent welcome send error in family-signup-verify:", waErr);
+        console.error("WA parent template welcome send error in family-signup-verify:", waErr);
+
+        try {
+          await sendWhatsAppText(parentMobile, parentWelcomeMessage);
+        } catch (fallbackErr) {
+          console.error("WA parent fallback text send error in family-signup-verify:", fallbackErr);
+        }
       }
 
       try {
-        await sendWhatsAppText(studentMobile, studentWelcomeMessage);
+        await sendWhatsAppTemplate({
+          to: studentMobile,
+          templateName: "neolearn_signup_welcome",
+          languageCode: "en",
+          components: signupTemplateComponents,
+        });
       } catch (waErr) {
-        console.error("WA student welcome send error in family-signup-verify:", waErr);
+        console.error("WA student template welcome send error in family-signup-verify:", waErr);
+
+        try {
+          await sendWhatsAppText(studentMobile, studentWelcomeMessage);
+        } catch (fallbackErr) {
+          console.error("WA student fallback text send error in family-signup-verify:", fallbackErr);
+        }
       }
     }
 return NextResponse.json(
