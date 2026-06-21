@@ -389,7 +389,19 @@ export async function POST(req: Request) {
         "- NeoLearn",
       ].join("\n");
 
-      const signupTemplateComponents = [
+      const parentSignupTemplateComponents = [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: parentName || "Parent" },
+            { type: "text", text: studentName || "Student" },
+            { type: "text", text: studentUserId || "student" },
+            { type: "text", text: learningTrackLabel },
+          ],
+        },
+      ];
+
+      const studentSignupTemplateComponents = [
         {
           type: "body",
           parameters: [
@@ -403,9 +415,9 @@ export async function POST(req: Request) {
       try {
         await sendWhatsAppTemplate({
           to: parentMobile,
-          templateName: "neolearn_signup_welcome_student",
+          templateName: "neolearn_signup_welcome_parent",
           languageCode: "en",
-          components: signupTemplateComponents,
+          components: parentSignupTemplateComponents,
         });
       } catch (waErr) {
         console.error("WA parent template welcome send error in family-signup-verify:", waErr);
@@ -422,7 +434,7 @@ export async function POST(req: Request) {
           to: studentMobile,
           templateName: "neolearn_signup_welcome_student",
           languageCode: "en",
-          components: signupTemplateComponents,
+          components: studentSignupTemplateComponents,
         });
       } catch (waErr) {
         console.error("WA student template welcome send error in family-signup-verify:", waErr);
