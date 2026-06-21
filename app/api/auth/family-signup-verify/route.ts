@@ -395,20 +395,7 @@ export async function POST(req: Request) {
           parameters: [
             { type: "text", text: studentName || "Student" },
             { type: "text", text: studentUserId || "student" },
-            {
-              type: "text",
-              text:
-                track === "regular"
-                  ? `Regular School - ${board || "CBSE"}`
-                  : `Competitive Exam - ${competitiveExam || "Competitive"}`,
-            },
-            {
-              type: "text",
-              text:
-                track === "regular"
-                  ? `Class ${classNumber || ""}`.trim()
-                  : String(competitiveExam || "Competitive"),
-            },
+            { type: "text", text: learningTrackLabel },
           ],
         },
       ];
@@ -416,7 +403,7 @@ export async function POST(req: Request) {
       try {
         await sendWhatsAppTemplate({
           to: parentMobile,
-          templateName: "neolearn_signup_welcome",
+          templateName: "neolearn_signup_welcome_student",
           languageCode: "en",
           components: signupTemplateComponents,
         });
@@ -433,7 +420,7 @@ export async function POST(req: Request) {
       try {
         await sendWhatsAppTemplate({
           to: studentMobile,
-          templateName: "neolearn_signup_welcome",
+          templateName: "neolearn_signup_welcome_student",
           languageCode: "en",
           components: signupTemplateComponents,
         });
