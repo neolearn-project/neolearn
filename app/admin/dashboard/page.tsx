@@ -604,7 +604,7 @@ async function updateFeatureFlag(key: string, enabled: boolean) {
                   <td className="px-4 py-3 font-medium">{plan.code}</td>
                   <td className="px-4 py-3">{plan.name}</td>
                   <td className="px-4 py-3 capitalize">{plan.track}</td>
-                  <td className="px-4 py-3">â‚¹{plan.price}</td>
+                  <td className="px-4 py-3">₹{plan.price}</td>
                   <td className="px-4 py-3">{plan.validity_days} days</td>
                   <td className="px-4 py-3">{plan.is_active ? "Yes" : "No"}</td>
                   <td className="px-4 py-3">{plan.sort_order}</td>

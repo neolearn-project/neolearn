@@ -289,7 +289,7 @@ export default function SignupForm({
     return (
       <div ref={formTopRef} className="space-y-4 rounded-2xl border border-green-200 bg-green-50 p-4">
         <div>
-          <div className="text-base font-semibold text-green-800">Family signup successful âœ…</div>
+          <div className="text-base font-semibold text-green-800">Family signup successful</div>
           <p className="mt-1 text-sm text-green-700">
             Parent and student accounts have been created successfully.
           </p>

@@ -25,7 +25,7 @@ export default function LeadForm() {
       });
       const js = await res.json();
       if (!res.ok) throw new Error(js?.error || "Failed");
-      setMsg("Thanks! Weâ€™ll confirm on WhatsApp shortly.");
+      setMsg("Thanks! We'll confirm on WhatsApp shortly.");
       setName(""); setKlass(""); setPhone("");
     } catch (err: any) {
       setMsg("Could not submit. Please try again.");

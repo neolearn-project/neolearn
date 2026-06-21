@@ -43,7 +43,7 @@ export default function ChatWidget() {
       addMessage({
         from: "bot",
         text:
-          "To book a free demo, please fill the form above on this page with your childâ€™s name, class, and your WhatsApp number. You will get a confirmation message on WhatsApp.",
+          "To book a free demo, please fill the form above on this page with your child's name, class, and your WhatsApp number. You will get a confirmation message on WhatsApp.",
       });
     } else {
       addMessage({

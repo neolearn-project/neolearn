@@ -309,7 +309,7 @@ export default function ParentDashboardPage() {
   if (!parentMobile) {
     return (
       <div className="min-h-screen flex items-center justify-center text-sm text-gray-500">
-        Redirecting to parent loginâ€¦
+        Redirecting to parent login…
       </div>
     );
   }
@@ -349,7 +349,7 @@ export default function ParentDashboardPage() {
             )}
           </div>
 
-          {loading && <p className="text-xs text-gray-500">Loading child profiles from serverâ€¦</p>}
+          {loading && <p className="text-xs text-gray-500">Loading child profiles from server…</p>}
           {status && !loading && <p className="text-[11px] text-gray-600">{status}</p>}
 
           {children.length > 0 && (
@@ -434,9 +434,9 @@ export default function ParentDashboardPage() {
                   )}
                   {masteryRows.map((row, idx) => (
                     <tr key={`${row.topic}-${idx}`} className="border-b last:border-0">
-                      <td className="py-1 pr-2">{row.topic || "â€”"}</td>
+                      <td className="py-1 pr-2">{row.topic || "—"}</td>
                       <td className="py-1 pr-2">{row.mastery_level}</td>
-                      <td className="py-1">{row.last_practiced_at ? new Date(row.last_practiced_at).toLocaleDateString() : "â€”"}</td>
+                      <td className="py-1">{row.last_practiced_at ? new Date(row.last_practiced_at).toLocaleDateString() : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -444,7 +444,7 @@ export default function ParentDashboardPage() {
             </div>
           </div>
 
-          {masteryLoading && <p className="text-xs text-gray-500">Loading analyticsâ€¦</p>}
+          {masteryLoading && <p className="text-xs text-gray-500">Loading analytics…</p>}
           {masteryError && <p className="text-xs text-rose-600">{masteryError}</p>}
         </section>
 
@@ -649,7 +649,7 @@ export default function ParentDashboardPage() {
               disabled={saving}
               className="w-full rounded-xl bg-emerald-600 text-white text-sm font-semibold py-2 hover:bg-emerald-700 disabled:opacity-60"
             >
-              {saving ? "Savingâ€¦" : "Save Child Profile"}
+              {saving ? "Saving…" : "Save Child Profile"}
             </button>
           </form>
         </section>

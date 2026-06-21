@@ -165,7 +165,7 @@ export default function TeacherBot() {
         <textarea
           className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           rows={3}
-          placeholder="Example: Sir/Ma'am, I donâ€™t understand how to add fractions like 3/4 + 1/6."
+          placeholder="Example: Sir/Ma'am, I don't understand how to add fractions like 3/4 + 1/6."
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
         />
@@ -180,7 +180,7 @@ export default function TeacherBot() {
       </form>
 
       {mode === "loading" && (
-        <div className="text-xs text-gray-500">Teacher is thinkingâ€¦</div>
+        <div className="text-xs text-gray-500">Teacher is thinking…</div>
       )}
 
       {/* POPUP ANSWER MODAL */}
@@ -196,7 +196,7 @@ export default function TeacherBot() {
                 className="ml-2 rounded-full px-2 text-sm text-gray-500 hover:bg-gray-100"
                 onClick={() => setShowPopup(false)}
               >
-                âœ•
+                ×
               </button>
             </div>
 
@@ -223,7 +223,7 @@ export default function TeacherBot() {
               </div>
               <div>
                 <span className="font-semibold">Doubt:</span>{" "}
-                <span className="text-gray-700">{question || "â€”"}</span>
+                <span className="text-gray-700">{question || "—"}</span>
               </div>
             </div>
 

@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 1ï¸âƒ£ Read parentâ€“child links
+    // 1ï¸âƒ£ Read parent–child links
     const { data: children, error: childErr } = await supabase
       .from("children")
       .select("parent_mobile, child_mobile, child_name");
@@ -59,12 +59,12 @@ export async function GET(req: NextRequest) {
 ðŸ‘¦ Student: *${childName}*
 ðŸ“… Week: ${w.weekStart} â†’ ${w.weekEnd}
 
-âœ… Topics completed: ${w.topicsCompleted}
+✅ Topics completed: ${w.topicsCompleted}
 ðŸ“ Tests taken: ${w.testsTaken}
 ðŸ“Š Average score: ${w.avgScore ?? "N/A"}%
 
 Keep supporting ${childName}'s learning journey! ðŸŒ±
-â€” NeoLearn`;
+— NeoLearn`;
 
       await sendWhatsAppText(parentMobile, msg);
     }

@@ -56,7 +56,7 @@ const [overwrite, setOverwrite] = useState(false);
         data.subject?.chapters?.length ?? 0;
 
       setStatus(
-        `âœ… Done! AI syllabus JSON generated successfully` +
+        `✅ Done! AI syllabus JSON generated successfully` +
           (chaptersCount
             ? ` with about ${chaptersCount} chapters.`
             : ".") +
@@ -136,7 +136,7 @@ const [overwrite, setOverwrite] = useState(false);
               value={subjectName}
               onChange={(e) => setSubjectName(e.target.value)}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              placeholder="Mathematics / Science / English â€¦"
+              placeholder="Mathematics / Science / English …"
             />
           </div>
 
@@ -149,7 +149,7 @@ const [overwrite, setOverwrite] = useState(false);
               value={subjectCode}
               onChange={(e) => setSubjectCode(e.target.value)}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              placeholder="maths6 / sci6 / eng6 â€¦"
+              placeholder="maths6 / sci6 / eng6 …"
             />
           </div>
               <div>

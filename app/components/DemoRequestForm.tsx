@@ -25,7 +25,7 @@ export default function DemoRequestForm() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed");
-      setMsg("Request submitted âœ…. Weâ€™ll confirm your slot on WhatsApp.");
+      setMsg("Request submitted ✅. We'll confirm your slot on WhatsApp.");
       setStudentName(""); setParentPhone("");
     } catch (err: any) {
       setMsg(`Error: ${err.message || "Something went wrong"}`);
@@ -59,7 +59,7 @@ export default function DemoRequestForm() {
 
       <button type="submit" disabled={loading}
         className="bg-blue-600 text-white rounded px-4 py-2 disabled:opacity-60">
-        {loading ? "Submittingâ€¦" : "Request Demo"}
+        {loading ? "Submitting…" : "Request Demo"}
       </button>
 
       {msg && <p className="text-sm pt-2">{msg}</p>}

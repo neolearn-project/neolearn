@@ -136,12 +136,12 @@ export async function GET(req: NextRequest) {
         `Dear Parent,`,
         `This is the progress report for ${s.studentName}:`,
         ``,
-        `â€¢ Topics completed: ${s.topicsCompleted}`,
-        `â€¢ Tests taken: ${s.testsTaken}`,
-        avgScore !== null ? `â€¢ Average score: ${avgScore}%` : `â€¢ Average score: N/A`,
+        `• Topics completed: ${s.topicsCompleted}`,
+        `• Tests taken: ${s.testsTaken}`,
+        avgScore !== null ? `• Average score: ${avgScore}%` : `• Average score: N/A`,
         ``,
         `We will keep helping your child learn step by step.`,
-        `â€“ NeoLearn AI Teacher`,
+        `– NeoLearn AI Teacher`,
       ];
 
       messages.push({

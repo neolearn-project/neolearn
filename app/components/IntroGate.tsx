@@ -11,7 +11,7 @@ export default function IntroGate({ children }: Props) {
   const [showIntro, setShowIntro] = useState(true);
 
   const audioSrc = useMemo(() => "/splash-chime.mp3", []);
-  const oImgSrc = useMemo(() => "/logo-o.png", []); // âœ… matches your /public file
+  const oImgSrc = useMemo(() => "/logo-o.png", []); // ✅ matches your /public file
 
   useEffect(() => {
     const t = setTimeout(() => setShowIntro(false), INTRO_DURATION_MS);
