@@ -1,4 +1,4 @@
-﻿import crypto from "crypto";
+import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendWhatsAppTemplate } from "@/lib/whatsapp";
@@ -8,6 +8,9 @@ export const runtime = "nodejs";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseKey =
   process.env.SUPABASE_SERVICE_ROLE || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+
+const PAYMENT_SUCCESS_TEMPLATE =
+  process.env.WA_TEMPLATE_PAYMENT_SUCCESS_PARENT || "neolearn_payment_success_parent";
 
 function getSupabase() {
   if (!supabaseUrl) throw new Error("NEXT_PUBLIC_SUPABASE_URL missing.");
@@ -21,6 +24,28 @@ function addDaysIso(startIso: string, days: number) {
   const d = new Date(startIso);
   d.setDate(d.getDate() + days);
   return d.toISOString();
+}
+
+function safeText(value: any, fallback = "-") {
+  const text = String(value ?? "").trim();
+  return text || fallback;
+}
+
+function normalizeMobileForMatch(value: any) {
+  const digits = String(value ?? "").replace(/\D/g, "");
+  return digits.slice(-10);
+}
+
+function formatDateForWhatsApp(value: string) {
+  try {
+    return new Date(value).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return value;
+  }
 }
 
 export async function POST(req: Request) {
@@ -149,9 +174,68 @@ export async function POST(req: Request) {
       );
     }
 
+    let whatsappPaymentSent = false;
+    let whatsappPaymentError: string | null = null;
+    let whatsappPaymentTo: string | null = null;
+
+    try {
+      const { data: childLinks, error: childLinkError } = await supabase
+        .from("children")
+        .select("parent_mobile, child_mobile, child_name");
+
+      if (childLinkError) {
+        whatsappPaymentError = childLinkError.message;
+      }
+
+      const normalizedStudentMobile = normalizeMobileForMatch(studentMobile);
+      const childLink = (childLinks || []).find((row: any) => {
+        return normalizeMobileForMatch(row.child_mobile) === normalizedStudentMobile;
+      });
+
+      const parentMobile = safeText(childLink?.parent_mobile, "");
+      const studentName = safeText(childLink?.child_name, "Student");
+      const planName = safeText(plan.name, plan.code);
+      const amountText = String(Number(plan.price));
+      const validTill = formatDateForWhatsApp(endAtIso);
+
+      if (parentMobile) {
+        await sendWhatsAppTemplate({
+          to: parentMobile,
+          templateName: PAYMENT_SUCCESS_TEMPLATE,
+          languageCode: "en",
+          components: [
+            {
+              type: "body",
+              parameters: [
+                { type: "text", text: "Parent" },
+                { type: "text", text: studentName },
+                { type: "text", text: planName },
+                { type: "text", text: amountText },
+                { type: "text", text: validTill },
+              ],
+            },
+          ],
+        });
+
+        whatsappPaymentSent = true;
+        whatsappPaymentTo = parentMobile;
+      } else {
+        whatsappPaymentError = `Parent mobile not found for student ${studentMobile}.`;
+      }
+    } catch (waErr: any) {
+      whatsappPaymentError = waErr?.message || "Payment WhatsApp send failed.";
+      console.error("payment success whatsapp failed:", waErr);
+    }
+
     return NextResponse.json({
       ok: true,
       message: "Payment verified and subscription activated.",
+      whatsappPayment: {
+        sent: whatsappPaymentSent,
+        to: whatsappPaymentTo,
+        error: whatsappPaymentError,
+        template: PAYMENT_SUCCESS_TEMPLATE,
+      },
       payment: {
         razorpay_order_id: razorpayOrderId,
         razorpay_payment_id: razorpayPaymentId,
@@ -173,5 +257,3 @@ export async function POST(req: Request) {
     );
   }
 }
-
-
