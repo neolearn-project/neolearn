@@ -1,6 +1,7 @@
 ﻿import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sendWhatsAppTemplate } from "@/lib/whatsapp";
 
 export const runtime = "nodejs";
 
