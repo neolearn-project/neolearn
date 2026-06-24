@@ -83,8 +83,7 @@ export class RealtimeTeacherClient {
           type: "realtime",
           model,
           instructions,
-          modalities: ["text", "audio"],
-          audio: {
+            audio: {
             output: {
               voice: "alloy",
             },
@@ -121,7 +120,6 @@ export class RealtimeTeacherClient {
         type: "realtime",
         model,
         instructions,
-        modalities: ["text", "audio"],
         audio: {
           output: {
             voice: "alloy",
@@ -228,7 +226,6 @@ export class RealtimeTeacherClient {
     this.sendEvent({
       type: "response.create",
       response: {
-        modalities: ["text", "audio"],
       },
     });
 
@@ -269,7 +266,6 @@ export class RealtimeTeacherClient {
     this.sendEvent({
       type: "response.create",
       response: {
-        modalities: ["text", "audio"],
       },
     });
 
