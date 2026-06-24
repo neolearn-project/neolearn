@@ -1,10 +1,4 @@
-﻿type RealtimeLanguage =
-  | "English"
-  | "Hindi"
-  | "Bengali"
-  | "en-IN"
-  | "hi-IN"
-  | "bn-IN";
+﻿type RealtimeLanguage = "en-IN" | "hi-IN" | "bn-IN" | string;
 
 export type RealtimeTeacherEvents = {
   onStatus?: (status: string) => void;
@@ -13,392 +7,303 @@ export type RealtimeTeacherEvents = {
 };
 
 export class RealtimeTeacherClient {
-  private ws: WebSocket | null = null;
-  private audioCtx: AudioContext | null = null;
-  private playing = false;
-  private bufferQueue: Float32Array[] = [];
-  private events: RealtimeTeacherEvents;
   private studentMobile: string;
-  private currentTranscript = "";
-  private currentLocale: "en-IN" | "hi-IN" | "bn-IN" = "en-IN";
-  private currentInstructions =
-    "You are a female Indian school teacher in India. Speak only in simple Indian English. Do not switch to Spanish or any other language.";
-  private micStream: MediaStream | null = null;
-  private micSource: MediaStreamAudioSourceNode | null = null;
-  private micProcessor: ScriptProcessorNode | null = null;
-  private isMicActive = false;
+  private events: RealtimeTeacherEvents;
+  private pc: RTCPeerConnection | null = null;
+  private dc: RTCDataChannel | null = null;
+  private localStream: MediaStream | null = null;
+  private remoteAudio: HTMLAudioElement | null = null;
+  private transcript = "";
+  private connected = false;
 
   constructor(studentMobile: string, events: RealtimeTeacherEvents = {}) {
     this.studentMobile = studentMobile;
     this.events = events;
   }
 
-  private logStatus(msg: string) {
-    console.log("[RealtimeTeacher]", msg);
-    this.events.onStatus?.(msg);
+  private logStatus(message: string) {
+    this.events.onStatus?.(message);
   }
 
-  private logError(msg: string) {
-    console.error("[RealtimeTeacher ERROR]", msg);
-    this.events.onError?.(msg);
+  private emitError(message: string) {
+    this.events.onError?.(message);
   }
 
-  private normalizeLanguage(language: RealtimeLanguage) {
-    if (language === "Hindi" || language === "hi-IN") {
-      return {
-        locale: "hi-IN" as const,
-        instructions:
-          "You are a female Indian school teacher. Speak only in simple Hindi used in India. Do not switch to English or Spanish.",
-      };
-    }
+  async connect(language: RealtimeLanguage, instructions: string) {
+    if (this.connected && this.pc) return;
 
-    if (language === "Bengali" || language === "bn-IN") {
-      return {
-        locale: "bn-IN" as const,
-        instructions:
-          "You are a female Indian school teacher. Speak only in simple Bengali used in India. Do not switch to English or Spanish.",
-      };
-    }
+    this.logStatus("Creating realtime voice session...");
 
-    return {
-      locale: "en-IN" as const,
-      instructions:
-        "You are a female Indian school teacher in India. Speak only in simple Indian English. Do not switch to Spanish or any other language.",
-    };
-  }
-
-  async connect(language: RealtimeLanguage, instructionsOverride?: string) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      try {
-        this.ws.close();
-      } catch {}
-      this.ws = null;
-    }
-
-    const lang = this.normalizeLanguage(language);
-    this.logStatus("Creating realtime session...");
-
-    const res = await fetch(
-      `/api/realtime-session?mobile=${encodeURIComponent(this.studentMobile)}`
+    const sessionRes = await fetch(
+      `/api/realtime-session?mobile=${encodeURIComponent(this.studentMobile)}`,
+      { cache: "no-store" }
     );
-    if (!res.ok) {
-      throw new Error("Failed to create realtime session.");
+
+    const sessionJson = await sessionRes.json();
+
+    if (!sessionRes.ok) {
+      throw new Error(sessionJson?.error || "Failed to create realtime session.");
     }
 
-    const session = await res.json();
-    if (!session?.clientSecret || !session?.model) {
-      throw new Error("Realtime session response is incomplete.");
+    const clientSecret = sessionJson?.clientSecret;
+    const model = sessionJson?.model || "gpt-realtime-mini";
+
+    if (!clientSecret) {
+      throw new Error("Realtime client secret missing.");
     }
 
-    const url = `wss://api.openai.com/v1/realtime?model=${encodeURIComponent(
-      session.model
-    )}`;
+    this.pc = new RTCPeerConnection();
 
-    await new Promise<void>((resolve, reject) => {
-      const ws = new WebSocket(url, [
-        "realtime",
-        `openai-insecure-api-key.${session.clientSecret}`,
-        "openai-beta.realtime-v1",
-      ]);
+    this.remoteAudio = document.createElement("audio");
+    this.remoteAudio.autoplay = true;
 
-      const timeout = window.setTimeout(() => {
-        try {
-          ws.close();
-        } catch {}
-        reject(new Error("Realtime connection timed out."));
-      }, 15000);
+    this.pc.ontrack = (event) => {
+      if (!this.remoteAudio) return;
+      const [stream] = event.streams;
+      if (stream) {
+        this.remoteAudio.srcObject = stream;
+        this.remoteAudio.play().catch(() => {});
+      }
+    };
 
-      ws.onopen = () => {
-        clearTimeout(timeout);
-        this.ws = ws;
-        this.logStatus("Connected to realtime teacher.");
+    this.pc.onconnectionstatechange = () => {
+      const state = this.pc?.connectionState;
+      if (state) this.logStatus(`Realtime connection: ${state}`);
+    };
 
-        const instructions = instructionsOverride || lang.instructions;
-        this.currentLocale = lang.locale;
-        this.currentInstructions = instructions;
+    this.dc = this.pc.createDataChannel("oai-events");
 
-        ws.send(
-          JSON.stringify({
-            type: "session.update",
-            session: {
-              instructions,
-              input_audio_transcription: { model: "whisper-1" },
-              output_audio: { format: "pcm16", sample_rate: 24000 },
+    this.dc.onopen = () => {
+      this.connected = true;
+      this.logStatus("Realtime teacher connected.");
+
+      this.sendEvent({
+        type: "session.update",
+        session: {
+          type: "realtime",
+          model,
+          instructions,
+          modalities: ["text", "audio"],
+          audio: {
+            output: {
+              voice: "alloy",
             },
-          })
-        );
-        resolve();
-      };
+          },
+        },
+      });
+    };
 
-      ws.onerror = () => {
-        clearTimeout(timeout);
-        reject(new Error("WebSocket error while connecting realtime teacher."));
-      };
+    this.dc.onerror = () => {
+      this.emitError("Realtime data channel error.");
+    };
 
-      ws.onclose = (event) => {
-        this.logStatus(
-          `Realtime teacher disconnected (code ${event.code}${
-            event.reason ? `, reason: ${event.reason}` : ""
-          }).`
-        );
-        this.ws = null;
-        this.stopAudio();
-        this.stopMicInternal();
-      };
+    this.dc.onclose = () => {
+      this.connected = false;
+      this.logStatus("Realtime teacher disconnected.");
+    };
 
-      ws.onmessage = (event) => {
-        let data: any;
-        try {
-          data = JSON.parse(event.data);
-        } catch {
-          return;
-        }
+    this.dc.onmessage = (event) => {
+      this.handleServerEvent(event.data);
+    };
 
-        if (
-          data.type === "response.audio_transcript.delta" &&
-          typeof data.delta === "string"
-        ) {
-          this.currentTranscript += data.delta;
-          this.events.onTranscript?.(this.currentTranscript);
-        }
-
-        if (
-          data.type === "response.audio_transcript.done" &&
-          typeof data.transcript === "string"
-        ) {
-          this.currentTranscript = data.transcript;
-          this.events.onTranscript?.(this.currentTranscript);
-          this.currentTranscript = "";
-        }
-
-        if (data.type === "response.text.delta" && data.delta) {
-          this.currentTranscript += data.delta;
-          this.events.onTranscript?.(this.currentTranscript);
-        }
-
-        if (data.type === "response.text.done" && data.text) {
-          this.currentTranscript = data.text;
-          this.events.onTranscript?.(this.currentTranscript);
-          this.currentTranscript = "";
-        }
-
-        if (data.type === "response.audio.delta" && data.delta) {
-          this.handleAudioDelta(data.delta);
-        }
-      };
+    const offer = await this.pc.createOffer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: false,
     });
+
+    await this.pc.setLocalDescription(offer);
+
+    const formData = new FormData();
+    formData.set("sdp", offer.sdp || "");
+    formData.set(
+      "session",
+      JSON.stringify({
+        type: "realtime",
+        model,
+        instructions,
+        modalities: ["text", "audio"],
+        audio: {
+          output: {
+            voice: "alloy",
+          },
+        },
+      })
+    );
+
+    this.logStatus("Connecting realtime teacher...");
+
+    const answerRes = await fetch("https://api.openai.com/v1/realtime/calls", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${clientSecret}`,
+      },
+      body: formData,
+    });
+
+    const answerSdp = await answerRes.text();
+
+    if (!answerRes.ok) {
+      throw new Error(answerSdp || "Realtime SDP exchange failed.");
+    }
+
+    await this.pc.setRemoteDescription({
+      type: "answer",
+      sdp: answerSdp,
+    });
+
+    this.logStatus("Realtime connected. You may speak or type.");
+  }
+
+  private handleServerEvent(raw: string) {
+    let event: any;
+
+    try {
+      event = JSON.parse(raw);
+    } catch {
+      return;
+    }
+
+    if (event.type === "error") {
+      const message = event?.error?.message || "Realtime API error.";
+      this.emitError(message);
+      return;
+    }
+
+    const delta =
+      event?.delta ||
+      event?.transcript ||
+      event?.text ||
+      event?.item?.content?.[0]?.text ||
+      "";
+
+    if (
+      event.type === "response.output_text.delta" ||
+      event.type === "response.output_audio_transcript.delta" ||
+      event.type === "response.text.delta" ||
+      event.type === "response.audio_transcript.delta"
+    ) {
+      if (delta) {
+        this.transcript += String(delta);
+        this.events.onTranscript?.(this.transcript);
+      }
+    }
+
+    if (
+      event.type === "response.output_text.done" ||
+      event.type === "response.output_audio_transcript.done" ||
+      event.type === "response.done"
+    ) {
+      this.logStatus("Realtime teacher ready.");
+    }
+  }
+
+  private sendEvent(event: any) {
+    if (!this.dc || this.dc.readyState !== "open") {
+      throw new Error("Realtime connection is not ready.");
+    }
+    this.dc.send(JSON.stringify(event));
+  }
+
+  sendText(text: string) {
+    const clean = String(text || "").trim();
+    if (!clean) return;
+
+    this.transcript = "";
+    this.events.onTranscript?.("");
+
+    this.sendEvent({
+      type: "conversation.item.create",
+      item: {
+        type: "message",
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: clean,
+          },
+        ],
+      },
+    });
+
+    this.sendEvent({
+      type: "response.create",
+      response: {
+        modalities: ["text", "audio"],
+      },
+    });
+
+    this.logStatus("Teacher is answering...");
+  }
+
+  async startMic() {
+    if (!this.pc) {
+      throw new Error("Realtime connection is not ready.");
+    }
+
+    if (this.localStream) return;
+
+    this.localStream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: false,
+    });
+
+    for (const track of this.localStream.getAudioTracks()) {
+      this.pc.addTrack(track, this.localStream);
+    }
+
+    this.logStatus("Listening... speak now.");
+  }
+
+  stopMicAndSend() {
+    if (this.localStream) {
+      this.localStream.getTracks().forEach((track) => track.stop());
+      this.localStream = null;
+    }
+
+    try {
+      this.sendEvent({
+        type: "input_audio_buffer.commit",
+      });
+    } catch {}
+
+    this.sendEvent({
+      type: "response.create",
+      response: {
+        modalities: ["text", "audio"],
+      },
+    });
+
+    this.logStatus("Teacher is answering...");
   }
 
   disconnect() {
     try {
-      this.ws?.close();
+      if (this.localStream) {
+        this.localStream.getTracks().forEach((track) => track.stop());
+      }
     } catch {}
-    this.ws = null;
-    this.currentTranscript = "";
-    this.events.onTranscript?.("");
-    this.stopAudio();
-    this.stopMicInternal();
-  }
 
-  sendText(text: string) {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      throw new Error("Realtime teacher is not connected.");
-    }
-
-    const trimmed = text.trim();
-    if (!trimmed) return;
-
-    this.currentTranscript = "";
-    this.events.onTranscript?.("");
-
-    this.ws.send(
-      JSON.stringify({
-        type: "conversation.item.create",
-        item: {
-          type: "message",
-          role: "user",
-          content: [{ type: "input_text", text: trimmed }],
-        },
-      })
-    );
-
-    this.ws.send(
-      JSON.stringify({
-        type: "response.create",
-        response: {
-          modalities: ["text", "audio"],
-          instructions: [
-  this.currentInstructions,
-  this.currentLocale === "hi-IN"
-    ? "FINAL RULE: Answer only in Hindi written in Devanagari script. Never use English, Kannada, Spanish, or any other language."
-    : this.currentLocale === "bn-IN"
-    ? "FINAL RULE: Answer only in Bengali written in Bangla script. Never use English, Kannada, Spanish, or any other language."
-    : "FINAL RULE: Answer only in English. Never use Hindi, Bengali, Kannada, Spanish, or any other language.",
-  "FINAL RULE: If the student asks anything outside the selected lesson topic, politely refuse and ask the student to continue with the current lesson topic only.",
-].join(" "),
-        },
-      })
-    );
-  }
-
-  async startMic() {
-    if (this.isMicActive) return;
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      throw new Error("Realtime teacher is not connected.");
-    }
-    if (!navigator.mediaDevices?.getUserMedia) {
-      throw new Error("Microphone is not supported in this browser.");
-    }
+    this.localStream = null;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
-      this.micStream = stream;
-
-      const audioCtx = this.ensureAudioContext();
-      if (audioCtx.state === "suspended") {
-        await audioCtx.resume();
-      }
-
-      const source = audioCtx.createMediaStreamSource(stream);
-      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
-
-      processor.onaudioprocess = (event: AudioProcessingEvent) => {
-        const input = event.inputBuffer.getChannelData(0);
-        const pcm16 = this.floatTo16BitPCM(input);
-        const base64 = this.int16ToBase64(pcm16);
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-          this.ws.send(
-            JSON.stringify({ type: "input_audio_buffer.append", audio: base64 })
-          );
-        }
-      };
-
-      source.connect(processor);
-      processor.connect(audioCtx.destination);
-
-      this.micSource = source;
-      this.micProcessor = processor;
-      this.isMicActive = true;
-      this.logStatus("Listening... speak now.");
-    } catch (err) {
-      console.error("startMic getUserMedia error:", err);
-      throw new Error("Could not access microphone.");
-    }
-  }
-
-  stopMicAndSend() {
-    if (!this.isMicActive) return;
-
-    this.stopMicInternal();
-
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
-      this.ws.send(
-        JSON.stringify({
-          type: "response.create",
-          response: {
-            modalities: ["text", "audio"],
-            instructions: [
-  this.currentInstructions,
-  this.currentLocale === "hi-IN"
-    ? "FINAL RULE: Answer only in Hindi written in Devanagari script. Never use English, Kannada, Spanish, or any other language."
-    : this.currentLocale === "bn-IN"
-    ? "FINAL RULE: Answer only in Bengali written in Bangla script. Never use English, Kannada, Spanish, or any other language."
-    : "FINAL RULE: Answer only in English. Never use Hindi, Bengali, Kannada, Spanish, or any other language.",
-  "FINAL RULE: If the student asks anything outside the selected lesson topic, politely refuse and ask the student to continue with the current lesson topic only.",
-].join(" "),
-          },
-        })
-      );
-    }
-
-    this.logStatus("Stopped listening. Teacher is answering...");
-  }
-
-  private stopMicInternal() {
-    try {
-      this.micProcessor?.disconnect();
-      this.micSource?.disconnect();
-      this.micStream?.getTracks().forEach((track) => track.stop());
+      this.dc?.close();
     } catch {}
-    this.micProcessor = null;
-    this.micSource = null;
-    this.micStream = null;
-    this.isMicActive = false;
-  }
 
-  private ensureAudioContext() {
-    if (!this.audioCtx) {
-      this.audioCtx = new AudioContext({ sampleRate: 24000 });
-    }
-    return this.audioCtx;
-  }
+    try {
+      this.pc?.close();
+    } catch {}
 
-  private stopAudio() {
-    this.bufferQueue = [];
-    this.playing = false;
-  }
-
-  private handleAudioDelta(base64: string) {
-    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-    const pcm16 = new Int16Array(bytes.buffer);
-    const float32 = new Float32Array(pcm16.length);
-    for (let i = 0; i < pcm16.length; i += 1) {
-      float32[i] = pcm16[i] / 32768;
-    }
-    this.bufferQueue.push(float32);
-    if (!this.playing) {
-      this.playQueuedAudio();
-    }
-  }
-
-  private async playQueuedAudio() {
-    if (this.playing) return;
-    this.playing = true;
-
-    while (this.bufferQueue.length) {
-      const chunk = this.bufferQueue.shift();
-      if (!chunk) continue;
-      const ctx = this.ensureAudioContext();
-      if (ctx.state === "suspended") {
-        await ctx.resume();
+    try {
+      if (this.remoteAudio) {
+        this.remoteAudio.pause();
+        this.remoteAudio.srcObject = null;
       }
-      const buffer = ctx.createBuffer(1, chunk.length, 24000);
-      buffer.copyToChannel(chunk, 0);
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.connect(ctx.destination);
-      source.start();
-      await new Promise<void>((resolve) => {
-        source.onended = () => resolve();
-      });
-    }
+    } catch {}
 
-    this.playing = false;
-  }
-
-  private floatTo16BitPCM(input: Float32Array) {
-    const output = new Int16Array(input.length);
-    for (let i = 0; i < input.length; i += 1) {
-      const s = Math.max(-1, Math.min(1, input[i]));
-      output[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-    }
-    return output;
-  }
-
-  private int16ToBase64(buffer: Int16Array) {
-    let binary = "";
-    const bytes = new Uint8Array(buffer.buffer);
-    const chunkSize = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-    }
-    return btoa(binary);
+    this.dc = null;
+    this.pc = null;
+    this.remoteAudio = null;
+    this.connected = false;
+    this.logStatus("Realtime teacher disconnected.");
   }
 }
