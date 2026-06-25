@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const PARENT_STORAGE_KEY = "neolearn_parent_mobile";
+const HELPDESK_URL = "https://neo-voicedesk.vercel.app/help/neolearn";
 
 interface ChildRow {
   id: number;
@@ -328,6 +329,14 @@ export default function ParentDashboardPage() {
         </div>
         <div className="flex items-center gap-3 text-xs text-gray-600">
           <span>Parent: {parentMobile}</span>
+          <a
+            href={HELPDESK_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-full border border-slate-300 px-3 py-1 text-[11px] font-semibold hover:bg-slate-100"
+          >
+            Support / HelpDesk
+          </a>
           <button
             type="button"
             onClick={handleLogout}

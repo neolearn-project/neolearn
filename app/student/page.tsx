@@ -129,6 +129,7 @@ const TOPIC_STATUS_UI: Record<string, string> = {
 const SESSION_HISTORY_KEY = "neolearnSessionHistory";
 
 const STORAGE_KEY = "neolearnStudent";
+const HELPDESK_URL = "https://neo-voicedesk.vercel.app/help/neolearn";
 type Weekday =
   | "Monday"
   | "Tuesday"
@@ -1621,6 +1622,14 @@ const handleStartLesson = useCallback(async () => {
           <span>
             {student.name}  {String(student.track || student.subjectType || "regular").toLowerCase() === "competitive" ? `${student.competitiveExam || student.board || "Competitive"} Exam` : `Class ${student.classId}`} {student.mobile}
           </span>
+          <a
+            href={HELPDESK_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-full border border-slate-300 px-3 py-1 text-[11px] font-semibold hover:bg-slate-100"
+          >
+            Support / HelpDesk
+          </a>
           <button
             type="button"
             onClick={handleLogout}

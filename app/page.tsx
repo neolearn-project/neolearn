@@ -8,6 +8,7 @@ import ChatWidget from "../components/ChatWidget";
 import AuthModal from "./components/AuthModal";
 
 const WP = process.env.NEXT_PUBLIC_WHATSAPP || "918000000000";
+const HELPDESK_URL = "https://neo-voicedesk.vercel.app/help/neolearn";
 
 export default function Page() {
   const [authOpen, setAuthOpen] = useState<null | "login" | "signup">(null);
@@ -47,6 +48,15 @@ export default function Page() {
               >
                 Pricing
               </Link>
+
+              <a
+                href={HELPDESK_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
+              >
+                Support / HelpDesk
+              </a>
 
               <a
                 href={`https://wa.me/${WP}`}
@@ -111,6 +121,15 @@ export default function Page() {
               >
                 Pricing
               </Link>
+
+              <a
+                href={HELPDESK_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
+              >
+                Support / HelpDesk
+              </a>
 
               <a
                 href={`https://wa.me/${WP}`}
@@ -188,7 +207,9 @@ export default function Page() {
 
                 <a
                   className="underline decoration-gray-300 underline-offset-2 hover:text-gray-700"
-                  href="mailto:support@neolearn.co.in"
+                  href={HELPDESK_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
                   Support
                 </a>
