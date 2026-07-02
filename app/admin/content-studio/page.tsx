@@ -15,6 +15,7 @@ type Scene = {
 };
 
 export default function AdminContentStudioPage() {
+  const [adminPassword, setAdminPassword] = useState("");
   const [form, setForm] = useState({
     board: "CBSE",
     classId: "6",
@@ -55,7 +56,10 @@ export default function AdminContentStudioPage() {
     try {
       const res = await fetch("/api/admin/content-studio/script", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": adminPassword,
+        },
         body: JSON.stringify({
           board: form.board,
           classId: form.classId,
@@ -93,7 +97,10 @@ export default function AdminContentStudioPage() {
     try {
       const res = await fetch("/api/admin/content-studio/scenes", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": adminPassword,
+        },
         body: JSON.stringify({
           board: form.board,
           classId: form.classId,
@@ -129,7 +136,10 @@ export default function AdminContentStudioPage() {
     try {
       const res = await fetch("/api/admin/content-studio/audio", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": adminPassword,
+        },
         body: JSON.stringify({
           jobId,
           topic: form.topic.trim(),
@@ -163,7 +173,10 @@ export default function AdminContentStudioPage() {
 
       const res = await fetch("/api/admin/content-studio/render", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": adminPassword,
+        },
         body: JSON.stringify({ jobId }),
       });
 
@@ -200,6 +213,14 @@ export default function AdminContentStudioPage() {
         <h2 className="text-lg font-semibold">Video Inputs</h2>
 
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          <input
+            type="password"
+            value={adminPassword}
+            onChange={(e) => setAdminPassword(e.target.value)}
+            className="rounded-xl border border-slate-300 px-3 py-2 text-sm md:col-span-2 lg:col-span-3"
+            placeholder="Admin password"
+          />
+
           <select
             value={form.board}
             onChange={(e) => update("board", e.target.value)}

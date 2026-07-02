@@ -17,17 +17,10 @@ if (!supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function GET(req: Request) {
-  const url = new URL(req.url);
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  const suppliedPassword = req.headers.get("x-admin-password");
 
-  // accept both ?pw= and ?auth= for safety
-  const pw =
-    url.searchParams.get("pw") ||
-    url.searchParams.get("auth") ||
-    "";
-
-  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "neolearn-admin-secret";
-
-  if (pw !== ADMIN_PASSWORD) {
+  if (!adminPassword || suppliedPassword !== adminPassword) {
     return NextResponse.json(
       { ok: false, error: "Unauthorized" },
       { status: 401 }

@@ -27,15 +27,15 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    const adminPw = String(body?.adminPassword || "");
     const mode = String(body?.mode || "").trim().toLowerCase();
     const userId = String(body?.userId || "").trim().toLowerCase();
     const mobile = String(body?.mobile || "").replace(/\D/g, "").trim();
     const newPassword = String(body?.newPassword || "").trim();
 
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "neolearn-admin-secret";
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    const suppliedPassword = req.headers.get("x-admin-password");
 
-    if (adminPw !== ADMIN_PASSWORD) {
+    if (!adminPassword || suppliedPassword !== adminPassword) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 

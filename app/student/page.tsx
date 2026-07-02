@@ -657,7 +657,7 @@ const loadPlans = useCallback(async () => {
   setPlansError(null);
 
   try {
-    const res = await fetch("/api/admin/plans");
+    const res = await fetch("/api/plans");
     const data = await res.json();
 
     if (!res.ok || !data?.ok) {

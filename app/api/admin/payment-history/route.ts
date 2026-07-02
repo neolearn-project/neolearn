@@ -11,14 +11,11 @@ function getSupabase() {
   return createClient(supabaseUrl, supabaseKey);
 }
 
-function requireAdminPassword(body: any) {
-  const adminPw = String(body?.adminPassword || "").trim();
-  const ADMIN_PASSWORD =
-    process.env.NEOLEARN_ADMIN_PASSWORD ||
-    process.env.ADMIN_PASSWORD ||
-    "neolearn-admin-secret";
+function requireAdminPassword(req: Request) {
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  const suppliedPassword = req.headers.get("x-admin-password");
 
-  if (adminPw !== ADMIN_PASSWORD) {
+  if (!adminPassword || suppliedPassword !== adminPassword) {
     throw new Error("Unauthorized");
   }
 }
@@ -26,7 +23,7 @@ function requireAdminPassword(body: any) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    requireAdminPassword(body);
+    requireAdminPassword(req);
 
     const limit = Math.min(
       Math.max(Number(body?.limit || 20), 1),

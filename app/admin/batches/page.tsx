@@ -1,49 +1,107 @@
-﻿import { supabaseAdmin } from "@/lib/supabaseAdmin";
+"use client";
 
-export const revalidate = 0; // always fresh
+import { FormEvent, useState } from "react";
 
-async function getBatches() {
-  const supabase = supabaseAdmin();
+type Batch = {
+  id: string;
+  title: string;
+  subject: string;
+  class_label: string;
+  capacity: number;
+  created_at: string;
+};
 
-const { data, error } = await supabase
-  .from("batches")
-  .select("id,title,subject,class_label,capacity,created_at,enrollments(count)")
-  .order("created_at", { ascending: false });
+export default function BatchesPage() {
+  const [adminPassword, setAdminPassword] = useState("");
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
-  if (error) throw error;
-  return data ?? [];
-}
+  async function loadBatches() {
+    if (!adminPassword) {
+      setMessage("Enter admin password.");
+      return;
+    }
 
-async function createBatch(formData: FormData) {
-  "use server";
-  const title = String(formData.get("title") ?? "");
-  const subject = String(formData.get("subject") ?? "");
-  const classLabel = String(formData.get("class_label") ?? "");
-  const capacity = Number(formData.get("capacity") ?? 30);
+    setLoading(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/admin/batches", {
+        cache: "no-store",
+        headers: { "x-admin-password": adminPassword },
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Failed to load batches.");
+      setBatches(result.data || []);
+    } catch (error: any) {
+      setMessage(error?.message || "Failed to load batches.");
+      setBatches([]);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  if (!title) throw new Error("Title required");
+  async function createBatch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!adminPassword) {
+      setMessage("Enter admin password.");
+      return;
+    }
 
-  const supabase = supabaseAdmin();
+    const form = new FormData(event.currentTarget);
+    setLoading(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/admin/batches", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": adminPassword,
+        },
+        body: JSON.stringify({
+          title: form.get("title"),
+          subject: form.get("subject"),
+          class_label: form.get("class_label"),
+          capacity: Number(form.get("capacity") || 30),
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Failed to create batch.");
+      event.currentTarget.reset();
+      await loadBatches();
+    } catch (error: any) {
+      setMessage(error?.message || "Failed to create batch.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
-const { error } = await supabase.from("batches").insert({
-  title,
-  subject,
-  class_label: classLabel,
-  capacity,
-});
+  async function deleteBatch(id: string) {
+    if (!adminPassword) {
+      setMessage("Enter admin password.");
+      return;
+    }
 
-  if (error) throw error;
-}
-
-async function deleteBatch(id: string) {
-  "use server";
-  const supabase = supabaseAdmin();
-  const { error } = await supabase.from("batches").delete().eq("id", id);
-  if (error) throw error;
-}
-
-export default async function BatchesPage() {
-  const batches = await getBatches();
+    setLoading(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/admin/batches", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": adminPassword,
+        },
+        body: JSON.stringify({ id }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Failed to delete batch.");
+      await loadBatches();
+    } catch (error: any) {
+      setMessage(error?.message || "Failed to delete batch.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -52,13 +110,35 @@ export default async function BatchesPage() {
         <p className="text-slate-500">Create and manage class batches.</p>
       </div>
 
-      <form action={createBatch} className="grid gap-3 rounded-md border bg-white p-4 sm:grid-cols-4">
+      <div className="flex gap-3">
+        <input
+          type="password"
+          value={adminPassword}
+          onChange={(event) => setAdminPassword(event.target.value)}
+          placeholder="Admin password"
+          className="w-full max-w-sm rounded border px-3 py-2"
+        />
+        <button
+          type="button"
+          onClick={loadBatches}
+          disabled={loading}
+          className="rounded bg-slate-800 px-4 py-2 text-white disabled:opacity-60"
+        >
+          {loading ? "Loading..." : "Load"}
+        </button>
+      </div>
+
+      {message && <p className="text-sm text-red-600">{message}</p>}
+
+      <form onSubmit={createBatch} className="grid gap-3 rounded-md border bg-white p-4 sm:grid-cols-4">
         <input name="title" placeholder="Title (e.g., MATH CLASS)" className="rounded border px-3 py-2" />
         <input name="subject" placeholder="Subject (e.g., Math)" className="rounded border px-3 py-2" />
         <input name="class_label" placeholder="Class label (e.g., 6)" className="rounded border px-3 py-2" />
         <input name="capacity" type="number" min={1} defaultValue={30} className="rounded border px-3 py-2" />
         <div className="sm:col-span-4">
-          <button className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">Create Batch</button>
+          <button disabled={loading} className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-60">
+            Create Batch
+          </button>
         </div>
       </form>
 
@@ -70,34 +150,32 @@ export default async function BatchesPage() {
               <th className="px-4 py-3">Subject</th>
               <th className="px-4 py-3">Class</th>
               <th className="px-4 py-3">Capacity</th>
-              <th className="px-4 py-3">Enrolled</th>
-              <th className="px-4 py-3"></th>
+              <th className="px-4 py-3">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {batches.map((b: any) => {
-              const count = b.enrollments?.[0]?.count ?? 0;
-              return (
-                <tr key={b.id} className="border-t">
-                  <td className="px-4 py-3">{b.title}</td>
-                  <td className="px-4 py-3">{b.subject}</td>
-                  <td className="px-4 py-3">{b.class_label}</td>
-                  <td className="px-4 py-3">{b.capacity}</td>
-                  <td className="px-4 py-3">{count}</td>
-                  <td className="px-4 py-3">
-                    <form action={deleteBatch.bind(null, b.id)}>
-                      <button className="rounded bg-red-600 px-3 py-1.5 text-white hover:bg-red-700">
-                        Delete
-                      </button>
-                    </form>
-                  </td>
-                </tr>
-              );
-            })}
+            {batches.map((batch) => (
+              <tr key={batch.id} className="border-t">
+                <td className="px-4 py-3">{batch.title}</td>
+                <td className="px-4 py-3">{batch.subject}</td>
+                <td className="px-4 py-3">{batch.class_label}</td>
+                <td className="px-4 py-3">{batch.capacity}</td>
+                <td className="px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => deleteBatch(batch.id)}
+                    disabled={loading}
+                    className="rounded bg-red-600 px-3 py-1.5 text-white disabled:opacity-60"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
             {batches.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
-                  No batches yet. Create one above.
+                <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
+                  Enter the admin password and load batches.
                 </td>
               </tr>
             )}
@@ -107,4 +185,3 @@ export default async function BatchesPage() {
     </div>
   );
 }
-

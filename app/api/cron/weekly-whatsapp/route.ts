@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { sendWhatsAppTemplate } from "@/lib/whatsapp";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseServiceKey =
@@ -29,8 +30,13 @@ function getAppOrigin(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const secret = req.headers.get("x-cron-secret");
-    if (!CRON_SECRET || secret !== CRON_SECRET) {
+    const authorization = req.headers.get("authorization");
+    const legacySecret = req.headers.get("x-cron-secret");
+    const authorized =
+      !!CRON_SECRET &&
+      (authorization === `Bearer ${CRON_SECRET}` || legacySecret === CRON_SECRET);
+
+    if (!authorized) {
       return NextResponse.json(
         { ok: false, error: "Unauthorized" },
         { status: 401 }

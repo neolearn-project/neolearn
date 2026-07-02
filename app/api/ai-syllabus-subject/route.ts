@@ -110,7 +110,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     const {
-      adminPassword,
       board: boardRaw,
       classLevel,
       classNumber: classNumberRaw,
@@ -122,8 +121,8 @@ export async function POST(req: NextRequest) {
       overwrite,
     } = body;
 
-    const ADMIN_PASSWORD =
-      process.env.NEOLEARN_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD;
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+    const adminPassword = req.headers.get("x-admin-password") || "";
 
     if (!ADMIN_PASSWORD) {
       return NextResponse.json(

@@ -2,8 +2,7 @@
 import { supabaseServerAdmin } from "@/lib/supabaseClient";
 
 function assertAdmin(req: Request) {
-  const url = new URL(req.url);
-  const auth = url.searchParams.get("auth") || req.headers.get("x-admin-auth") || "";
+  const auth = req.headers.get("x-admin-password") || "";
   const pass = process.env.ADMIN_PASSWORD || "";
   if (!auth || auth !== pass) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -11,7 +10,7 @@ function assertAdmin(req: Request) {
   return null;
 }
 
-// POST /api/admin/convert-lead?auth=ADMIN_PASSWORD
+// POST /api/admin/convert-lead
 // body: { lead_id: string, batch_id?: string }
 export async function POST(req: Request) {
   const unauthorized = assertAdmin(req);

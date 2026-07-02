@@ -22,8 +22,9 @@ export default function LeadsPage() {
     setLoading(true);
     setErr(null);
     try {
-      const res = await fetch(`/api/admin/leads?pw=${encodeURIComponent(pw)}`, {
+      const res = await fetch("/api/admin/leads", {
         cache: "no-store",
+        headers: { "x-admin-password": pw },
       });
       const js = await res.json();
       if (!res.ok || !js.ok) {
@@ -46,7 +47,10 @@ export default function LeadsPage() {
       // try load silently
       (async () => {
         try {
-          const res = await fetch(`/api/admin/leads?pw=${encodeURIComponent(saved)}`, { cache: "no-store" });
+          const res = await fetch("/api/admin/leads", {
+            cache: "no-store",
+            headers: { "x-admin-password": saved },
+          });
           const js = await res.json();
           if (res.ok && js.ok) setRows(js.leads || []);
         } catch {}

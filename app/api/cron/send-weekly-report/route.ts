@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+export const dynamic = "force-dynamic";
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const WHATSAPP_WEBHOOK_URL = process.env.WHATSAPP_WEBHOOK_URL || "";
@@ -9,16 +11,12 @@ const CRON_SECRET = process.env.CRON_SECRET || "";
 
 export async function GET(req: NextRequest) {
   try {
-    // Optional: simple protection for cron
-    if (CRON_SECRET) {
-      const { searchParams } = new URL(req.url);
-      const token = searchParams.get("token");
-      if (token !== CRON_SECRET) {
-        return NextResponse.json(
-          { ok: false, error: "Unauthorized cron call." },
-          { status: 401 }
-        );
-      }
+    const authorization = req.headers.get("authorization");
+    if (!CRON_SECRET || authorization !== `Bearer ${CRON_SECRET}`) {
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized cron call." },
+        { status: 401 }
+      );
     }
 
     if (!supabaseUrl || !supabaseServiceKey) {

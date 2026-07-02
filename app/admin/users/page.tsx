@@ -40,10 +40,11 @@ export default function AdminUsersPage() {
     try {
       const params = new URLSearchParams({
         query: query.trim(),
-        pw: adminPassword.trim(),
       });
 
-      const res = await fetch(`/api/admin/users/search?${params.toString()}`);
+      const res = await fetch(`/api/admin/users/search?${params.toString()}`, {
+        headers: { "x-admin-password": adminPassword.trim() },
+      });
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data?.ok) {
@@ -75,9 +76,11 @@ export default function AdminUsersPage() {
     try {
       const res = await fetch("/api/admin/users/access", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": adminPassword.trim(),
+        },
         body: JSON.stringify({
-          adminPassword: adminPassword.trim(),
           studentMobile: overrideMobile.trim(),
           action,
           reason: overrideReason.trim(),
@@ -125,9 +128,11 @@ export default function AdminUsersPage() {
     try {
       const res = await fetch("/api/admin/users/reset-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": adminPassword.trim(),
+        },
         body: JSON.stringify({
-          adminPassword: adminPassword.trim(),
           mode: resetMode,
           userId: resetUserId.trim(),
           mobile: resetMobile.trim(),

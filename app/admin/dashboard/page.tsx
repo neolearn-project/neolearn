@@ -101,9 +101,19 @@ const [paymentMobileFilter, setPaymentMobileFilter] = useState("");
 const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
 
   useEffect(() => {
-    let mounted = true;
+    if (!adminPassword) {
+      setMetricsLoading(false);
+      return;
+    }
 
-    fetch("/api/admin/metrics")
+    let mounted = true;
+    setMetricsLoading(true);
+    setMetricsError("");
+
+    const timer = window.setTimeout(() => {
+      fetch("/api/admin/metrics", {
+        headers: { "x-admin-password": adminPassword },
+      })
       .then(async (r) => {
         const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(data?.error || `Metrics API failed (${r.status})`);
@@ -122,23 +132,31 @@ const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
         if (!mounted) return;
         setMetricsLoading(false);
       });
+    }, 400);
 
     return () => {
       mounted = false;
+      window.clearTimeout(timer);
     };
-  }, []);
+  }, [adminPassword]);
 
   useEffect(() => {
-    loadPlans();
-    loadStudents("");
-    loadFeatureFlags();
-  }, []);
+    if (!adminPassword) return;
+    const timer = window.setTimeout(() => {
+      loadPlans();
+      loadStudents("");
+      loadFeatureFlags();
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [adminPassword]);
 
   async function loadPlans() {
     setPlansLoading(true);
     setPlansMessage("");
     try {
-      const res = await fetch("/api/admin/plans");
+      const res = await fetch("/api/admin/plans", {
+        headers: { "x-admin-password": adminPassword },
+      });
       const data = await res.json();
       if (!res.ok || !data?.ok) {
         setPlansMessage(data?.error || "Failed to load plans.");
@@ -159,9 +177,11 @@ const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
   try {
     const res = await fetch("/api/admin/plans", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-password": adminPassword,
+      },
       body: JSON.stringify({
-        adminPassword,
         code: planForm.code,
         name: planForm.name,
         track: planForm.track,
@@ -206,9 +226,11 @@ const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
     try {
       const res = await fetch("/api/admin/payment-history", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": adminPassword,
+        },
         body: JSON.stringify({
-          adminPassword,
           limit: 12,
         }),
       });
@@ -232,7 +254,9 @@ const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
     setStudentsLoading(true);
     setStudentsError("");
     try {
-      const res = await fetch(`/api/admin/students/search?q=${encodeURIComponent(q)}`);
+      const res = await fetch(`/api/admin/students/search?q=${encodeURIComponent(q)}`, {
+        headers: { "x-admin-password": adminPassword },
+      });
       const data = await res.json();
       if (!res.ok || !data?.ok) {
         setStudentsError(data?.error || "Failed to search students.");
@@ -253,11 +277,11 @@ const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
     try {
       const res = await fetch("/api/admin/users/access", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          adminPassword,
-          ...payload,
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": adminPassword,
+        },
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -311,7 +335,9 @@ async function loadOverrideHistory(mobile?: string) {
   setOverrideHistoryLoading(true);
   try {
     const q = mobile?.trim() ? `?mobile=${mobile.trim()}` : "";
-    const res = await fetch(`/api/admin/override-history${q}`);
+    const res = await fetch(`/api/admin/override-history${q}`, {
+      headers: { "x-admin-password": adminPassword },
+    });
     const data = await res.json();
     if (res.ok && data?.ok) {
       setOverrideHistory(data.rows || []);
@@ -330,7 +356,8 @@ async function loadSubscriptionStatus(mobile?: string) {
   setSubscriptionLoading(true);
   try {
     const res = await fetch(
-      `/api/admin/subscription-status?mobile=${mobile.trim()}`
+      `/api/admin/subscription-status?mobile=${mobile.trim()}`,
+      { headers: { "x-admin-password": adminPassword } }
     );
     const data = await res.json();
     if (res.ok && data?.ok) {
@@ -348,7 +375,9 @@ async function loadFeatureFlags() {
   setFeatureFlagsMessage("");
 
   try {
-    const res = await fetch("/api/admin/feature-flags");
+    const res = await fetch("/api/admin/feature-flags", {
+      headers: { "x-admin-password": adminPassword },
+    });
     const data = await res.json();
 
     if (!res.ok || !data?.ok) {
@@ -370,9 +399,11 @@ async function updateFeatureFlag(key: string, enabled: boolean) {
   try {
     const res = await fetch("/api/admin/feature-flags", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-password": adminPassword,
+      },
       body: JSON.stringify({
-        adminPassword,
         key,
         enabled,
       }),

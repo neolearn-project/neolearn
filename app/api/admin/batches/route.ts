@@ -2,8 +2,7 @@
 import { supabaseServerAdmin } from "@/lib/supabaseClient";
 
 function assertAdmin(req: Request) {
-  const url = new URL(req.url);
-  const auth = url.searchParams.get("auth") || req.headers.get("x-admin-auth") || "";
+  const auth = req.headers.get("x-admin-password") || "";
   const pass = process.env.ADMIN_PASSWORD || "";
   if (!auth || auth !== pass) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -11,7 +10,7 @@ function assertAdmin(req: Request) {
   return null;
 }
 
-// GET /api/admin/batches?auth=ADMIN_PASSWORD
+// GET /api/admin/batches
 export async function GET(req: Request) {
   const unauthorized = assertAdmin(req);
   if (unauthorized) return unauthorized;
@@ -25,7 +24,7 @@ export async function GET(req: Request) {
   return NextResponse.json({ data });
 }
 
-// POST /api/admin/batches?auth=ADMIN_PASSWORD
+// POST /api/admin/batches
 // body: { title, subject, class_label, schedule?, capacity? }
 export async function POST(req: Request) {
   const unauthorized = assertAdmin(req);
@@ -47,5 +46,21 @@ export async function POST(req: Request) {
   const { data, error } = await supa.from("batches").insert(payload).select("*").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, data });
+}
+
+export async function DELETE(req: Request) {
+  const unauthorized = assertAdmin(req);
+  if (unauthorized) return unauthorized;
+
+  const body = await req.json();
+  const id = String(body?.id || "").trim();
+  if (!id) {
+    return NextResponse.json({ error: "Batch id required" }, { status: 400 });
+  }
+
+  const supa = supabaseServerAdmin();
+  const { error } = await supa.from("batches").delete().eq("id", id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
 }
 

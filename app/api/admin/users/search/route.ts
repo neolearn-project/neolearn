@@ -19,14 +19,10 @@ export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
     const query = String(url.searchParams.get("query") || "").trim();
-    const adminPw =
-      url.searchParams.get("pw") ||
-      url.searchParams.get("auth") ||
-      "";
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    const suppliedPassword = req.headers.get("x-admin-password");
 
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "neolearn-admin-secret";
-
-    if (adminPw !== ADMIN_PASSWORD) {
+    if (!adminPassword || suppliedPassword !== adminPassword) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 

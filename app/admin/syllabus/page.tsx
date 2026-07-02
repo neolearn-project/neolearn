@@ -31,9 +31,11 @@ const [overwrite, setOverwrite] = useState(false);
     try {
       const res = await fetch("/api/ai-syllabus-subject", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": adminPassword,
+        },
         body: JSON.stringify({
-          adminPassword,
           board,
           classNumber: Number(classNumber || 6),
           subjectName,
