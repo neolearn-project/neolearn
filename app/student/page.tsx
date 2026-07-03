@@ -4238,7 +4238,9 @@ const handleStartTopicTest = async () => {
                   Topic Test
                 </h3>
                 <p className="text-sm text-slate-500">
-                  Answer all questions, then submit to save your score.
+                  {topicTestResult
+                    ? "Review your answers and correct any mistakes."
+                    : "Answer all questions, then submit to save your score."}
                 </p>
               </div>
 
@@ -4261,23 +4263,58 @@ const handleStartTopicTest = async () => {
                   <div className="space-y-2">
                     {q.options.map((option, optionIndex) => {
                       const selected = topicTestAnswers[q.id] === optionIndex;
+                      const isCorrectAnswer =
+                        q.correctIndex === optionIndex;
+                      const isWrongSelection =
+                        !!topicTestResult && selected && !isCorrectAnswer;
+                      const showCorrectAnswer =
+                        !!topicTestResult && isCorrectAnswer;
+
                       return (
                         <button
                           key={optionIndex}
                           type="button"
+                          disabled={!!topicTestResult}
                           onClick={() =>
                             setTopicTestAnswers((prev) => ({
                               ...prev,
                               [q.id]: optionIndex,
                             }))
                           }
-                          className={`w-full rounded-2xl border px-4 py-3 text-left text-sm ${
-                            selected
+                          className={`w-full rounded-2xl border px-4 py-3 text-left text-sm transition-colors ${
+                            showCorrectAnswer
+                              ? "border-emerald-500 bg-emerald-50 text-emerald-800"
+                              : isWrongSelection
+                              ? "border-red-500 bg-red-50 text-red-800"
+                              : selected
                               ? "border-blue-500 bg-blue-50 text-blue-700"
                               : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                          }`}
+                          } ${topicTestResult ? "cursor-default" : ""}`}
                         >
-                          {option}
+                          <span className="block">{option}</span>
+
+                          {topicTestResult &&
+                            (selected || isCorrectAnswer) && (
+                              <span className="mt-2 flex flex-wrap gap-2">
+                                {selected && (
+                                  <span
+                                    className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                      isCorrectAnswer
+                                        ? "bg-emerald-100 text-emerald-800"
+                                        : "bg-red-100 text-red-800"
+                                    }`}
+                                  >
+                                    Your answer
+                                  </span>
+                                )}
+
+                                {isCorrectAnswer && (
+                                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                                    Correct answer
+                                  </span>
+                                )}
+                              </span>
+                            )}
                         </button>
                       );
                     })}
@@ -4299,15 +4336,16 @@ const handleStartTopicTest = async () => {
                 onClick={() => setIsTopicTestOpen(false)}
                 className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700"
               >
-                Cancel
+                {topicTestResult ? "Close" : "Cancel"}
               </button>
 
               <button
                 type="button"
                 onClick={handleSubmitTopicTest}
-                className="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white"
+                disabled={!!topicTestResult}
+                className="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
               >
-                Submit Test
+                {topicTestResult ? "Submitted" : "Submit Test"}
               </button>
             </div>
           </div>
