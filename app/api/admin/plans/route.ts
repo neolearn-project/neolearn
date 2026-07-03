@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate",
+};
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseKey =
   process.env.SUPABASE_SERVICE_ROLE || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -64,27 +71,36 @@ export async function GET() {
 
     if (error) {
       console.error("plans GET Supabase error:", error);
-      return NextResponse.json({
+      return NextResponse.json(
+        {
+          ok: true,
+          plans: FALLBACK_PLANS,
+          fallback: true,
+          warning: error.message,
+        },
+        { headers: NO_STORE_HEADERS }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        ok: true,
+        plans: Array.isArray(data) ? data : [],
+        fallback: false,
+      },
+      { headers: NO_STORE_HEADERS }
+    );
+  } catch (e: any) {
+    console.error("plans GET fallback:", e);
+    return NextResponse.json(
+      {
         ok: true,
         plans: FALLBACK_PLANS,
         fallback: true,
-        warning: error.message,
-      });
-    }
-
-    return NextResponse.json({
-      ok: true,
-      plans: Array.isArray(data) && data.length > 0 ? data : FALLBACK_PLANS,
-      fallback: !Array.isArray(data) || data.length === 0,
-    });
-  } catch (e: any) {
-    console.error("plans GET fallback:", e);
-    return NextResponse.json({
-      ok: true,
-      plans: FALLBACK_PLANS,
-      fallback: true,
-      warning: e?.message || "Failed to load plans from database.",
-    });
+        warning: e?.message || "Failed to load plans from database.",
+      },
+      { headers: NO_STORE_HEADERS }
+    );
   }
 }
 
