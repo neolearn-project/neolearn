@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { RealtimeTeacherClient } from "./realtimeTeacherClient";
 import jsPDF from "jspdf";
 import { ClientAuthError, loginAgainMessage, studentAuthHeaders } from "@/app/lib/clientAuth";
+import { readJsonResponse } from "@/app/lib/safeResponse";
 
 type ClassId = "6" | "7" | "8" | "9" | "10" | "11" | "12";
 
@@ -3462,11 +3463,20 @@ const handleStartTopicTest = async () => {
       }),
     });
 
-    if (!res.ok) throw new Error("Failed to create topic test.");
+    const { data, errorText } = await readJsonResponse<any>(res);
+    if (!res.ok) {
+      throw new Error(
+        loginAgainMessage(
+          res.status,
+          data?.error || errorText || "Failed to create topic test."
+        )
+      );
+    }
 
-    const data = await res.json();
-    if (!data.ok || !Array.isArray(data.questions)) {
-      throw new Error("AI response was not valid test data.");
+    if (!data?.ok || !Array.isArray(data.questions)) {
+      throw new Error(
+        data?.error || errorText || "AI response was not valid test data."
+      );
     }
 
     const questions: TopicTestQuestion[] = data.questions;
@@ -3519,10 +3529,18 @@ const handleStartTopicTest = async () => {
         }),
       });
 
-      if (!saveRes.ok) throw new Error("Test score could not be saved.");
-
-      const saveData = await saveRes.json();
-      if (!saveData?.ok) throw new Error("Database save failed.");
+      const { data: saveData, errorText } =
+        await readJsonResponse<any>(saveRes);
+      if (!saveRes.ok || !saveData?.ok) {
+        throw new Error(
+          loginAgainMessage(
+            saveRes.status,
+            saveData?.error ||
+              errorText ||
+              "Test score could not be saved."
+          )
+        );
+      }
 
       setRealtimeStatus(`Test saved: ${correct}/${total} (${percent}%).`);
     } catch (err: any) {

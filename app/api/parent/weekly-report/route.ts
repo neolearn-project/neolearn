@@ -1,6 +1,9 @@
 ﻿// app/api/parent/weekly-report/route.ts
 import { NextResponse } from "next/server";
 import { OwnershipError, ownershipErrorResponse, requireParentChild } from "@/lib/auth/ownership";
+import { readJsonResponse } from "@/app/lib/safeResponse";
+
+export const dynamic = "force-dynamic";
 
 function makeWeeklySummary(opts: {
   childName?: string | null;
@@ -36,22 +39,51 @@ export async function GET(req: Request) {
     }
     const identity = await requireParentChild(req, childMobile);
 
-    const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3004";
+    const base = new URL(req.url).origin;
+    const internalHeaders = {
+      Authorization: `Bearer ${identity.token}`,
+      cookie: req.headers.get("cookie") || "",
+    };
+
+    const { data: childProfile, error: childProfileError } =
+      await identity.admin
+        .from("children")
+        .select("child_name, child_mobile, board, class_number")
+        .eq("parent_mobile", identity.mobile)
+        .eq("child_mobile", childMobile)
+        .limit(1)
+        .maybeSingle();
+
+    if (childProfileError) {
+      console.error("weekly-report child profile error:", childProfileError);
+    }
 
     // 1) Weekly progress
     const weeklyRes = await fetch(
       `${base}/api/progress/weekly-get?mobile=${encodeURIComponent(childMobile)}`,
       {
         cache: "no-store",
-        headers: { Authorization: `Bearer ${identity.token}` },
+        headers: internalHeaders,
       }
     );
-    const weeklyData = await weeklyRes.json();
+    const { data: weeklyData, errorText: weeklyError } =
+      await readJsonResponse<any>(weeklyRes);
 
     if (!weeklyRes.ok || !weeklyData?.ok) {
       return NextResponse.json(
-        { ok: false, error: weeklyData?.error || "Failed to load weekly progress" },
-        { status: 500 }
+        {
+          ok: false,
+          error:
+            weeklyData?.error ||
+            weeklyError ||
+            "Failed to load weekly progress",
+        },
+        {
+          status:
+            weeklyRes.status >= 400 && weeklyRes.status < 500
+              ? weeklyRes.status
+              : 502,
+        }
       );
     }
 
@@ -61,6 +93,8 @@ export async function GET(req: Request) {
     if (!latestWeek) {
       return NextResponse.json({
         ok: true,
+        child: childProfile || null,
+        weeks,
         latestWeek: null,
         summaryText: "No weekly progress found yet.",
         weakTopics: [],
@@ -74,17 +108,24 @@ export async function GET(req: Request) {
       `${base}/api/progress/weak-topics?mobile=${encodeURIComponent(childMobile)}&limit=8`,
       {
         cache: "no-store",
-        headers: { Authorization: `Bearer ${identity.token}` },
+        headers: internalHeaders,
       }
     );
-    const weakData = await weakRes.json();
+    const { data: weakData, errorText: weakError } =
+      await readJsonResponse<any>(weakRes);
+    if (!weakRes.ok) {
+      console.error(
+        "weekly-report weak topics error:",
+        weakData?.error || weakError
+      );
+    }
     const weakTopics = weakRes.ok && weakData?.ok ? weakData.weakTopics ?? [] : [];
 
     // count needs_revision from returned weakTopics (simple + no direct DB call needed)
     const needsRevisionCount = Array.isArray(weakTopics) ? weakTopics.length : 0;
 
     const summaryText = makeWeeklySummary({
-      childName: null,
+      childName: childProfile?.child_name || null,
       weekStart,
       weekEnd,
       topicsCompleted,
@@ -95,6 +136,8 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       ok: true,
+      child: childProfile || null,
+      weeks,
       latestWeek,
       weakTopics,
       summaryText,

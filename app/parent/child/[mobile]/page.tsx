@@ -6,6 +6,7 @@ import ChildSwitcher from "./ChildSwitcher";
 import WeeklyTrendChart from "./WeeklyTrendChart";
 import WeakTopics from "./WeakTopics";
 import { loginAgainMessage, parentAuthHeaders } from "@/app/lib/clientAuth";
+import { readJsonResponse } from "@/app/lib/safeResponse";
 
 const STATUS_UI: Record<string, { label: string; cls: string }> = {
   completed: {
@@ -41,6 +42,13 @@ type WeakTopic = {
   updatedAt: string | null;
 };
 
+type ChildProfile = {
+  child_name?: string | null;
+  child_mobile?: string | null;
+  board?: string | null;
+  class_number?: number | null;
+};
+
 export default function ParentChildWeeklyReportPage() {
   const router = useRouter();
   const params = useParams();
@@ -52,6 +60,7 @@ export default function ParentChildWeeklyReportPage() {
   const [weeks, setWeeks] = useState<WeekRow[]>([]);
   const [latestWeek, setLatestWeek] = useState<WeekRow | null>(null);
   const [weakTopics, setWeakTopics] = useState<WeakTopic[]>([]);
+  const [child, setChild] = useState<ChildProfile | null>(null);
 
   useEffect(() => {
     if (!mobile) return;
@@ -64,19 +73,26 @@ export default function ParentChildWeeklyReportPage() {
           cache: "no-store",
           headers: await parentAuthHeaders(),
         });
-        const data = await res.json();
+        const { data, errorText } = await readJsonResponse<any>(res);
 
         if (!res.ok || !data?.ok) {
-          setError(loginAgainMessage(res.status, data?.error || "Failed to load weekly report"));
+          setError(
+            loginAgainMessage(
+              res.status,
+              data?.error || errorText || "Failed to load weekly report"
+            )
+          );
           setWeeks([]);
           setLatestWeek(null);
           setWeakTopics([]);
+          setChild(null);
           return;
         }
 
         setWeeks(data.weeks || []);
         setLatestWeek(data.latestWeek || null);
         setWeakTopics(data.weakTopics || []);
+        setChild(data.child || null);
       } catch (e: any) {
         setError(e?.message || "Failed to load weekly report");
       } finally {
@@ -125,6 +141,26 @@ export default function ParentChildWeeklyReportPage() {
 
         {!loading && !error && (
           <>
+            {child ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-gray-700">
+                <span className="font-semibold">{child.child_name || "Student"}</span>
+                {" · "}
+                {child.board || "Board not set"}
+                {" · "}
+                {child.class_number ? `Class ${child.class_number}` : "Class not set"}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-amber-200 bg-white p-4 text-sm text-amber-700">
+                Child profile details are unavailable. The progress report is still shown below.
+              </div>
+            )}
+
+            {!latestWeek && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-gray-500">
+                No learning activity has been recorded for this child yet.
+              </div>
+            )}
+
             {/* Summary card */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5">
               <div className="text-[11px] text-gray-500">

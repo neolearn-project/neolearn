@@ -2,10 +2,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { OwnershipError, ownershipErrorResponse, requireStudentMobile } from "@/lib/auth/ownership";
+import { readJsonResponse } from "@/app/lib/safeResponse";
 
-const client = new OpenAI({
-  apiKey: process.env.NEOLEARN_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
-});
+export const dynamic = "force-dynamic";
 
 type TopicTestQuestion = {
   id: number;
@@ -32,15 +31,30 @@ const entitlementRes = await fetch(
   `${new URL(req.url).origin}/api/student/entitlements?mobile=${encodeURIComponent(mobile)}`,
   {
     cache: "no-store",
-    headers: { Authorization: req.headers.get("authorization") || "" },
+    headers: {
+      Authorization: req.headers.get("authorization") || "",
+      cookie: req.headers.get("cookie") || "",
+    },
   }
 );
-const ent = await entitlementRes.json();
+const { data: ent, errorText: entitlementError } =
+  await readJsonResponse<any>(entitlementRes);
 
 if (!entitlementRes.ok || !ent?.ok) {
   return NextResponse.json(
-    { ok: false, error: "Unable to verify entitlement for topic test." },
-    { status: 500 }
+    {
+      ok: false,
+      error:
+        ent?.error ||
+        entitlementError ||
+        "Unable to verify entitlement for topic test.",
+    },
+    {
+      status:
+        entitlementRes.status >= 400 && entitlementRes.status < 500
+          ? entitlementRes.status
+          : 502,
+    }
   );
 }
 
@@ -50,6 +64,16 @@ if (!ent.features?.topicTest) {
     { status: 403 }
   );
 }
+    const apiKey =
+      process.env.NEOLEARN_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { ok: false, error: "Missing OpenAI API key." },
+        { status: 500 }
+      );
+    }
+    const client = new OpenAI({ apiKey });
+
     const board = (body.board as string) || "CBSE";
     const classLevel = (body.classLevel as string) || "Class 6";
     const subject = (body.subject as string) || "Mathematics";

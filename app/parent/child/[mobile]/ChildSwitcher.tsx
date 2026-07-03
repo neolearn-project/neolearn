@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { parentAuthHeaders } from "@/app/lib/clientAuth";
+import { readJsonResponse } from "@/app/lib/safeResponse";
 
 const PARENT_STORAGE_KEY = "neolearn_parent_mobile";
 
@@ -36,9 +37,13 @@ export default function ChildSwitcher({ currentMobile }: { currentMobile: string
         const res = await fetch(`/api/parent/children?parentMobile=${encodeURIComponent(parentMobile)}`, {
           headers: await parentAuthHeaders(),
         });
-        const data = await res.json();
+        const { data, errorText } = await readJsonResponse<any>(res);
         if (!res.ok || !data?.ok) {
-          setError(res.status === 401 ? "Please login again." : data?.error || "Failed to load children.");
+          setError(
+            res.status === 401
+              ? "Please login again."
+              : data?.error || errorText || "Failed to load children."
+          );
           setChildren([]);
           return;
         }
@@ -74,6 +79,11 @@ export default function ChildSwitcher({ currentMobile }: { currentMobile: string
       {current && (
         <span className="text-xs text-gray-500">
           Mobile: <span className="font-mono">{current.child_mobile}</span>
+        </span>
+      )}
+      {!loading && !error && children.length > 0 && !current && (
+        <span className="text-xs text-amber-700">
+          This child profile is unavailable.
         </span>
       )}
     </div>

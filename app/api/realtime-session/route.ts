@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { OwnershipError, ownershipErrorResponse, requireStudentMobile } from "@/lib/auth/ownership";
+import { readJsonResponse } from "@/app/lib/safeResponse";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const OPENAI_REALTIME_MODEL =
   process.env.OPENAI_REALTIME_MODEL || "gpt-realtime-mini";
@@ -20,16 +22,30 @@ export async function GET(req: NextRequest) {
       `${req.nextUrl.origin}/api/student/entitlements?mobile=${encodeURIComponent(mobile)}`,
       {
         cache: "no-store",
-        headers: { Authorization: req.headers.get("authorization") || "" },
+        headers: {
+          Authorization: req.headers.get("authorization") || "",
+          cookie: req.headers.get("cookie") || "",
+        },
       }
     );
 
-    const ent = await entitlementRes.json();
+    const { data: ent, errorText: entitlementError } =
+      await readJsonResponse<any>(entitlementRes);
 
     if (!entitlementRes.ok || !ent?.ok) {
       return NextResponse.json(
-        { error: "Failed to verify entitlements." },
-        { status: 500 }
+        {
+          error:
+            ent?.error ||
+            entitlementError ||
+            "Failed to verify entitlements.",
+        },
+        {
+          status:
+            entitlementRes.status >= 400 && entitlementRes.status < 500
+              ? entitlementRes.status
+              : 502,
+        }
       );
     }
 
@@ -69,16 +85,23 @@ export async function GET(req: NextRequest) {
       }),
     });
 
-    const secretJson = await secretRes.json();
+    const { data: secretJson, errorText: secretError } =
+      await readJsonResponse<any>(secretRes);
 
     if (!secretRes.ok) {
-      console.error("OpenAI realtime client secret error:", secretJson);
+      console.error(
+        "OpenAI realtime client secret error:",
+        secretJson || secretError
+      );
       return NextResponse.json(
         {
           error: "Failed to create realtime client secret.",
-          detail: secretJson?.error?.message || secretJson,
+          detail:
+            secretJson?.error?.message ||
+            secretError ||
+            "OpenAI returned an unexpected response.",
         },
-        { status: 500 }
+        { status: 502 }
       );
     }
 

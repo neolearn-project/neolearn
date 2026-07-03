@@ -1,5 +1,8 @@
 ﻿type RealtimeLanguage = "en-IN" | "hi-IN" | "bn-IN" | string;
 
+import { loginAgainMessage, studentAuthHeaders } from "@/app/lib/clientAuth";
+import { readJsonResponse } from "@/app/lib/safeResponse";
+
 export type RealtimeTeacherEvents = {
   onStatus?: (status: string) => void;
   onError?: (message: string) => void;
@@ -39,13 +42,16 @@ export class RealtimeTeacherClient {
       { cache: "no-store", headers: studentAuthHeaders() }
     );
 
-    const sessionJson = await sessionRes.json();
+    const { data: sessionJson, errorText } =
+      await readJsonResponse<any>(sessionRes);
 
-    if (!sessionRes.ok) {
+    if (!sessionRes.ok || !sessionJson?.ok) {
       throw new Error(
         loginAgainMessage(
           sessionRes.status,
-          sessionJson?.error || "Failed to create realtime session."
+          sessionJson?.error ||
+            errorText ||
+            "Failed to create realtime session."
         )
       );
     }
@@ -308,4 +314,3 @@ export class RealtimeTeacherClient {
     this.logStatus("Realtime teacher disconnected.");
   }
 }
-import { loginAgainMessage, studentAuthHeaders } from "@/app/lib/clientAuth";
