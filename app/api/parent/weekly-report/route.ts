@@ -1,5 +1,6 @@
 ﻿// app/api/parent/weekly-report/route.ts
 import { NextResponse } from "next/server";
+import { OwnershipError, ownershipErrorResponse, requireParentChild } from "@/lib/auth/ownership";
 
 function makeWeeklySummary(opts: {
   childName?: string | null;
@@ -33,13 +34,17 @@ export async function GET(req: Request) {
         { status: 400 }
       );
     }
+    const identity = await requireParentChild(req, childMobile);
 
     const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3004";
 
     // 1) Weekly progress
     const weeklyRes = await fetch(
       `${base}/api/progress/weekly-get?mobile=${encodeURIComponent(childMobile)}`,
-      { cache: "no-store" }
+      {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${identity.token}` },
+      }
     );
     const weeklyData = await weeklyRes.json();
 
@@ -67,7 +72,10 @@ export async function GET(req: Request) {
     // 2) Weak topics list
     const weakRes = await fetch(
       `${base}/api/progress/weak-topics?mobile=${encodeURIComponent(childMobile)}&limit=8`,
-      { cache: "no-store" }
+      {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${identity.token}` },
+      }
     );
     const weakData = await weakRes.json();
     const weakTopics = weakRes.ok && weakData?.ok ? weakData.weakTopics ?? [] : [];
@@ -92,6 +100,7 @@ export async function GET(req: Request) {
       summaryText,
     });
   } catch (e: any) {
+    if (e instanceof OwnershipError) return ownershipErrorResponse(e);
     console.error("weekly-report route error:", e);
     return NextResponse.json(
       { ok: false, error: e?.message || "Server error" },

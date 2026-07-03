@@ -1,5 +1,6 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { OwnershipError, ownershipErrorResponse, requireStudentMobile } from "@/lib/auth/ownership";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    await requireStudentMobile(req, studentMobile);
     const supabase = getSupabase();
     const nowIso = new Date().toISOString();
     const nextStatus = statusFromScore(score);
@@ -141,6 +143,7 @@ export async function POST(req: NextRequest) {
       score,
     });
   } catch (err: any) {
+    if (err instanceof OwnershipError) return ownershipErrorResponse(err);
     console.error("submit-test route error:", err);
     return NextResponse.json(
       { ok: false, error: err?.message || "Server error" },

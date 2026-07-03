@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { parentAuthHeaders } from "@/app/lib/clientAuth";
+import { supabaseBrowser } from "@/app/lib/supabaseBrowser";
 
 const PARENT_STORAGE_KEY = "neolearn_parent_mobile";
 const HELPDESK_URL = "https://neo-voicedesk.vercel.app/help/neolearn";
@@ -115,7 +117,9 @@ export default function ParentDashboardPage() {
       setStatus(null);
       try {
         const params = new URLSearchParams({ parentMobile });
-        const res = await fetch(`/api/parent/children?${params.toString()}`);
+        const res = await fetch(`/api/parent/children?${params.toString()}`, {
+          headers: await parentAuthHeaders(),
+        });
         const data = await res.json();
 
         if (!res.ok || !data.ok) {
@@ -148,7 +152,8 @@ export default function ParentDashboardPage() {
       setMasteryError(null);
       try {
         const res = await fetch(
-          `/api/parent/mastery?mobile=${encodeURIComponent(activeChildMobile)}`
+          `/api/parent/mastery?mobile=${encodeURIComponent(activeChildMobile)}`,
+          { headers: await parentAuthHeaders() }
         );
         const data: MasteryResponse = await res.json();
 
@@ -176,7 +181,8 @@ export default function ParentDashboardPage() {
     loadMastery();
   }, [activeChildMobile]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabaseBrowser.auth.signOut();
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(PARENT_STORAGE_KEY);
     }
@@ -192,7 +198,7 @@ export default function ParentDashboardPage() {
     try {
       const res = await fetch("/api/parent/children", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await parentAuthHeaders(true),
         body: JSON.stringify({
           parentMobile,
           childName: form.childName,
@@ -265,7 +271,7 @@ export default function ParentDashboardPage() {
     try {
       const res = await fetch("/api/parent/child-class/update", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await parentAuthHeaders(true),
         body: JSON.stringify({
           parentMobile,
           childMobile: activeChild.child_mobile,

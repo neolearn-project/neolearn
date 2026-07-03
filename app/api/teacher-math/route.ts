@@ -2,6 +2,7 @@
 import OpenAI from "openai";
 import Twilio from "twilio"; // (not used here, ignore if you don't want)
 import { createClient } from "@supabase/supabase-js";
+import { OwnershipError, ownershipErrorResponse, requireStudentIdentity } from "@/lib/auth/ownership";
 
 import {
   getTeacherConfig,
@@ -93,6 +94,16 @@ const studentMobile = String(body?.studentMobile || "").trim();
 
 // Prefer Supabase Auth UID (recommended)
 const studentId = String(body?.studentId || "").trim();
+
+if (studentMobile || studentId) {
+  const identity = await requireStudentIdentity(req);
+  if (
+    (studentMobile && studentMobile !== identity.mobile) ||
+    (studentId && studentId !== identity.user.id)
+  ) {
+    throw new OwnershipError("Student access denied.", 403);
+  }
+}
 
 // legacy fallback (old UI may send topicId)
 const topicId = String(body?.topicId || "").trim();
@@ -554,6 +565,7 @@ const tts = await openai.audio.speech.create({
   { status: 200 }
 );  
   } catch (err: any) {
+    if (err instanceof OwnershipError) return ownershipErrorResponse(err);
     console.error("teacher-math error:", err);
 
     const msg = err?.error?.message || err?.message || "Unknown error";

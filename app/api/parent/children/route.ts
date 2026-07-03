@@ -1,6 +1,7 @@
 ﻿// app/api/parent/children/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { OwnershipError, ownershipErrorResponse, requireParentMobile } from "@/lib/auth/ownership";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    await requireParentMobile(req, parentMobile);
     const supabase = getAdminClient();
     const { data, error } = await supabase
       .from("children")
@@ -43,6 +45,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ ok: true, children: data ?? [] });
   } catch (err) {
+    if (err instanceof OwnershipError) return ownershipErrorResponse(err);
     console.error("children GET unexpected error:", err);
     return NextResponse.json(
       { ok: false, error: "Unexpected server error." },
@@ -89,7 +92,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    await requireParentMobile(req, parentMobile);
     const supabase = getAdminClient();
+
+    const { data: linkedStudent, error: linkedStudentError } = await supabase
+      .from("students")
+      .select("id")
+      .eq("phone", childMobile)
+      .eq("guardian_phone", parentMobile)
+      .limit(1)
+      .maybeSingle();
+
+    if (linkedStudentError) {
+      return NextResponse.json(
+        { ok: false, error: "Failed to verify parent-student relationship." },
+        { status: 500 }
+      );
+    }
+
+    if (!linkedStudent) {
+      return NextResponse.json(
+        { ok: false, error: "This student is not registered to the authenticated parent." },
+        { status: 403 }
+      );
+    }
 
     // If same (parent_mobile, child_mobile) already exists -> update row instead of duplicate
     const { data: existing, error: existingErr } = await supabase
@@ -187,6 +213,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, child: inserted, mode: "inserted" });
   } catch (err) {
+    if (err instanceof OwnershipError) return ownershipErrorResponse(err);
     console.error("children POST unexpected error:", err);
     return NextResponse.json(
       { ok: false, error: "Unexpected server error." },

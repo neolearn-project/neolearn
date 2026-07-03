@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import ChildSwitcher from "./ChildSwitcher";
 import WeeklyTrendChart from "./WeeklyTrendChart";
 import WeakTopics from "./WeakTopics";
+import { parentAuthHeaders } from "@/app/lib/clientAuth";
 
 const STATUS_UI: Record<string, { label: string; cls: string }> = {
   completed: {
@@ -61,6 +62,7 @@ export default function ParentChildWeeklyReportPage() {
       try {
         const res = await fetch(`/api/parent/weekly-report?childMobile=${encodeURIComponent(mobile)}`, {
           cache: "no-store",
+          headers: await parentAuthHeaders(),
         });
         const data = await res.json();
 

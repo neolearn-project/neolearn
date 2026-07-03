@@ -1,5 +1,10 @@
 ﻿import { NextResponse } from "next/server";
 import { supabaseServerAdmin } from "@/lib/supabase/server";
+import {
+  OwnershipError,
+  ownershipErrorResponse,
+  requireStudentMobile,
+} from "@/lib/auth/ownership";
 
 type TopicStatus =
   | "not_started"
@@ -40,6 +45,7 @@ export async function POST(req: Request) {
       );
     }
 
+    await requireStudentMobile(req, studentMobile);
     const status = statusFromScore(score);
     const nowIso = new Date().toISOString();
     const supabase = supabaseServerAdmin();
@@ -73,6 +79,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, status });
   } catch (err) {
+    if (err instanceof OwnershipError) return ownershipErrorResponse(err);
     console.error("progress/topic error:", err);
     return NextResponse.json(
       { ok: false, error: "Server error" },

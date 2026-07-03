@@ -1,6 +1,11 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { computeAccessSummary } from "@/lib/access/checkPolicy";
+import {
+  OwnershipError,
+  ownershipErrorResponse,
+  requireStudentMobile,
+} from "@/lib/auth/ownership";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseServiceKey =
@@ -38,6 +43,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    await requireStudentMobile(req, mobile);
     const supabase = getSupabase();
 
     const [
@@ -219,6 +225,7 @@ export async function GET(req: NextRequest) {
           : "free_exhausted",
     });
   } catch (e: any) {
+    if (e instanceof OwnershipError) return ownershipErrorResponse(e);
     return NextResponse.json(
       { ok: false, error: e?.message || "Failed to resolve entitlements." },
       { status: 500 }

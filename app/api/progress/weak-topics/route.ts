@@ -1,6 +1,11 @@
 ﻿// app/api/progress/weak-topics/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  OwnershipError,
+  ownershipErrorResponse,
+  requireStudentOrParentChild,
+} from "@/lib/auth/ownership";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -22,6 +27,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: false, error: "mobile is required" }, { status: 400 });
     }
 
+    await requireStudentOrParentChild(req, mobile);
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data, error } = await supabase
@@ -46,6 +52,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ ok: true, mobile, weakTopics });
   } catch (e: any) {
+    if (e instanceof OwnershipError) return ownershipErrorResponse(e);
     console.error("weak-topics route error:", e);
     return NextResponse.json({ ok: false, error: e?.message || "Server error" }, { status: 500 });
   }

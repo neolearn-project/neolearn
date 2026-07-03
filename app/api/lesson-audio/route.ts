@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import { OwnershipError, ownershipErrorResponse, requireStudentMobile } from "@/lib/auth/ownership";
 
 export const runtime = "nodejs";
 
@@ -66,6 +67,7 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+    await requireStudentMobile(req, mobile);
 
     if (!rawText) {
       return NextResponse.json(
@@ -168,6 +170,7 @@ export async function POST(req: Request) {
       },
     });
   } catch (err: any) {
+    if (err instanceof OwnershipError) return ownershipErrorResponse(err);
     console.error("TTS generation error:", {
       message: err?.message,
       status: err?.status,

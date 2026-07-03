@@ -1,5 +1,10 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  OwnershipError,
+  ownershipErrorResponse,
+  requireStudentMobile,
+} from "@/lib/auth/ownership";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,6 +34,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    await requireStudentMobile(req, mobile);
     const supabase = supabaseAdmin();
 
     const { data: rows, error } = await supabase
@@ -79,6 +85,7 @@ export async function GET(req: NextRequest) {
       })),
     });
   } catch (err: any) {
+    if (err instanceof OwnershipError) return ownershipErrorResponse(err);
     console.error("student profile route error:", err);
     return noStoreJson(
       { ok: false, error: err?.message || "Failed to load student profile." },

@@ -1,5 +1,6 @@
 ﻿import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { OwnershipError, ownershipErrorResponse, requireParentChild } from "@/lib/auth/ownership";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,6 +46,7 @@ export async function GET(req: Request) {
   }
 
   try {
+    await requireParentChild(req, mobile);
     const { data: profile, error: profileError } = await supabase
       .from("student_profile")
       .select("name, mobile, preferred_language, preferred_speed, explain_style, weak_topic_ids, updated_at")
@@ -89,6 +91,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (err: any) {
+    if (err instanceof OwnershipError) return ownershipErrorResponse(err);
     console.error("parent summary error:", err);
     return NextResponse.json(
       { ok: false, error: err?.message ?? "Unknown parent summary error" },

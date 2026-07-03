@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RealtimeTeacherClient } from "./realtimeTeacherClient";
 import jsPDF from "jspdf";
+import { studentAuthHeaders } from "@/app/lib/clientAuth";
 
 type ClassId = "6" | "7" | "8" | "9" | "10" | "11" | "12";
 
@@ -29,6 +30,7 @@ interface StudentInfo {
 
   // Supabase Auth user id (needed for Persona Engine)
   studentId?: string;
+  access_token?: string;
 }
 
 interface SubjectRow {
@@ -580,7 +582,7 @@ const handleGenerateNotes = useCallback(async () => {
   try {
     const res = await fetch("/api/notes/generate", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: studentAuthHeaders(true),
       body: JSON.stringify({
         mobile: student.mobile,
         board: "cbse",
@@ -637,7 +639,8 @@ const loadEntitlements = useCallback(async () => {
 
   try {
     const res = await fetch(
-      `/api/student/entitlements?mobile=${encodeURIComponent(mobile)}`
+      `/api/student/entitlements?mobile=${encodeURIComponent(mobile)}`,
+      { headers: studentAuthHeaders() }
     );
     const data = await res.json();
 
@@ -875,7 +878,7 @@ const handleBuyPlan = async (planCode: string) => {
       try {
         const res = await fetch(
           `/api/student/profile?mobile=${encodeURIComponent(localInfo.mobile)}`,
-          { cache: "no-store" }
+          { cache: "no-store", headers: studentAuthHeaders() }
         );
 
         const data = await res.json();
@@ -1038,6 +1041,7 @@ useEffect(() => {
     try {
       const res = await fetch(
         `/api/progress/weekly-get?mobile=${encodeURIComponent(mobile)}`
+        , { headers: studentAuthHeaders() }
       );
       const data = await res.json();
 
@@ -1074,6 +1078,7 @@ useEffect(() => {
     try {
       const res = await fetch(
         `/api/progress/daily-get?mobile=${encodeURIComponent(mobile)}`
+        , { headers: studentAuthHeaders() }
       );
       const data = await res.json();
 
@@ -1318,7 +1323,7 @@ const handleStartLesson = useCallback(async () => {
     try {
       const lessonRes = await fetch("/api/generate-lesson", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: studentAuthHeaders(true),
         body: JSON.stringify({
           mobile: student?.mobile,
           board: "CBSE",
@@ -1357,7 +1362,7 @@ const handleStartLesson = useCallback(async () => {
     try {
       await fetch("/api/progress/topic", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: studentAuthHeaders(true),
         body: JSON.stringify({
           studentMobile: student?.mobile,
           studentName: student?.name,
@@ -1377,7 +1382,7 @@ const handleStartLesson = useCallback(async () => {
     try {
       const audioRes = await fetch("/api/lesson-audio", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: studentAuthHeaders(true),
         body: JSON.stringify({
           mobile: student?.mobile,
           text: scriptText,
@@ -1477,7 +1482,7 @@ const handleStartLesson = useCallback(async () => {
   try {
     const res = await fetch("/api/teacher-math", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: studentAuthHeaders(true),
       body: JSON.stringify({
         question: trimmed,
 
@@ -1530,7 +1535,7 @@ const handleStartLesson = useCallback(async () => {
 
     const ttsRes = await fetch("/api/lesson-audio", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: studentAuthHeaders(true),
       body: JSON.stringify({
         mobile: student?.mobile,
         text: answer,
@@ -3282,7 +3287,8 @@ const loadEntitlementsLocal = useCallback(async () => {
 
   try {
     const res = await fetch(
-      `/api/student/entitlements?mobile=${encodeURIComponent(studentMobile)}`
+      `/api/student/entitlements?mobile=${encodeURIComponent(studentMobile)}`,
+      { headers: studentAuthHeaders() }
     );
     const data = await res.json();
     return res.ok && data?.ok ? data : null;
@@ -3411,7 +3417,7 @@ const handleStartTopicTest = async () => {
 
     const res = await fetch("/api/topic-test", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: studentAuthHeaders(true),
       body: JSON.stringify({
         mobile: studentMobile,
         board: "CBSE",
@@ -3468,7 +3474,7 @@ const handleStartTopicTest = async () => {
 
       const saveRes = await fetch("/api/topic-test/submit", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: studentAuthHeaders(true),
         body: JSON.stringify({
           studentMobile,
           studentName: "",

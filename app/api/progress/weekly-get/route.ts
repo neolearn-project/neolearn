@@ -1,6 +1,12 @@
 ﻿// app/api/progress/weekly-get/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  OwnershipError,
+  isTrustedCronRequest,
+  ownershipErrorResponse,
+  requireStudentOrParentChild,
+} from "@/lib/auth/ownership";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -32,6 +38,9 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    if (!isTrustedCronRequest(req)) {
+      await requireStudentOrParentChild(req, mobile);
+    }
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // last 28 days
@@ -122,6 +131,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ ok: true, weeks });
   } catch (err) {
+    if (err instanceof OwnershipError) return ownershipErrorResponse(err);
     console.error("weekly-get unexpected error:", err);
     return NextResponse.json(
       { ok: false, error: "Unexpected server error." },

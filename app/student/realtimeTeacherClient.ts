@@ -36,7 +36,7 @@ export class RealtimeTeacherClient {
 
     const sessionRes = await fetch(
       `/api/realtime-session?mobile=${encodeURIComponent(this.studentMobile)}`,
-      { cache: "no-store" }
+      { cache: "no-store", headers: studentAuthHeaders() }
     );
 
     const sessionJson = await sessionRes.json();
@@ -303,3 +303,4 @@ export class RealtimeTeacherClient {
     this.logStatus("Realtime teacher disconnected.");
   }
 }
+import { studentAuthHeaders } from "@/app/lib/clientAuth";

@@ -1,5 +1,6 @@
 ﻿import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { OwnershipError, ownershipErrorResponse, requireParentChild } from "@/lib/auth/ownership";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,13 @@ export async function GET(req: Request) {
 
   if (!mobile) {
     return NextResponse.json({ ok: false, error: "mobile is required" }, { status: 400 });
+  }
+
+  try {
+    await requireParentChild(req, mobile);
+  } catch (error) {
+    if (error instanceof OwnershipError) return ownershipErrorResponse(error);
+    throw error;
   }
 
   let supabase: ReturnType<typeof supabaseAdmin>;

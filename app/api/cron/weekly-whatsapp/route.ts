@@ -86,7 +86,10 @@ export async function GET(req: NextRequest) {
         const weeklyUrl =
           `${appOrigin}/api/progress/weekly-get?mobile=${encodeURIComponent(childMobile)}`;
 
-        const weeklyRes = await fetch(weeklyUrl, { cache: "no-store" });
+        const weeklyRes = await fetch(weeklyUrl, {
+          cache: "no-store",
+          headers: { "x-cron-secret": CRON_SECRET },
+        });
 
         if (!weeklyRes.ok) {
           skipped++;

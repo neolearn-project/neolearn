@@ -1,5 +1,6 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { OwnershipError, ownershipErrorResponse, requireParentMobile } from "@/lib/auth/ownership";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,6 +48,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    await requireParentMobile(req, parentMobile);
     const supabase = getAdminClient();
 
     // 1) Verify this parent owns this child.
@@ -105,6 +107,7 @@ export async function POST(req: NextRequest) {
       board,
     });
   } catch (err: any) {
+    if (err instanceof OwnershipError) return ownershipErrorResponse(err);
     console.error("child class update unexpected error:", err);
     return NextResponse.json(
       { ok: false, error: err?.message || "Unexpected server error." },

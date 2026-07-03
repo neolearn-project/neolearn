@@ -1,5 +1,10 @@
 ﻿import { NextResponse } from "next/server";
 import { supabaseServerAdmin } from "@/lib/supabase/server";
+import {
+  OwnershipError,
+  ownershipErrorResponse,
+  requireStudentMobile,
+} from "@/lib/auth/ownership";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -13,9 +18,9 @@ export async function GET(req: Request) {
     );
   }
 
-  const supabase = supabaseServerAdmin();
-
   try {
+    await requireStudentMobile(req, mobile);
+    const supabase = supabaseServerAdmin();
     let q = supabase
       .from("teacher_memory")
       .select("question, created_at")
@@ -48,6 +53,7 @@ export async function GET(req: Request) {
       inferred_status: status,
     });
   } catch (e: any) {
+    if (e instanceof OwnershipError) return ownershipErrorResponse(e);
     console.error("topic-status error:", e);
     return NextResponse.json(
       { ok: false, error: e.message },

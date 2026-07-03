@@ -1,6 +1,11 @@
 ﻿// app/api/progress/daily-get/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  OwnershipError,
+  ownershipErrorResponse,
+  requireStudentOrParentChild,
+} from "@/lib/auth/ownership";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -48,6 +53,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    await requireStudentOrParentChild(req, mobile);
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { startUTC, endUTC, istDate } = getISTDayRangeUTC(new Date());
@@ -107,6 +113,7 @@ export async function GET(req: NextRequest) {
       avgScore,
     });
   } catch (err) {
+    if (err instanceof OwnershipError) return ownershipErrorResponse(err);
     console.error("daily-get unexpected error:", err);
     return NextResponse.json(
       { ok: false, error: "Unexpected server error." },

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { OwnershipError, ownershipErrorResponse, requireStudentMobile } from "@/lib/auth/ownership";
 
 export const runtime = "nodejs";
 
@@ -13,10 +14,14 @@ export async function GET(req: NextRequest) {
     if (!mobile) {
       return NextResponse.json({ error: "Missing mobile." }, { status: 400 });
     }
+    await requireStudentMobile(req, mobile);
 
     const entitlementRes = await fetch(
       `${req.nextUrl.origin}/api/student/entitlements?mobile=${encodeURIComponent(mobile)}`,
-      { cache: "no-store" }
+      {
+        cache: "no-store",
+        headers: { Authorization: req.headers.get("authorization") || "" },
+      }
     );
 
     const ent = await entitlementRes.json();
@@ -99,6 +104,7 @@ export async function GET(req: NextRequest) {
       clientSecret,
     });
   } catch (err: any) {
+    if (err instanceof OwnershipError) return ownershipErrorResponse(err);
     console.error("realtime-session error:", err);
     return NextResponse.json(
       { error: err?.message || "Realtime session server error." },

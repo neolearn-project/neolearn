@@ -1,6 +1,7 @@
 ﻿// app/api/topic-test/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { OwnershipError, ownershipErrorResponse, requireStudentMobile } from "@/lib/auth/ownership";
 
 const client = new OpenAI({
   apiKey: process.env.NEOLEARN_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
@@ -25,10 +26,14 @@ if (!mobile) {
     { status: 400 }
   );
 }
+await requireStudentMobile(req, mobile);
 
 const entitlementRes = await fetch(
   `${new URL(req.url).origin}/api/student/entitlements?mobile=${encodeURIComponent(mobile)}`,
-  { cache: "no-store" }
+  {
+    cache: "no-store",
+    headers: { Authorization: req.headers.get("authorization") || "" },
+  }
 );
 const ent = await entitlementRes.json();
 
@@ -189,6 +194,7 @@ Return ONLY JSON in the exact array format described.
 
     return NextResponse.json({ ok: true, questions: cleaned });
   } catch (err) {
+    if (err instanceof OwnershipError) return ownershipErrorResponse(err);
     console.error("topic-test route error:", err);
     return NextResponse.json(
       { ok: false, error: "Unexpected server error in topic-test." },

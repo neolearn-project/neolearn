@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { parentAuthHeaders } from "@/app/lib/clientAuth";
 
-const PARENT_STORAGE_KEY = "neolearnParentMobile";
+const PARENT_STORAGE_KEY = "neolearn_parent_mobile";
 
 type ChildRow = {
   id: number;
@@ -30,7 +31,9 @@ export default function ChildSwitcher({ currentMobile }: { currentMobile: string
     (async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/parent/children?parentMobile=${encodeURIComponent(parentMobile)}`);
+        const res = await fetch(`/api/parent/children?parentMobile=${encodeURIComponent(parentMobile)}`, {
+          headers: await parentAuthHeaders(),
+        });
         const data = await res.json();
         setChildren(data?.children || []);
       } finally {

@@ -1,6 +1,7 @@
 ﻿// app/api/generate-lesson/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { OwnershipError, ownershipErrorResponse, requireStudentMobile } from "@/lib/auth/ownership";
 
 const client = new OpenAI({
   apiKey: process.env.NEOLEARN_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
@@ -9,6 +10,8 @@ const client = new OpenAI({
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    const mobile = String(body?.mobile || "").trim();
+    await requireStudentMobile(req, mobile);
 
     const board = (body.board as string) || "CBSE";
     const classLevel = (body.classLevel as string) || "Class 6";
@@ -132,6 +135,7 @@ but DO NOT mention "NeoLearn" or "AI" in the script.
     // Frontend expects script/text
     return NextResponse.json({ ok: true, script });
   } catch (err) {
+    if (err instanceof OwnershipError) return ownershipErrorResponse(err);
     console.error("generate-lesson error:", err);
     return NextResponse.json(
       { ok: false, error: "Failed to generate lesson script." },
