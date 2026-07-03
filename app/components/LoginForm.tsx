@@ -63,6 +63,9 @@ export default function LoginForm({ onDone }: { onDone: () => void }) {
         competitiveExam: st.competitiveExam || null,
         studentId: st.user_id || st.studentId || "",
         username: st.username || username,
+        access_token: data?.session?.access_token || "",
+        refresh_token: data?.session?.refresh_token || "",
+        expires_at: data?.session?.expires_at || null,
       };
 
       localStorage.setItem(STUDENT_STORAGE_KEY, JSON.stringify(payload));

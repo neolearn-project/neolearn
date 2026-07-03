@@ -42,7 +42,12 @@ export class RealtimeTeacherClient {
     const sessionJson = await sessionRes.json();
 
     if (!sessionRes.ok) {
-      throw new Error(sessionJson?.error || "Failed to create realtime session.");
+      throw new Error(
+        loginAgainMessage(
+          sessionRes.status,
+          sessionJson?.error || "Failed to create realtime session."
+        )
+      );
     }
 
     const clientSecret = sessionJson?.clientSecret;
@@ -303,4 +308,4 @@ export class RealtimeTeacherClient {
     this.logStatus("Realtime teacher disconnected.");
   }
 }
-import { studentAuthHeaders } from "@/app/lib/clientAuth";
+import { loginAgainMessage, studentAuthHeaders } from "@/app/lib/clientAuth";

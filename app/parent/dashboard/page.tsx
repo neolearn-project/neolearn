@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { parentAuthHeaders } from "@/app/lib/clientAuth";
+import { loginAgainMessage, parentAuthHeaders } from "@/app/lib/clientAuth";
 import { supabaseBrowser } from "@/app/lib/supabaseBrowser";
 
 const PARENT_STORAGE_KEY = "neolearn_parent_mobile";
@@ -123,7 +123,7 @@ export default function ParentDashboardPage() {
         const data = await res.json();
 
         if (!res.ok || !data.ok) {
-          setStatus(data?.error || "Failed to load children.");
+          setStatus(loginAgainMessage(res.status, data?.error || "Failed to load children."));
           setChildren([]);
           return;
         }
@@ -158,7 +158,7 @@ export default function ParentDashboardPage() {
         const data: MasteryResponse = await res.json();
 
         if (!res.ok || !data.ok) {
-          setMasteryError(data?.error || "Failed to load mastery analytics.");
+          setMasteryError(loginAgainMessage(res.status, data?.error || "Failed to load mastery analytics."));
           setMasteryRows([]);
           setWeakTopics([]);
           setWeeklyRows([]);
@@ -210,7 +210,7 @@ export default function ParentDashboardPage() {
 
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        setStatus(data?.error || "Failed to save child profile.");
+        setStatus(loginAgainMessage(res.status, data?.error || "Failed to save child profile."));
         return;
       }
 
@@ -284,7 +284,7 @@ export default function ParentDashboardPage() {
       const data = await res.json();
 
       if (!res.ok || !data?.ok) {
-        setStatus(data?.error || "Failed to update child class.");
+        setStatus(loginAgainMessage(res.status, data?.error || "Failed to update child class."));
         return;
       }
 

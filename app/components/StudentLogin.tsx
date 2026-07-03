@@ -23,7 +23,7 @@ const BOARDS: { id: BoardId; label: string }[] = [
   { id: "tbse", label: "TBSE" },
 ];
 
-const STORAGE_KEY = "neolearnStudentAuth"; // store login state
+const STORAGE_KEY = "neolearnStudent";
 
 type StoredStudent = {
   userId: string;
@@ -33,6 +33,8 @@ type StoredStudent = {
   board?: string;
   mobile?: string;
   access_token?: string;
+  refresh_token?: string;
+  expires_at?: number | null;
 };
 
 export default function StudentLogin() {
@@ -242,6 +244,8 @@ export default function StudentLogin() {
         board: String(profile.board || ""),
         mobile: String(profile.mobile || ""),
         access_token: data?.session?.access_token,
+        refresh_token: data?.session?.refresh_token,
+        expires_at: data?.session?.expires_at,
       });
 
       setOpen(false);

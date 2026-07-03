@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RealtimeTeacherClient } from "./realtimeTeacherClient";
 import jsPDF from "jspdf";
-import { studentAuthHeaders } from "@/app/lib/clientAuth";
+import { ClientAuthError, loginAgainMessage, studentAuthHeaders } from "@/app/lib/clientAuth";
 
 type ClassId = "6" | "7" | "8" | "9" | "10" | "11" | "12";
 
@@ -31,6 +31,8 @@ interface StudentInfo {
   // Supabase Auth user id (needed for Persona Engine)
   studentId?: string;
   access_token?: string;
+  refresh_token?: string;
+  expires_at?: number | null;
 }
 
 interface SubjectRow {
@@ -648,11 +650,19 @@ const loadEntitlements = useCallback(async () => {
       setEntitlements(data);
       return data;
     }
+    return {
+      ok: false,
+      authRequired: res.status === 401,
+      error: loginAgainMessage(res.status, data?.error),
+    };
   } catch (err) {
     console.error("loadEntitlements error:", err);
+    return {
+      ok: false,
+      authRequired: err instanceof ClientAuthError,
+      error: err instanceof ClientAuthError ? err.message : "Unable to verify your plan right now.",
+    };
   }
-
-  return null;
 }, [student]);
 
 const loadPlans = useCallback(async () => {
@@ -1046,7 +1056,7 @@ useEffect(() => {
       const data = await res.json();
 
       if (!res.ok || !data.ok) {
-        setWeeklyError(data?.error || `Failed with HTTP ${res.status}`);
+        setWeeklyError(loginAgainMessage(res.status, data?.error || `Failed with HTTP ${res.status}`));
         setWeeklyRows([]);
         return;
       }
@@ -1083,7 +1093,7 @@ useEffect(() => {
       const data = await res.json();
 
       if (!res.ok || !data.ok) {
-        setDailyError(data?.error || "Failed to load daily progress");
+        setDailyError(loginAgainMessage(res.status, data?.error || "Failed to load daily progress"));
         setDaily(null);
         return;
       }
@@ -1276,7 +1286,7 @@ const handleStartLesson = useCallback(async () => {
   if (!ent?.ok) {
     pushMessage(
       "Teacher",
-      "Unable to verify your plan right now. Please try again.",
+      ent?.authRequired ? "Please login again." : ent?.error || "Unable to verify your plan right now. Please try again.",
       true
     );
     setIsStartingLesson(false);
@@ -1453,7 +1463,7 @@ const handleStartLesson = useCallback(async () => {
   if (!ent?.ok) {
     pushMessage(
       "Teacher",
-      "Unable to verify your plan right now. Please try again.",
+      ent?.authRequired ? "Please login again." : ent?.error || "Unable to verify your plan right now. Please try again.",
       true
     );
     return;
@@ -3291,9 +3301,19 @@ const loadEntitlementsLocal = useCallback(async () => {
       { headers: studentAuthHeaders() }
     );
     const data = await res.json();
-    return res.ok && data?.ok ? data : null;
-  } catch {
-    return null;
+    return res.ok && data?.ok
+      ? data
+      : {
+          ok: false,
+          authRequired: res.status === 401,
+          error: loginAgainMessage(res.status, data?.error),
+        };
+  } catch (error) {
+    return {
+      ok: false,
+      authRequired: error instanceof ClientAuthError,
+      error: error instanceof ClientAuthError ? error.message : "Unable to verify access.",
+    };
   }
 }, [studentMobile]);
 
@@ -3311,6 +3331,10 @@ const handleToggleRealtime = async () => {
   }
 
   const ent = await loadEntitlementsLocal();
+  if (ent?.authRequired) {
+    setRealtimeStatus("Please login again.");
+    return;
+  }
   if (!ent?.features?.realtimeVoice) {
     setRealtimeStatus(
       "Realtime voice is available only after subscription. You can continue text Q&A here, or open Payments manually."
@@ -3357,6 +3381,10 @@ const handleAskRealtime = async () => {
 
 const handleMicToggle = async () => {
   const ent = await loadEntitlementsLocal();
+  if (ent?.authRequired) {
+    setRealtimeStatus("Please login again.");
+    return;
+  }
   if (!ent?.features?.realtimeVoice) {
     setRealtimeStatus(
       "Realtime voice is available only after subscription. You can continue text Q&A here, or open Payments manually."
@@ -3399,6 +3427,10 @@ const handleStartTopicTest = async () => {
   }
 
   const ent = await loadEntitlementsLocal();
+  if (ent?.authRequired) {
+    setRealtimeStatus("Please login again.");
+    return;
+  }
   if (!ent?.features?.topicTest) {
     setRealtimeStatus(
       "Topic tests are not available in the current access state."

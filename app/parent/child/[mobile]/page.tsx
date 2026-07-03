@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import ChildSwitcher from "./ChildSwitcher";
 import WeeklyTrendChart from "./WeeklyTrendChart";
 import WeakTopics from "./WeakTopics";
-import { parentAuthHeaders } from "@/app/lib/clientAuth";
+import { loginAgainMessage, parentAuthHeaders } from "@/app/lib/clientAuth";
 
 const STATUS_UI: Record<string, { label: string; cls: string }> = {
   completed: {
@@ -67,7 +67,7 @@ export default function ParentChildWeeklyReportPage() {
         const data = await res.json();
 
         if (!res.ok || !data?.ok) {
-          setError(data?.error || "Failed to load weekly report");
+          setError(loginAgainMessage(res.status, data?.error || "Failed to load weekly report"));
           setWeeks([]);
           setLatestWeek(null);
           setWeakTopics([]);

@@ -19,6 +19,7 @@ export default function ChildSwitcher({ currentMobile }: { currentMobile: string
   const [parentMobile, setParentMobile] = useState<string | null>(null);
   const [children, setChildren] = useState<ChildRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const stored = window.localStorage.getItem(PARENT_STORAGE_KEY);
@@ -31,11 +32,19 @@ export default function ChildSwitcher({ currentMobile }: { currentMobile: string
     (async () => {
       setLoading(true);
       try {
+        setError("");
         const res = await fetch(`/api/parent/children?parentMobile=${encodeURIComponent(parentMobile)}`, {
           headers: await parentAuthHeaders(),
         });
         const data = await res.json();
+        if (!res.ok || !data?.ok) {
+          setError(res.status === 401 ? "Please login again." : data?.error || "Failed to load children.");
+          setChildren([]);
+          return;
+        }
         setChildren(data?.children || []);
+      } catch (error: any) {
+        setError(error?.message || "Failed to load children.");
       } finally {
         setLoading(false);
       }
@@ -46,6 +55,7 @@ export default function ChildSwitcher({ currentMobile }: { currentMobile: string
 
   return (
     <div className="flex items-center gap-3">
+      {error && <span className="text-xs text-red-600">{error}</span>}
       <div className="text-xs text-gray-500">Child</div>
 
       <select
