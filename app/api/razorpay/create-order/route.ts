@@ -107,7 +107,7 @@ export async function POST(req: Request) {
       },
     });
 
-    await supabase.from("student_payments").insert({
+    const { error: paymentRecordError } = await supabase.from("student_payments").insert({
       student_mobile: studentMobile,
       plan_code: plan.code,
       amount: Number(plan.price),
@@ -121,6 +121,14 @@ export async function POST(req: Request) {
         track: plan.track,
       },
     });
+
+    if (paymentRecordError) {
+      console.error("create-order payment record error:", paymentRecordError);
+      return NextResponse.json(
+        { ok: false, error: "Failed to persist payment order." },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       ok: true,
