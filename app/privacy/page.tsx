@@ -1,5 +1,7 @@
 ﻿import { COMPANY } from "@/app/lib/company";
 
+import Link from "next/link";
+
 export default function PrivacyPage() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900">
@@ -45,7 +47,23 @@ export default function PrivacyPage() {
           analytics, security, or legal compliance.
         </p>
 
-        <h2 className="mt-8 text-xl font-semibold">6. Contact</h2>
+        <h2 className="mt-8 text-xl font-semibold">
+          6. Account and Data Deletion
+        </h2>
+        <p className="mt-3 text-slate-700 leading-7">
+          Students and parents can request deletion of their NeoLearn account
+          and associated data through our{" "}
+          <Link
+            href="/account-deletion"
+            className="font-medium text-blue-700 hover:underline"
+          >
+            account deletion request page
+          </Link>
+          . Requests are reviewed and account ownership may be verified before
+          deletion.
+        </p>
+
+        <h2 className="mt-8 text-xl font-semibold">7. Contact</h2>
         <p className="mt-3 text-slate-700 leading-7">
           For privacy-related queries, contact us at {COMPANY.supportEmail}.
         </p>

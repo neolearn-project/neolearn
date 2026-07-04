@@ -255,6 +255,12 @@ export default function Page() {
             <Link href="/privacy" className="underline underline-offset-2 hover:text-gray-900">
               Privacy
             </Link>
+            <Link
+              href="/account-deletion"
+              className="underline underline-offset-2 hover:text-gray-900"
+            >
+              Account deletion
+            </Link>
             <Link href="/terms" className="underline underline-offset-2 hover:text-gray-900">
               Terms
             </Link>

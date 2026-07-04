@@ -36,7 +36,11 @@
 
       <h2>User Rights</h2>
       <p>
-        Parents can request data correction or deletion by contacting us.
+        Students and parents can request data correction or submit an account
+        and data deletion request through the{" "}
+        <a href="/account-deletion">NeoLearn account deletion page</a>.
+        Requests are reviewed and account ownership may be verified before
+        deletion.
       </p>
 
       <h2>Contact</h2>

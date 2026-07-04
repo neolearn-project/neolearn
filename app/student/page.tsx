@@ -3808,6 +3808,13 @@ const handleStartTopicTest = async () => {
           >
             End Class & Save
           </button>
+
+          <a
+            href="/account-deletion"
+            className="block w-full rounded-2xl border border-slate-200 px-3 py-2 text-center text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-blue-700"
+          >
+            Request account deletion
+          </a>
         </div>
       </div>
 

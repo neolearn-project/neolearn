@@ -343,6 +343,12 @@ export default function ParentDashboardPage() {
           >
             Support / HelpDesk
           </a>
+          <a
+            href="/account-deletion"
+            className="text-[11px] font-semibold text-slate-600 hover:text-blue-700 hover:underline"
+          >
+            Account deletion
+          </a>
           <button
             type="button"
             onClick={handleLogout}

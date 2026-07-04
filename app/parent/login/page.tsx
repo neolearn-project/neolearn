@@ -115,6 +115,12 @@ export default function ParentLoginPage() {
             Forgot password?
           </Link>
         </div>
+
+        <div className="mt-3 text-center text-xs text-slate-500">
+          <Link href="/account-deletion" className="hover:text-blue-700 hover:underline">
+            Request account deletion
+          </Link>
+        </div>
       </div>
     </div>
   );
