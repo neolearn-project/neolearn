@@ -124,6 +124,137 @@ type StoredSession = {
   transcript: string; // current topic/session transcript only
 };
 
+type SessionHistoryResult = {
+  sessions: StoredSession[];
+  error: string | null;
+};
+
+const HISTORY_LIST_LIMIT = 200;
+const HISTORY_INITIAL_VISIBLE = 30;
+const TRANSCRIPT_PREVIEW_LENGTH = 140;
+const TRANSCRIPT_DETAIL_CHUNK = 8000;
+const TRANSCRIPT_DETAIL_MAX = 32000;
+
+function safeHistoryText(value: unknown, fallback = "") {
+  if (typeof value === "string") return value.trim();
+  if (value === null || value === undefined) return fallback;
+  return String(value).trim();
+}
+
+function safeHistoryDate(value: unknown) {
+  const text = safeHistoryText(value);
+  const timestamp = Date.parse(text);
+  return Number.isFinite(timestamp) ? new Date(timestamp) : null;
+}
+
+function formatHistoryDate(value: unknown) {
+  const date = safeHistoryDate(value);
+  return date ? date.toLocaleString() : "Date unavailable";
+}
+
+function normalizeStoredSession(
+  value: unknown,
+  index: number
+): StoredSession | null {
+  if (!value || typeof value !== "object") return null;
+
+  const raw = value as Record<string, unknown>;
+  const endedAt =
+    safeHistoryDate(raw.endedAt)?.toISOString() ||
+    safeHistoryDate(raw.startedAt)?.toISOString() ||
+    new Date(0).toISOString();
+  const startedAt =
+    safeHistoryDate(raw.startedAt)?.toISOString() || endedAt;
+  const transcript = safeHistoryText(raw.transcript);
+  const studentMobile = safeHistoryText(raw.studentMobile);
+
+  if (!studentMobile || !transcript) return null;
+
+  const numberOrNull = (input: unknown) => {
+    if (input === null || input === undefined || input === "") return null;
+    const number = Number(input);
+    return Number.isFinite(number) ? number : null;
+  };
+
+  return {
+    id:
+      safeHistoryText(raw.id) ||
+      `legacy-${studentMobile}-${Date.parse(endedAt)}-${index}`,
+    studentMobile,
+    subjectId: numberOrNull(raw.subjectId),
+    chapterId: numberOrNull(raw.chapterId),
+    topicId: numberOrNull(raw.topicId),
+    subject: safeHistoryText(raw.subject, "Unknown Subject"),
+    chapter: safeHistoryText(raw.chapter, "Unknown Chapter"),
+    topic: safeHistoryText(raw.topic, "Unknown Topic"),
+    language: safeHistoryText(raw.language, "Unknown"),
+    startedAt,
+    endedAt,
+    transcript,
+  };
+}
+
+function compactTranscriptForSave(value: string) {
+  const blocks = String(value || "")
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+  const compacted: string[] = [];
+
+  for (const block of blocks) {
+    if (compacted[compacted.length - 1] !== block) {
+      compacted.push(block);
+    }
+  }
+
+  return compacted.join("\n\n").trim();
+}
+
+function extractTranscriptDelta(previousValue: string, nextValue: string) {
+  const previous = String(previousValue || "");
+  const next = String(nextValue || "");
+
+  if (!next || next === previous || previous.startsWith(next)) return "";
+  if (!previous) return next;
+  if (next.startsWith(previous)) return next.slice(previous.length);
+  if (previous.includes(next)) return "";
+
+  let commonPrefixLength = 0;
+  const prefixLimit = Math.min(previous.length, next.length);
+  while (
+    commonPrefixLength < prefixLimit &&
+    previous[commonPrefixLength] === next[commonPrefixLength]
+  ) {
+    commonPrefixLength += 1;
+  }
+
+  if (
+    commonPrefixLength >= 60 ||
+    commonPrefixLength >= Math.floor(previous.length * 0.7)
+  ) {
+    return next.slice(commonPrefixLength);
+  }
+
+  const overlapLimit = Math.min(previous.length, next.length, 2000);
+  for (let size = overlapLimit; size >= 24; size -= 1) {
+    if (previous.endsWith(next.slice(0, size))) {
+      return next.slice(size);
+    }
+  }
+
+  return `\n\n${next}`;
+}
+
+function pauseAndResetAudio(audio: HTMLAudioElement | null) {
+  if (!audio) return;
+  try {
+    audio.pause();
+  } catch {}
+  try {
+    audio.currentTime = 0;
+  } catch {}
+}
+
 const TOPIC_STATUS_UI: Record<string, string> = {
   completed: "Completed",
   in_progress: "In Progress",
@@ -414,6 +545,9 @@ const [noteType, setNoteType] = useState<NoteType>("full_exam_notes");
 
 const [savedSessions, setSavedSessions] = useState<StoredSession[]>([]);
 const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+const [historyLoading, setHistoryLoading] = useState(false);
+const [historyError, setHistoryError] = useState<string | null>(null);
+const loadedHistoryStudentRef = useRef<string | null>(null);
 
 
 const [classSession, setClassSession] = useState<ClassSession | null>(null);
@@ -428,17 +562,37 @@ const resetSessionTranscript = useCallback(() => {
 }, []);
 
 const appendSessionTranscript = useCallback((line: string) => {
-  const clean = String(line || "").trim();
+  let clean = String(line || "").trim();
   if (!clean) return;
 
-  sessionTranscriptRef.current = [sessionTranscriptRef.current.trim(), clean]
+  const current = sessionTranscriptRef.current.trim();
+  const recentTranscript = current.slice(
+    -Math.max(4000, Math.min(clean.length * 2, 16000))
+  );
+  if (
+    current &&
+    (current.endsWith(clean) || recentTranscript.includes(clean))
+  ) {
+    return;
+  }
+
+  if (current && clean.startsWith(current)) {
+    clean = clean.slice(current.length).trim();
+  }
+  if (!clean) return;
+
+  sessionTranscriptRef.current = [current, clean]
     .filter(Boolean)
     .join("\n\n");
-
-  setSessionTranscript(sessionTranscriptRef.current);
 }, []);
 
   const handleLogout = () => {
+    const audio =
+      typeof document !== "undefined"
+        ? (document.getElementById("lesson-audio") as HTMLAudioElement | null)
+        : null;
+    pauseAndResetAudio(audio);
+
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(STORAGE_KEY);
     }
@@ -465,21 +619,76 @@ const startClassSession = () => {
   setClassSession(session);
   setRemainingSeconds(durationMinutes * 60);
 };
-function loadSessionHistory(): StoredSession[] {
-  if (typeof window === "undefined") return [];
+function loadSessionHistory(): SessionHistoryResult {
+  if (typeof window === "undefined") {
+    return { sessions: [], error: null };
+  }
+
   try {
     const raw = window.localStorage.getItem(SESSION_HISTORY_KEY);
-    return raw ? (JSON.parse(raw) as StoredSession[]) : [];
+    if (!raw) return { sessions: [], error: null };
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return {
+        sessions: [],
+        error: "Saved class history is not in a supported format.",
+      };
+    }
+
+    const sessions = parsed
+      .slice(0, HISTORY_LIST_LIMIT)
+      .map(normalizeStoredSession)
+      .filter((session): session is StoredSession => !!session);
+    const malformedCount =
+      Math.min(parsed.length, HISTORY_LIST_LIMIT) - sessions.length;
+
+    return {
+      sessions,
+      error:
+        malformedCount > 0
+          ? `${malformedCount} malformed class ${
+              malformedCount === 1 ? "record was" : "records were"
+            } skipped. Existing saved data was not changed.`
+          : null,
+    };
   } catch {
-    return [];
+    return {
+      sessions: [],
+      error: "Saved class history could not be read.",
+    };
   }
 }
 
 function saveSessionHistory(item: StoredSession) {
-  if (typeof window === "undefined") return;
-  const prev = loadSessionHistory();
-  const next = [item, ...prev].slice(0, 200); // keep last 200 sessions
-  window.localStorage.setItem(SESSION_HISTORY_KEY, JSON.stringify(next));
+  if (typeof window === "undefined") {
+    return { ok: false, error: "Class history is unavailable." };
+  }
+
+  try {
+    const raw = window.localStorage.getItem(SESSION_HISTORY_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) {
+      return {
+        ok: false,
+        error: "Existing class history is not in a supported format.",
+      };
+    }
+
+    const previous = parsed.filter((session) => {
+      if (!session || typeof session !== "object") return true;
+      return safeHistoryText((session as Record<string, unknown>).id) !== item.id;
+    });
+    const next = [item, ...previous].slice(0, HISTORY_LIST_LIMIT);
+    window.localStorage.setItem(SESSION_HISTORY_KEY, JSON.stringify(next));
+    return { ok: true, error: null };
+  } catch {
+    return {
+      ok: false,
+      error:
+        "Class history could not be saved. Your browser storage may be full.",
+    };
+  }
 }
 
 // End class session + save transcript chapter-wise
@@ -517,7 +726,7 @@ const endClassSession = () => {
   const sessionId = classSession?.id || crypto.randomUUID();
   const startedAt = classSession?.startTime || now;
 
-  saveSessionHistory({
+  const saved = saveSessionHistory({
     id: sessionId,
     studentMobile: student.mobile,
     subjectId: currentSubject?.id ?? null,
@@ -529,10 +738,21 @@ const endClassSession = () => {
     language,
     startedAt: new Date(startedAt).toISOString(),
     endedAt: new Date().toISOString(),
-    transcript: transcriptText,
+    transcript: compactTranscriptForSave(transcriptText),
   });
 
-  setSavedSessions(loadSessionHistory().filter((s) => s.studentMobile === student.mobile));
+  if (!saved.ok) {
+    alert(saved.error);
+    return;
+  }
+
+  const historyResult = loadSessionHistory();
+  setSavedSessions(
+    historyResult.sessions.filter(
+      (session) => session.studentMobile === student.mobile
+    )
+  );
+  setHistoryError(historyResult.error);
   setSelectedSessionId(sessionId);
 
   setClassSession(null);
@@ -701,6 +921,22 @@ const [question, setQuestion] = useState("");
 const [isStartingLesson, setIsStartingLesson] = useState(false);
 const [isAsking, setIsAsking] = useState(false);
 const [audioUrl, setAudioUrl] = useState<string | null>(null);
+const lessonAudioRef = useRef<HTMLAudioElement | null>(null);
+const audioUrlRef = useRef<string | null>(null);
+const audioRequestVersionRef = useRef(0);
+
+const stopLessonAudio = useCallback(() => {
+  audioRequestVersionRef.current += 1;
+  pauseAndResetAudio(lessonAudioRef.current);
+
+  setAudioUrl((oldUrl) => {
+    if (oldUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(oldUrl);
+    }
+    return null;
+  });
+  audioUrlRef.current = null;
+}, []);
 
 const [audioError, setAudioError] = useState<string | null>(null);
 const [qaError, setQaError] = useState<string | null>(null);
@@ -732,8 +968,10 @@ const lessonRequestInFlightRef = useRef(false);
 
 
 useEffect(() => {
+  audioUrlRef.current = audioUrl;
   if (!audioUrl) return;
-  const audio = document.getElementById("lesson-audio") as HTMLAudioElement | null;
+
+  const audio = lessonAudioRef.current;
   if (!audio) return;
 
   try {
@@ -743,7 +981,24 @@ useEffect(() => {
   audio.play().catch(() => {
     // ignore autoplay error; user can press play manually
   });
+
+  return () => {
+    pauseAndResetAudio(audio);
+  };
 }, [audioUrl]);
+
+useEffect(() => {
+  return () => {
+    audioRequestVersionRef.current += 1;
+    pauseAndResetAudio(lessonAudioRef.current);
+
+    const activeUrl = audioUrlRef.current;
+    if (activeUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(activeUrl);
+    }
+    audioUrlRef.current = null;
+  };
+}, []);
 
 useEffect(() => {
   loadEntitlements();
@@ -1243,24 +1498,39 @@ useEffect(() => {
 
 useEffect(() => {
   if (typeof window === "undefined") return;
+  if (!student?.mobile || activeTab !== "gallery") return;
+  if (loadedHistoryStudentRef.current === student.mobile) return;
 
-  // load for this student only
-  const all = loadSessionHistory();
-  const mine = student ? all.filter((s) => s.studentMobile === student.mobile) : [];
-  setSavedSessions(mine);
+  setHistoryLoading(true);
+  setHistoryError(null);
 
-  // auto-select first
-  if (!selectedSessionId && mine.length > 0) {
-    setSelectedSessionId(mine[0].id);
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [student, activeTab]);
+  const timer = window.setTimeout(() => {
+    const result = loadSessionHistory();
+    const mine = result.sessions.filter(
+      (session) => session.studentMobile === student.mobile
+    );
+
+    setSavedSessions(mine);
+    setHistoryError(result.error);
+    setSelectedSessionId((current) => {
+      if (current && mine.some((session) => session.id === current)) {
+        return current;
+      }
+      return mine[0]?.id || null;
+    });
+    loadedHistoryStudentRef.current = student.mobile;
+    setHistoryLoading(false);
+  }, 0);
+
+  return () => window.clearTimeout(timer);
+}, [student?.mobile, activeTab]);
 
 
   // Start Lesson -> /api/generate-lesson + /api/lesson-audio
 const handleStartLesson = useCallback(async () => {
   if (isStartingLesson || lessonRequestInFlightRef.current) return;
-  lessonRequestInFlightRef.current = true;
+  stopLessonAudio();
+  const lessonAudioRequestVersion = audioRequestVersionRef.current;
 
   if (!currentSubject || !currentChapter || !currentTopic) {
     pushMessage(
@@ -1271,6 +1541,7 @@ const handleStartLesson = useCallback(async () => {
     return;
   }
 
+  lessonRequestInFlightRef.current = true;
   setIsStartingLesson(true);
   setAudioError(null);
   setQaError(null);
@@ -1278,6 +1549,7 @@ const handleStartLesson = useCallback(async () => {
   const mobile = student?.mobile;
   if (!mobile) {
     pushMessage("Teacher", "Student info missing. Please login again.", true);
+    lessonRequestInFlightRef.current = false;
     setIsStartingLesson(false);
     return;
   }
@@ -1290,6 +1562,7 @@ const handleStartLesson = useCallback(async () => {
       ent?.authRequired ? "Please login again." : ent?.error || "Unable to verify your plan right now. Please try again.",
       true
     );
+    lessonRequestInFlightRef.current = false;
     setIsStartingLesson(false);
     return;
   }
@@ -1300,6 +1573,7 @@ const handleStartLesson = useCallback(async () => {
       `Free access exhausted (${ent.usage?.used}/${ent.usage?.effectiveLimit}). Please subscribe to continue full lessons.`,
       true
     );
+    lessonRequestInFlightRef.current = false;
     setIsStartingLesson(false);
     return;
   }
@@ -1315,13 +1589,6 @@ const handleStartLesson = useCallback(async () => {
     subjects: [currentSubject.subject_name],
   });
   setRemainingSeconds(40 * 60);
-
-  setAudioUrl((old) => {
-    if (old && old.startsWith("blob:")) {
-      URL.revokeObjectURL(old);
-    }
-    return null;
-  });
 
   pushMessage("Teacher", "Generating your lesson. Please wait a moment...");
 
@@ -1414,7 +1681,11 @@ const handleStartLesson = useCallback(async () => {
 
       const blob = await audioRes.blob();
       const url = URL.createObjectURL(blob);
-      setAudioUrl(url);
+      if (lessonAudioRequestVersion === audioRequestVersionRef.current) {
+        setAudioUrl(url);
+      } else {
+        URL.revokeObjectURL(url);
+      }
     } catch (err) {
       console.error("lesson-audio network error:", err);
       setAudioError("Failed to generate lesson audio (network error).");
@@ -1432,6 +1703,7 @@ const handleStartLesson = useCallback(async () => {
   currentSubject,
   currentChapter,
   currentTopic,
+  stopLessonAudio,
   student?.classId,
   student?.name,
   student?.mobile,
@@ -1536,13 +1808,8 @@ const handleStartLesson = useCallback(async () => {
     pushMessage("Teacher", answer);
 
     const langCode = getLangCode(language);
-
-    setAudioUrl((old) => {
-      if (old && old.startsWith("blob:")) {
-        URL.revokeObjectURL(old);
-      }
-      return null;
-    });
+    stopLessonAudio();
+    const answerAudioRequestVersion = audioRequestVersionRef.current;
 
     const ttsRes = await fetch("/api/lesson-audio", {
       method: "POST",
@@ -1564,7 +1831,11 @@ const handleStartLesson = useCallback(async () => {
     if (ttsContentType.startsWith("audio/")) {
       const blob = await ttsRes.blob();
       const url = URL.createObjectURL(blob);
-      setAudioUrl(url);
+      if (answerAudioRequestVersion === audioRequestVersionRef.current) {
+        setAudioUrl(url);
+      } else {
+        URL.revokeObjectURL(url);
+      }
     } else {
       const ttsData = await ttsRes.json();
 
@@ -1579,7 +1850,10 @@ const handleStartLesson = useCallback(async () => {
         urlFromJson = `data:audio/mpeg;base64,${ttsData.audio}`;
       }
 
-      if (urlFromJson) {
+      if (
+        urlFromJson &&
+        answerAudioRequestVersion === audioRequestVersionRef.current
+      ) {
         setAudioUrl(urlFromJson);
       }
     }
@@ -1598,6 +1872,7 @@ const handleStartLesson = useCallback(async () => {
   currentSubject,
   currentChapter,
   currentTopic,
+  stopLessonAudio,
   student?.classId,
   student?.mobile,
   student?.studentId,
@@ -1619,9 +1894,9 @@ const handleStartLesson = useCallback(async () => {
   if (!student) return null;
 
   return (
-  <div className="fixed inset-0 flex flex-col bg-slate-100">
+  <div className="neo-student-shell fixed inset-0 flex flex-col bg-slate-100">
     {/* Top bar */}
-    <header className="shrink-0 border-b border-slate-200 bg-white px-4 py-3 shadow-sm md:px-6">
+    <header className="neo-student-header shrink-0 border-b border-slate-200 bg-white px-4 py-3 shadow-sm md:px-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-blue-600">
@@ -1634,7 +1909,7 @@ const handleStartLesson = useCallback(async () => {
           <div className="text-lg font-semibold">NeoLearn</div>
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-gray-600">
+        <div className="neo-student-header-actions flex items-center gap-3 text-xs text-gray-600">
           <span>
             {student.name}  {String(student.track || student.subjectType || "regular").toLowerCase() === "competitive" ? `${student.competitiveExam || student.board || "Competitive"} Exam` : `Class ${student.classId}`} {student.mobile}
           </span>
@@ -1658,10 +1933,64 @@ const handleStartLesson = useCallback(async () => {
     </header>
 
     {/* Fullscreen app shell */}
-    <div className="min-h-0 flex-1 px-2 py-2 md:px-3 md:py-3">
+    <div className="neo-student-app-body min-h-0 flex-1 px-2 py-2 md:px-3 md:py-3">
       <div className="flex h-full min-h-0 flex-col gap-3">
+        <section className="neo-mobile-welcome-card relative hidden shrink-0 overflow-hidden md:hidden">
+          <div className="neo-mobile-welcome-topline">
+            <div className="flex items-center gap-2">
+              <div className="neo-mobile-brand-mark">N</div>
+              <span className="text-xs font-bold tracking-wide text-white/90">
+                NEOLEARN
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <a
+                href={HELPDESK_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="neo-mobile-hero-action"
+              >
+                Help
+              </a>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="neo-mobile-hero-action"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+
+          <div className="neo-mobile-welcome-body">
+            <div className="min-w-0">
+              <div className="neo-mobile-welcome-eyebrow">
+                Your learning adventure
+              </div>
+              <h1>
+                Hi {student.name?.trim().split(/\s+/)[0] || "Learner"} 👋
+              </h1>
+              <p>Ready to learn something new?</p>
+              <div className="neo-mobile-student-chip">
+                {String(
+                  student.track || student.subjectType || "regular"
+                ).toLowerCase() === "competitive"
+                  ? `${student.competitiveExam || student.board || "Competitive"}`
+                  : `Class ${student.classId}`}
+              </div>
+            </div>
+
+            <div className="neo-mobile-robot" aria-hidden="true">
+              <span className="neo-mobile-robot-antenna">✦</span>
+              <span className="neo-mobile-robot-eyes">● &nbsp; ●</span>
+              <span className="neo-mobile-robot-smile">⌣</span>
+            </div>
+          </div>
+        </section>
+
         {/* Top horizontal navigation */}
-        <div className="shrink-0 overflow-x-auto rounded-[24px] border border-slate-200 bg-white p-2 shadow-sm">
+        <div className="neo-student-tabs shrink-0 overflow-x-auto rounded-[24px] border border-slate-200 bg-white p-2 shadow-sm">
           <nav className="flex min-w-max gap-2 text-sm">
             <TabButton
               active={activeTab === "classroom"}
@@ -1743,6 +2072,8 @@ const handleStartLesson = useCallback(async () => {
               isStartingLesson={isStartingLesson}
               isAsking={isAsking}
               audioUrl={audioUrl}
+              lessonAudioRef={lessonAudioRef}
+              onStopLessonAudio={stopLessonAudio}
               audioError={audioError}
               messagesEndRef={messagesEndRef}
               teacherAvatar={teacherAvatar}
@@ -1751,9 +2082,7 @@ const handleStartLesson = useCallback(async () => {
               isClassLive={!!classSession?.isLive}
               remainingSeconds={remainingSeconds}
               onEnsureClassLive={startClassSession}
-              onAppendTranscript={(delta) =>
-                setSessionTranscript((p) => p + delta)
-              }
+              onAppendTranscript={appendSessionTranscript}
               onEndClass={endClassSession}
               autoStartToken={autoStartToken}
               autoStartPayload={autoStartPayload}
@@ -1801,7 +2130,7 @@ const handleStartLesson = useCallback(async () => {
           )}
 
           {activeTab === "progress" && (
-            <div className="h-full overflow-auto rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="neo-student-tab-panel h-full overflow-auto rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
               <WeeklyProgressView
                 loading={weeklyLoading}
                 error={weeklyError}
@@ -1814,7 +2143,7 @@ const handleStartLesson = useCallback(async () => {
           )}
 
           {activeTab === "payments" && (
-  <div className="h-full overflow-auto rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
+  <div className="neo-student-tab-panel h-full overflow-auto rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
     <PaymentsView
       entitlements={entitlements}
       plans={plans}
@@ -1830,6 +2159,8 @@ const handleStartLesson = useCallback(async () => {
             <div className="h-full overflow-auto rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
               <GalleryView
                 sessions={savedSessions}
+                loading={historyLoading}
+                error={historyError}
                 selectedId={selectedSessionId}
                 setSelectedId={setSelectedSessionId}
                 noteType={noteType}
@@ -1939,7 +2270,7 @@ function PaymentsView({
   );
 
   return (
-    <div className="space-y-5">
+    <div className="neo-payments-view space-y-5">
       <div>
         <h1 className="text-lg font-semibold">Plans & Subscription</h1>
         <p className="mt-1 text-xs text-slate-500">
@@ -1948,7 +2279,7 @@ function PaymentsView({
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div className="neo-plan-summary-card rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
             Access status
           </div>
@@ -1965,7 +2296,7 @@ function PaymentsView({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div className="neo-plan-summary-card rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
             Current plan
           </div>
@@ -1979,7 +2310,7 @@ function PaymentsView({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div className="neo-plan-summary-card rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
             Premium unlocks
           </div>
@@ -2021,13 +2352,13 @@ function PaymentsView({
             return (
               <div
                 key={plan.id}
-                className={`relative rounded-[26px] border p-5 shadow-sm ${
+                className={`neo-plan-card relative rounded-[26px] border p-5 shadow-sm ${
                   isCurrent
                     ? "border-emerald-300 bg-emerald-50"
                     : "border-slate-200 bg-white"
                 }`}
               >
-                <div className="mb-3 flex items-start justify-between gap-2">
+                <div className="neo-plan-heading mb-3 flex items-start justify-between gap-2">
                   <div>
                     <div className="text-lg font-semibold text-slate-900">
                       {plan.name}
@@ -2052,7 +2383,7 @@ function PaymentsView({
                   ) : null}
                 </div>
 
-                <div className="mb-4">
+                <div className="neo-plan-price mb-4">
                   <div className="text-3xl font-bold text-slate-900">
                     ₹{plan.price}
                   </div>
@@ -2070,7 +2401,7 @@ function PaymentsView({
 
                 <button
                   type="button"
-                  className={`w-full rounded-2xl px-4 py-3 text-sm font-semibold ${
+                  className={`neo-plan-button w-full rounded-2xl px-4 py-3 text-sm font-semibold ${
                     isCurrent
                       ? "bg-emerald-600 text-white"
                       : "bg-slate-900 text-white hover:bg-slate-800"
@@ -2113,7 +2444,7 @@ function SubjectsView({
   error: string | null;
 }) {
   return (
-    <div className="space-y-3 text-sm">
+    <div className="neo-progress-view space-y-3 text-sm">
       <h1 className="text-lg font-semibold mb-1">Subjects</h1>
       {loading && (
         <p className="text-xs text-gray-500">Loading subjects from server...</p>
@@ -2352,7 +2683,7 @@ function WeeklyProgressView({
       <h1 className="text-lg font-semibold mb-1">Weekly Progress</h1>
 
 {/* Today's Progress */}
-<div className="mb-4 rounded-2xl border border-slate-200 bg-white p-3">
+<div className="neo-progress-hero mb-4 rounded-2xl border border-slate-200 bg-white p-3">
   <div className="flex items-center justify-between">
     <div className="text-sm font-semibold">Today's Progress</div>
     {daily?.date && (
@@ -2370,21 +2701,21 @@ function WeeklyProgressView({
 
   {!dailyLoading && !dailyError && daily && (
     <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
-      <div className="rounded-xl bg-slate-50 border border-slate-200 p-2">
+      <div className="neo-progress-metric rounded-xl bg-slate-50 border border-slate-200 p-2">
         <div className="text-[11px] text-gray-600">Topics</div>
         <div className="text-lg font-semibold">
           {daily.topicsCompleted}
         </div>
       </div>
 
-      <div className="rounded-xl bg-slate-50 border border-slate-200 p-2">
+      <div className="neo-progress-metric rounded-xl bg-slate-50 border border-slate-200 p-2">
         <div className="text-[11px] text-gray-600">Tests</div>
         <div className="text-lg font-semibold">
           {daily.testsTaken}
         </div>
       </div>
 
-      <div className="rounded-xl bg-slate-50 border border-slate-200 p-2">
+      <div className="neo-progress-metric rounded-xl bg-slate-50 border border-slate-200 p-2">
         <div className="text-[11px] text-gray-600">Avg Score</div>
         <div className="text-lg font-semibold">
           {daily.avgScore === null ? "—" : `${daily.avgScore}%`}
@@ -2422,7 +2753,7 @@ function WeeklyProgressView({
           {rows.map((w) => (
             <div
               key={w.weekStart}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs"
+              className="neo-progress-week-card rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs"
             >
               <div className="flex items-center justify-between mb-1">
                 <div className="font-semibold">
@@ -2458,6 +2789,8 @@ function WeeklyProgressView({
 
 function GalleryView({
   sessions,
+  loading,
+  error,
   selectedId,
   setSelectedId,
   noteType,
@@ -2468,6 +2801,8 @@ function GalleryView({
   onGenerateNotes,
 }: {
   sessions: StoredSession[];
+  loading: boolean;
+  error: string | null;
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
 
@@ -2478,10 +2813,35 @@ function GalleryView({
   notesError: string | null;
   onGenerateNotes: () => Promise<void> | void;
 }) {
-  const selected = useMemo(
-    () => sessions.find((s) => s.id === selectedId) || null,
-    [sessions, selectedId]
+  const [visibleCount, setVisibleCount] = useState(HISTORY_INITIAL_VISIBLE);
+  const [transcriptDisplayLength, setTranscriptDisplayLength] = useState(
+    TRANSCRIPT_DETAIL_CHUNK
   );
+  const orderedSessions = useMemo(
+    () =>
+      [...sessions].sort((a, b) => {
+        const aTime = safeHistoryDate(a.endedAt)?.getTime() || 0;
+        const bTime = safeHistoryDate(b.endedAt)?.getTime() || 0;
+        return bTime - aTime;
+      }),
+    [sessions]
+  );
+  const selected = useMemo(
+    () => orderedSessions.find((s) => s.id === selectedId) || null,
+    [orderedSessions, selectedId]
+  );
+  const visibleSessions = orderedSessions.slice(0, visibleCount);
+  const selectedTranscript = safeHistoryText(selected?.transcript);
+  const displayedTranscript = selectedTranscript.slice(
+    0,
+    transcriptDisplayLength
+  );
+  const transcriptIsTruncated =
+    displayedTranscript.length < selectedTranscript.length;
+
+  useEffect(() => {
+    setTranscriptDisplayLength(TRANSCRIPT_DETAIL_CHUNK);
+  }, [selectedId]);
 
   const printNotes = () => {
     if (typeof window === "undefined") return;
@@ -2615,8 +2975,8 @@ function GalleryView({
     <div><b>Chapter:</b> ${esc(session.chapter)}</div>
     <div><b>Topic:</b> ${esc(session.topic)}</div>
     <div><b>Language:</b> ${esc(session.language)}</div>
-    <div><b>Start:</b> ${esc(new Date(session.startedAt).toLocaleString())}</div>
-    <div><b>End:</b> ${esc(new Date(session.endedAt).toLocaleString())}</div>
+    <div><b>Start:</b> ${esc(formatHistoryDate(session.startedAt))}</div>
+    <div><b>End:</b> ${esc(formatHistoryDate(session.endedAt))}</div>
   </div>
   <div class="transcript">${transcript}</div>
   <div class="footer">Generated by NeoLearn AI Assisted Learning</div>
@@ -2640,8 +3000,13 @@ function GalleryView({
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Gallery / Class History</h1>
         <div className="text-[11px] text-gray-500">
-          Saved realtime classes (chapter-wise)
+          {loading
+            ? "Loading saved classes..."
+            : `${orderedSessions.length} saved ${
+                orderedSessions.length === 1 ? "class" : "classes"
+              }`}
         </div>
+      </div>
 
       {/* ---------------- Notes Engine (v1) ---------------- */}
       <div className="rounded-2xl border border-slate-200 bg-white p-3">
@@ -2713,9 +3078,18 @@ function GalleryView({
   </div>
 )}
       </div>
-      </div>
 
-      {sessions.length === 0 ? (
+      {error && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-700">
+          Loading class history...
+        </div>
+      ) : orderedSessions.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 p-4 text-xs text-slate-600">
           No saved classes yet. Start a live class, use realtime voice, then click{" "}
           <b>End Class &amp; Save</b>.
@@ -2729,9 +3103,14 @@ function GalleryView({
             </div>
 
             <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
-              {sessions.map((s) => (
+              {visibleSessions.map((s, index) => {
+                const transcriptPreview = safeHistoryText(s.transcript)
+                  .replace(/\s+/g, " ")
+                  .slice(0, TRANSCRIPT_PREVIEW_LENGTH);
+
+                return (
                 <button
-                  key={s.id}
+                  key={`${s.id}-${index}`}
                   type="button"
                   onClick={() => setSelectedId(s.id)}
                   className={`w-full rounded-xl border px-3 py-2 text-left text-xs ${
@@ -2741,16 +3120,42 @@ function GalleryView({
                   }`}
                 >
                   <div className="font-semibold text-slate-800 truncate">
-                    {s.subject} {s.topic}
+                    {safeHistoryText(s.subject, "Unknown Subject")} ·{" "}
+                    {safeHistoryText(s.topic, "Unknown Topic")}
                   </div>
                   <div className="text-[11px] text-slate-600 truncate">
-                    {s.chapter}
+                    {safeHistoryText(s.chapter, "Unknown Chapter")}
+                  </div>
+                  <div className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-500">
+                    {transcriptPreview || "No transcript preview available."}
+                    {safeHistoryText(s.transcript).length >
+                    TRANSCRIPT_PREVIEW_LENGTH
+                      ? "…"
+                      : ""}
                   </div>
                   <div className="text-[10px] text-slate-500 mt-1">
-                    {new Date(s.endedAt).toLocaleString()}
+                    {formatHistoryDate(s.endedAt)}
                   </div>
                 </button>
-              ))}
+                );
+              })}
+
+              {visibleCount < orderedSessions.length && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setVisibleCount((count) =>
+                      Math.min(
+                        count + HISTORY_INITIAL_VISIBLE,
+                        orderedSessions.length
+                      )
+                    )
+                  }
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                >
+                  Show more recordings
+                </button>
+              )}
             </div>
           </div>
 
@@ -2765,14 +3170,19 @@ function GalleryView({
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="text-sm font-semibold text-slate-800">
-                      {selected.subject}  {selected.topic}
+                      {safeHistoryText(
+                        selected.subject,
+                        "Unknown Subject"
+                      )}{" "}
+                      · {safeHistoryText(selected.topic, "Unknown Topic")}
                     </div>
                     <div className="text-[11px] text-slate-600">
-                      Chapter: {selected.chapter}
+                      Chapter:{" "}
+                      {safeHistoryText(selected.chapter, "Unknown Chapter")}
                     </div>
                     <div className="text-[11px] text-slate-500 mt-1">
-                      {new Date(selected.startedAt).toLocaleString()} →{" "}
-                      {new Date(selected.endedAt).toLocaleString()}
+                      {formatHistoryDate(selected.startedAt)} →{" "}
+                      {formatHistoryDate(selected.endedAt)}
                     </div>
                   </div>
 
@@ -2795,11 +3205,50 @@ function GalleryView({
                   </div>
                 </div>
 
-                <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 max-h-[420px] overflow-y-auto whitespace-pre-wrap">
-                  {selected.transcript?.trim()
-                    ? selected.transcript.trim()
-                    : "No transcript saved for this session."}
+                <div className="mt-3 max-h-[360px] overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-6 text-slate-800">
+                  {displayedTranscript ||
+                    "No transcript saved for this session."}
                 </div>
+
+                {selectedTranscript.length > TRANSCRIPT_DETAIL_CHUNK && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {transcriptIsTruncated &&
+                      transcriptDisplayLength < TRANSCRIPT_DETAIL_MAX && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setTranscriptDisplayLength((length) =>
+                              Math.min(
+                                length + TRANSCRIPT_DETAIL_CHUNK,
+                                TRANSCRIPT_DETAIL_MAX
+                              )
+                            )
+                          }
+                          className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700"
+                        >
+                          Show more transcript
+                        </button>
+                      )}
+                    {transcriptDisplayLength > TRANSCRIPT_DETAIL_CHUNK && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setTranscriptDisplayLength(TRANSCRIPT_DETAIL_CHUNK)
+                        }
+                        className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"
+                      >
+                        Show less
+                      </button>
+                    )}
+                    {selectedTranscript.length > TRANSCRIPT_DETAIL_MAX &&
+                      transcriptDisplayLength >= TRANSCRIPT_DETAIL_MAX && (
+                        <span className="text-[11px] text-slate-500">
+                          Preview limited for performance. Print or Save PDF
+                          includes the complete transcript.
+                        </span>
+                      )}
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -2978,6 +3427,8 @@ function ClassroomView(props: {
   isStartingLesson: boolean;
   isAsking: boolean;
   audioUrl: string | null;
+  lessonAudioRef: React.RefObject<HTMLAudioElement | null>;
+  onStopLessonAudio: () => void;
   audioError: string | null;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
   teacherAvatar: string;
@@ -3015,6 +3466,8 @@ function ClassroomView(props: {
     isStartingLesson,
     isAsking,
     audioUrl,
+    lessonAudioRef,
+    onStopLessonAudio,
     audioError,
     messagesEndRef,
     teacherAvatar,
@@ -3074,15 +3527,10 @@ function ClassroomView(props: {
   }, [messages, realtimeTranscript, messagesEndRef]);
 
   useEffect(() => {
-    if (!audioUrl) return;
-    const audio = document.getElementById(
-      "lesson-audio"
-    ) as HTMLAudioElement | null;
-    if (!audio) return;
-
-    audio.load();
-    audio.play().catch(() => {});
-  }, [audioUrl]);
+    return () => {
+      onStopLessonAudio();
+    };
+  }, [onStopLessonAudio]);
 
   useEffect(() => {
     return () => {
@@ -3219,16 +3667,13 @@ const ensureRealtimeConnected = async (silent = false) => {
       onTranscript: (text) => {
         const safeText = String(text || "");
 
-        setRealtimeTranscript(safeText);
+        setRealtimeTranscript(
+          safeText.length > 4000 ? `…${safeText.slice(-4000)}` : safeText
+        );
 
         const previous = lastRealtimeTranscriptRef.current || "";
-
-        if (safeText && safeText.startsWith(previous)) {
-          const delta = safeText.slice(previous.length);
-          if (delta) onAppendTranscript(delta);
-        } else if (safeText && safeText !== previous) {
-          onAppendTranscript(`\n${safeText}`);
-        }
+        const delta = extractTranscriptDelta(previous, safeText);
+        if (delta.trim()) onAppendTranscript(delta);
 
         lastRealtimeTranscriptRef.current = safeText;
       },
@@ -3550,6 +3995,8 @@ const handleStartTopicTest = async () => {
   };
 
   const handleEndClassClick = () => {
+    onStopLessonAudio();
+
     try {
       realtimeClient?.disconnect();
     } catch {}
@@ -3709,7 +4156,7 @@ const handleStartTopicTest = async () => {
         Hide panel
       </button>
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="neo-teacher-card rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="h-14 w-14 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
             <img
@@ -3824,7 +4271,13 @@ const handleStartTopicTest = async () => {
         </div>
 
         {audioUrl ? (
-          <audio id="lesson-audio" key={audioUrl} controls className="w-full">
+          <audio
+            ref={lessonAudioRef}
+            id="lesson-audio"
+            key={audioUrl}
+            controls
+            className="w-full"
+          >
             <source src={audioUrl} />
           </audio>
         ) : (
@@ -3865,7 +4318,7 @@ const handleStartTopicTest = async () => {
 
   return (
     <>
-      <div className="relative flex h-full min-h-0 w-full overflow-hidden rounded-[28px] border border-slate-200 bg-slate-50">
+      <div className="neo-classroom relative flex h-full min-h-0 w-full overflow-hidden rounded-[28px] border border-slate-200 bg-slate-50">
         {mobileDrawerOpen && (
           <div
             className="fixed inset-0 z-40 bg-black/30 lg:hidden"
@@ -3898,20 +4351,60 @@ const handleStartTopicTest = async () => {
 
         <section className="relative min-w-0 flex-1">
           <div
-            className={`flex h-full min-h-0 flex-col p-3 transition-all duration-300 ${
+            className={`neo-classroom-content flex h-full min-h-0 flex-col p-3 transition-all duration-300 ${
               boardOpen ? "lg:pr-[30%]" : ""
             }`}
           >
             <div className="flex min-h-0 flex-1 flex-col gap-3">
-              <div className="shrink-0 rounded-[28px] border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <div className="neo-mobile-class-card hidden shrink-0 items-center gap-3 md:hidden">
+                <div className="neo-mobile-class-teacher">
+                  <img
+                    src={teacherAvatar}
+                    alt="AI Teacher"
+                    className="h-full w-full object-contain"
+                  />
+                  <span>AI</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-500">
+                    Your AI teacher
+                  </div>
+                  <div className="truncate text-sm font-bold text-slate-900">
+                    {cleanSubjectName(currentSubject?.subject_name)} Class
+                  </div>
+                  <div className="truncate text-xs text-slate-500">
+                    {currentTopic?.topic_name ||
+                      currentChapter?.chapter_name ||
+                      "Choose a topic to begin"}
+                  </div>
+                </div>
+                <div
+                  className={`neo-mobile-class-status ${
+                    isClassLive ? "is-live" : ""
+                  }`}
+                >
+                  {isClassLive ? "Live" : "Ready"}
+                </div>
+              </div>
+
+              <div className="neo-conversation-header shrink-0 rounded-[28px] border border-slate-200 bg-white px-4 py-3 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
+                    <div className="neo-mobile-teacher-avatar flex h-11 w-11 shrink-0 overflow-hidden rounded-2xl md:hidden">
+                      <img
+                        src={teacherAvatar}
+                        alt="AI Teacher"
+                        className="h-full w-full object-contain"
+                      />
+                    </div>
+
                     <button
                       type="button"
                       onClick={() => setMobileDrawerOpen(true)}
+                      aria-label="Open classroom menu"
                       className="rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 lg:hidden"
                     >
-                      |||
+                      ☰
                     </button>
 
                     {!drawerOpen && (
@@ -3924,7 +4417,7 @@ const handleStartTopicTest = async () => {
                       </button>
                     )}
 
-                    <div>
+                    <div className="neo-conversation-copy">
                       <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
                         Conversation
                       </div>
@@ -3934,7 +4427,7 @@ const handleStartTopicTest = async () => {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="neo-conversation-controls flex flex-wrap items-center gap-2">
   <select
     className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm"
     value={language}
@@ -3986,7 +4479,7 @@ const handleStartTopicTest = async () => {
 </div>
 </div>
 
-              <div className="min-h-0 flex-1 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+              <div className="neo-chat-panel min-h-0 flex-1 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
                 <div className="h-full overflow-y-auto overscroll-contain px-4 py-4">
                   <div className="space-y-3">
                     {messages.map((m) => {
@@ -3997,10 +4490,10 @@ const handleStartTopicTest = async () => {
                           className={`flex ${isTeacher ? "justify-start" : "justify-end"}`}
                         >
                           <div
-                            className={`max-w-[94%] rounded-3xl px-4 py-3 text-sm shadow-sm ${
+                            className={`neo-chat-bubble max-w-[94%] rounded-3xl px-4 py-3 text-sm shadow-sm ${
                               isTeacher
-                                ? "border border-slate-200 bg-slate-50 text-slate-800"
-                                : "bg-blue-600 text-white"
+                                ? "neo-chat-bubble-teacher border border-slate-200 bg-slate-50 text-slate-800"
+                                : "neo-chat-bubble-student bg-blue-600 text-white"
                             } ${m.isError ? "border-red-300 bg-red-50 text-red-700" : ""}`}
                           >
                             <div className="whitespace-pre-wrap leading-7">
@@ -4058,13 +4551,42 @@ const handleStartTopicTest = async () => {
                 </div>
               </div>
 
-              <div className="shrink-0 rounded-[28px] border border-slate-200 bg-white px-3 py-3 shadow-sm">
-                <div className="relative flex items-center gap-2">
+              <div className="neo-mobile-quick-actions hidden shrink-0 md:hidden">
+                <button
+                  type="button"
+                  onClick={() => !isStartingLesson && onStartLesson()}
+                  disabled={isStartingLesson}
+                  className="neo-mobile-quick-action is-primary"
+                >
+                  <span>▶</span>
+                  {isStartingLesson ? "Preparing..." : "Start Lesson"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleStartTopicTest}
+                  disabled={isLoadingTest || !currentTopic}
+                  className="neo-mobile-quick-action is-test"
+                >
+                  <span>✦</span>
+                  {isLoadingTest ? "Preparing..." : "Topic Test"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEndClassClick}
+                  className="neo-mobile-quick-action is-end"
+                >
+                  <span>■</span>
+                  End & Save
+                </button>
+              </div>
+
+              <div className="neo-composer shrink-0 rounded-[28px] border border-slate-200 bg-white px-3 py-3 shadow-sm">
+                <div className="neo-composer-row relative flex items-center gap-2">
                   <div className="relative">
                     <button
                       type="button"
                       onClick={() => setMenuOpen((v) => !v)}
-                      className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-300 bg-white text-2xl text-slate-700 hover:bg-slate-50"
+                      className="neo-composer-action flex h-12 w-12 items-center justify-center rounded-full border border-slate-300 bg-white text-2xl text-slate-700 hover:bg-slate-50"
                     >
                       +
                     </button>
@@ -4101,7 +4623,7 @@ const handleStartTopicTest = async () => {
 
                   <input
                     type="text"
-                    className="h-12 min-w-0 flex-1 rounded-full border border-slate-300 bg-white px-5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    className="neo-composer-input h-12 min-w-0 flex-1 rounded-full border border-slate-300 bg-white px-5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder={
                       isRealtimeOn
                         ? "Type a doubt or use mic for realtime teacher..."
@@ -4120,7 +4642,7 @@ const handleStartTopicTest = async () => {
                   <button
                     type="button"
                     onClick={handleMicToggle}
-                    className={`h-12 min-w-[68px] rounded-full border px-4 text-sm font-semibold ${
+                    className={`neo-composer-mic h-12 min-w-[68px] rounded-full border px-4 text-sm font-semibold ${
                       isListening
                         ? "border-blue-600 bg-blue-600 text-white"
                         : "border-slate-300 bg-white text-slate-700"
@@ -4133,13 +4655,13 @@ const handleStartTopicTest = async () => {
                     type="button"
                     onClick={handleAskRealtime}
                     disabled={isAsking}
-                    className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-lg font-bold text-white disabled:opacity-50"
+                    className="neo-composer-send flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-lg font-bold text-white disabled:opacity-50"
                   >
                    →
                   </button>
                 </div>
 
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <div className="neo-realtime-status mt-2 flex flex-wrap items-center gap-2 text-xs">
                   <button
                     type="button"
                     onClick={handleToggleRealtime}

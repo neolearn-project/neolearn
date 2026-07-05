@@ -75,6 +75,8 @@ export default function ParentDashboardPage() {
   const [weakTopics, setWeakTopics] = useState<string[]>([]);
   const [weeklyRows, setWeeklyRows] = useState<DailyItem[]>([]);
   const [dailyRow, setDailyRow] = useState<DailyItem | null>(null);
+  const [mobileUpgradeOpen, setMobileUpgradeOpen] = useState(false);
+  const [mobileChildFormOpen, setMobileChildFormOpen] = useState(false);
 
   const [form, setForm] = useState<{
     childName: string;
@@ -322,8 +324,8 @@ export default function ParentDashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="flex items-center justify-between px-6 py-3 border-b bg-white shadow-sm">
+    <div className="neo-parent-dashboard min-h-screen bg-slate-50">
+      <header className="neo-parent-dashboard-header flex items-center justify-between px-6 py-3 border-b bg-white shadow-sm">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-full overflow-hidden bg-blue-600 flex items-center justify-center">
             <img src="/logo/neolearn-logo.png" alt="NeoLearn logo" className="h-full w-full object-contain" />
@@ -333,7 +335,7 @@ export default function ParentDashboardPage() {
             <div className="text-[11px] text-gray-500">Track your children&apos;s learning progress</div>
           </div>
         </div>
-        <div className="flex items-center gap-3 text-xs text-gray-600">
+        <div className="neo-parent-header-actions flex items-center gap-3 text-xs text-gray-600">
           <span>Parent: {parentMobile}</span>
           <a
             href={HELPDESK_URL}
@@ -359,8 +361,39 @@ export default function ParentDashboardPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-4 grid gap-4 lg:grid-cols-[1fr_320px]">
-        <section className="rounded-2xl bg-white p-4 shadow-sm text-sm space-y-4">
+      <main className="neo-parent-dashboard-main mx-auto max-w-6xl px-4 py-4 grid gap-4 lg:grid-cols-[1fr_320px]">
+        <section className="neo-parent-mobile-hero hidden md:hidden">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-white/75">
+              Parent learning hub
+            </div>
+            <h1>
+              {activeChild
+                ? `${activeChild.child_name}'s progress`
+                : "Your child’s progress"}
+            </h1>
+            <p>Small steps today, confident learning tomorrow.</p>
+          </div>
+          <div className="neo-parent-mobile-orbit" aria-hidden="true">
+            <span>★</span>
+          </div>
+          <div className="neo-parent-mobile-stats">
+            <div>
+              <strong>{dailyRow?.questions ?? 0}</strong>
+              <span>Questions</span>
+            </div>
+            <div>
+              <strong>{dailyRow?.minutes ?? 0}</strong>
+              <span>Minutes</span>
+            </div>
+            <div>
+              <strong>{dailyRow?.correct ?? 0}</strong>
+              <span>Correct</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="neo-parent-primary-card rounded-2xl bg-white p-4 shadow-sm text-sm space-y-4">
           <div className="flex items-center justify-between">
             <h1 className="text-base font-semibold">Your Children</h1>
             {activeChild && (
@@ -396,8 +429,114 @@ export default function ParentDashboardPage() {
             <p className="text-xs text-gray-500">No children added yet. Add a child profile to see analytics.</p>
           )}
 
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-xl border bg-slate-50 p-3">
+          <div className="neo-parent-mobile-accordions space-y-2 md:hidden">
+            <details className="neo-parent-mobile-accordion">
+              <summary>Today summary</summary>
+              <div className="grid grid-cols-4 gap-2 pt-3 text-center text-[10px] text-slate-500">
+                <div>
+                  <strong>{dailyRow?.questions ?? 0}</strong>
+                  <span>Questions</span>
+                </div>
+                <div>
+                  <strong>{dailyRow?.minutes ?? 0}</strong>
+                  <span>Minutes</span>
+                </div>
+                <div>
+                  <strong>{dailyRow?.correct ?? 0}</strong>
+                  <span>Correct</span>
+                </div>
+                <div>
+                  <strong>{dailyRow?.incorrect ?? 0}</strong>
+                  <span>Incorrect</span>
+                </div>
+              </div>
+            </details>
+
+            <details className="neo-parent-mobile-accordion">
+              <summary>Weak topics</summary>
+              <div className="flex flex-wrap gap-2 pt-3">
+                {weakTopics.length === 0 && (
+                  <span className="text-xs text-slate-500">
+                    No weak topics right now.
+                  </span>
+                )}
+                {weakTopics.map((topic) => (
+                  <span
+                    key={topic}
+                    className="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-900"
+                  >
+                    {topic}
+                  </span>
+                ))}
+              </div>
+            </details>
+
+            <details className="neo-parent-mobile-accordion">
+              <summary>Weekly progress</summary>
+              <div className="space-y-2 pt-3 text-xs">
+                {weeklyRows.length === 0 && (
+                  <p className="text-slate-500">
+                    No weekly entries available.
+                  </p>
+                )}
+                {weeklyRows.map((row) => (
+                  <div
+                    key={row.date}
+                    className="grid grid-cols-5 gap-1 rounded-xl bg-slate-50 px-2 py-2 text-center"
+                  >
+                    <span className="truncate font-medium">{row.date}</span>
+                    <span>Q {row.questions}</span>
+                    <span>C {row.correct}</span>
+                    <span>I {row.incorrect}</span>
+                    <span>M {row.minutes}</span>
+                  </div>
+                ))}
+              </div>
+            </details>
+
+            <details className="neo-parent-mobile-accordion">
+              <summary>Child details and mastery</summary>
+              <div className="max-h-52 overflow-auto pt-3">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b text-left text-slate-500">
+                      <th className="py-1 pr-2">Topic</th>
+                      <th className="py-1 pr-2">Mastery</th>
+                      <th className="py-1">Last practiced</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {masteryRows.length === 0 && (
+                      <tr>
+                        <td colSpan={3} className="py-2 text-slate-500">
+                          No mastery rows available.
+                        </td>
+                      </tr>
+                    )}
+                    {masteryRows.map((row, idx) => (
+                      <tr
+                        key={`${row.topic}-${idx}`}
+                        className="border-b last:border-0"
+                      >
+                        <td className="py-2 pr-2">{row.topic || "—"}</td>
+                        <td className="py-2 pr-2">{row.mastery_level}</td>
+                        <td className="py-2">
+                          {row.last_practiced_at
+                            ? new Date(
+                                row.last_practiced_at
+                              ).toLocaleDateString()
+                            : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          </div>
+
+          <div className="hidden gap-3 md:grid md:grid-cols-2 xl:grid-cols-4">
+            <div className="neo-parent-stat-card rounded-xl border bg-slate-50 p-3">
               <div className="text-xs text-gray-500">Today</div>
               <div className="mt-2 text-xs text-gray-700">
                 <div>Questions: <span className="font-semibold">{dailyRow?.questions ?? 0}</span></div>
@@ -407,7 +546,7 @@ export default function ParentDashboardPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border bg-slate-50 p-3 md:col-span-1 xl:col-span-3">
+            <div className="neo-parent-stat-card rounded-xl border bg-slate-50 p-3 md:col-span-1 xl:col-span-3">
               <div className="text-xs text-gray-500 mb-2">Weak topics</div>
               <div className="flex flex-wrap gap-2">
                 {weakTopics.length === 0 && <span className="text-xs text-gray-500">No weak topics right now.</span>}
@@ -420,13 +559,13 @@ export default function ParentDashboardPage() {
             </div>
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-2">
-            <div className="rounded-xl border p-3">
+          <div className="hidden gap-3 md:grid lg:grid-cols-2">
+            <div className="neo-parent-progress-card rounded-xl border p-3">
               <h2 className="text-sm font-semibold mb-2">Weekly progress</h2>
               <div className="space-y-2 text-xs">
                 {weeklyRows.length === 0 && <p className="text-gray-500">No weekly entries available.</p>}
                 {weeklyRows.map((row) => (
-                  <div key={row.date} className="flex items-center justify-between rounded-lg bg-slate-50 px-2 py-2">
+                  <div key={row.date} className="neo-parent-progress-row flex items-center justify-between rounded-lg bg-slate-50 px-2 py-2">
                     <span className="font-medium">{row.date}</span>
                     <span>Q: {row.questions}</span>
                     <span>C: {row.correct}</span>
@@ -437,7 +576,7 @@ export default function ParentDashboardPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border p-3 overflow-auto">
+            <div className="neo-parent-progress-card rounded-xl border p-3 overflow-auto">
               <h2 className="text-sm font-semibold mb-2">Mastery table</h2>
               <table className="w-full text-xs">
                 <thead>
@@ -469,10 +608,28 @@ export default function ParentDashboardPage() {
           {masteryError && <p className="text-xs text-rose-600">{masteryError}</p>}
         </section>
 
-                <section className="rounded-2xl bg-white p-4 shadow-sm text-sm space-y-3">
-          <h2 className="text-base font-semibold">
+        <section className="neo-parent-side-card rounded-2xl bg-white p-4 shadow-sm text-sm">
+          <button
+            type="button"
+            onClick={() => setMobileUpgradeOpen((open) => !open)}
+            className="neo-parent-mobile-section-toggle flex w-full items-center justify-between text-left md:hidden"
+            aria-expanded={mobileUpgradeOpen}
+          >
+            <span>
+              {isCompetitiveChild(activeChild)
+                ? "Update Competitive Exam"
+                : "Upgrade Child Class"}
+            </span>
+            <span>{mobileUpgradeOpen ? "−" : "+"}</span>
+          </button>
+          <h2 className="hidden text-base font-semibold md:block">
             {isCompetitiveChild(activeChild) ? "Update Competitive Exam" : "Upgrade Child Class"}
           </h2>
+          <div
+            className={`mt-3 space-y-3 ${
+              mobileUpgradeOpen ? "block" : "hidden"
+            } md:block`}
+          >
           <p className="text-[11px] text-gray-500">
             {isCompetitiveChild(activeChild)
               ? "Change the selected child's competitive exam track. Old progress will remain saved."
@@ -560,9 +717,26 @@ export default function ParentDashboardPage() {
               </button>
             </form>
           )}
+          </div>
         </section>
-        <section className="rounded-2xl bg-white p-4 shadow-sm text-sm">
-          <h2 className="text-base font-semibold mb-2">Add / Edit Child</h2>
+        <section className="neo-parent-side-card rounded-2xl bg-white p-4 shadow-sm text-sm">
+          <button
+            type="button"
+            onClick={() => setMobileChildFormOpen((open) => !open)}
+            className="neo-parent-mobile-section-toggle flex w-full items-center justify-between text-left md:hidden"
+            aria-expanded={mobileChildFormOpen}
+          >
+            <span>Add / Edit Child</span>
+            <span>{mobileChildFormOpen ? "−" : "+"}</span>
+          </button>
+          <h2 className="mb-2 hidden text-base font-semibold md:block">
+            Add / Edit Child
+          </h2>
+          <div
+            className={`mt-3 ${
+              mobileChildFormOpen ? "block" : "hidden"
+            } md:block`}
+          >
           <p className="text-[11px] text-gray-500 mb-3">
             Use the same mobile number that your child uses to log in to the NeoLearn student app.
           </p>
@@ -673,6 +847,7 @@ export default function ParentDashboardPage() {
               {saving ? "Saving…" : "Save Child Profile"}
             </button>
           </form>
+          </div>
         </section>
       </main>
     </div>
