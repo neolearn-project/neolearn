@@ -290,8 +290,8 @@ export default function StudentLogin() {
       </div>
 
       {open && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-3">
-          <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-2xl">
+        <div className="neo-student-auth-backdrop fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-3">
+          <div className="neo-student-auth-modal w-full max-w-md rounded-2xl bg-white p-4 shadow-2xl">
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-base font-semibold">
                 {student ? "Student Profile" : "Sign up / Login"}

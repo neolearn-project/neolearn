@@ -20,8 +20,8 @@ export default function Page() {
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#f0f2f5]">
-      <header className="w-full">
+    <div className="neo-mobile-landing flex min-h-screen flex-col bg-[#f0f2f5]">
+      <header className="neo-mobile-landing-header w-full">
         <div className="mx-auto max-w-6xl px-4 pt-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -31,6 +31,7 @@ export default function Page() {
                 height={40}
                 alt="NeoLearn"
                 priority
+                className="neo-mobile-landing-logo"
               />
             </div>
 
@@ -71,9 +72,9 @@ export default function Page() {
         </div>
       </header>
 
-      <main className="mx-auto flex-grow max-w-6xl px-4 pb-10 pt-6">
+      <main className="neo-mobile-landing-main mx-auto flex-grow max-w-6xl px-4 pb-10 pt-6">
         <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
-          <section className="order-2 lg:order-1">
+          <section className="neo-mobile-hero order-2 lg:order-1">
             <h1 className="text-[clamp(28px,5vw,44px)] font-semibold leading-tight text-gray-900">
               AI Teachers for Every Child,{" "}
               <span className="text-blue-600">Anytime</span>.
@@ -85,21 +86,21 @@ export default function Page() {
             </p>
 
             <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-black/10 bg-white p-4">
+              <div className="neo-mobile-feature-card rounded-xl border border-black/10 bg-white p-4">
                 <div className="text-sm font-semibold text-gray-900">Learn</div>
                 <div className="mt-1 text-sm text-gray-600">
                   Short lessons & concepts.
                 </div>
               </div>
 
-              <div className="rounded-xl border border-black/10 bg-white p-4">
+              <div className="neo-mobile-feature-card rounded-xl border border-black/10 bg-white p-4">
                 <div className="text-sm font-semibold text-gray-900">Practice</div>
                 <div className="mt-1 text-sm text-gray-600">
                   Quizzes with hints.
                 </div>
               </div>
 
-              <div className="rounded-xl border border-black/10 bg-white p-4">
+              <div className="neo-mobile-feature-card rounded-xl border border-black/10 bg-white p-4">
                 <div className="text-sm font-semibold text-gray-900">Track</div>
                 <div className="mt-1 text-sm text-gray-600">
                   Weekly progress report.
@@ -143,7 +144,19 @@ export default function Page() {
           </section>
 
           <section className="order-1 lg:order-2">
-            <div className="mx-auto w-full max-w-md rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+            <div className="neo-mobile-login-card mx-auto w-full max-w-md rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+              <div className="neo-mobile-ai-greeting mb-4 hidden items-center gap-3 sm:hidden">
+                <div className="neo-mobile-ai-orb">AI</div>
+                <div>
+                  <div className="text-sm font-semibold text-slate-900">
+                    Your AI teacher is ready
+                  </div>
+                  <div className="mt-0.5 text-xs text-slate-600">
+                    Let&apos;s learn something amazing today.
+                  </div>
+                </div>
+              </div>
+
               <div className="text-center">
                 <div className="text-lg font-semibold text-gray-900">
                   Log in to NeoLearn

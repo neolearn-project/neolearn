@@ -62,8 +62,18 @@ export default function ParentLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white shadow-sm border border-slate-200 p-5 text-sm">
+    <div className="neo-parent-login-shell min-h-screen flex items-center justify-center bg-slate-50 px-4">
+      <div className="neo-parent-login-card w-full max-w-sm rounded-2xl bg-white shadow-sm border border-slate-200 p-5 text-sm">
+        <div className="neo-parent-ai-note mb-4 hidden items-center gap-3 sm:hidden">
+          <div className="neo-parent-ai-icon">✦</div>
+          <div>
+            <div className="font-semibold text-slate-900">Parent progress hub</div>
+            <div className="text-xs text-slate-600">
+              Follow every learning milestone in one place.
+            </div>
+          </div>
+        </div>
+
         <div className="mb-3 text-center">
           <div className="text-xs font-semibold text-gray-500 uppercase">NeoLearn</div>
           <h1 className="mt-1 text-xl font-bold text-slate-900">Parent Login</h1>
@@ -82,7 +92,7 @@ export default function ParentLoginPage() {
           <input
             inputMode="numeric"
             maxLength={10}
-            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+            className="neo-parent-login-input w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Parent mobile (10 digits)"
             value={mobile}
             onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
@@ -91,7 +101,7 @@ export default function ParentLoginPage() {
           <div className="relative">
             <input
               type={showPassword ? "text" : "password"}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 pr-16 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+              className="neo-parent-login-input w-full rounded-xl border border-slate-300 px-3 py-2 pr-16 text-sm outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -105,7 +115,7 @@ export default function ParentLoginPage() {
             </button>
           </div>
 
-          <button type="submit" disabled={loading} className="btn btn-primary w-full">
+          <button type="submit" disabled={loading} className="neo-parent-login-submit btn btn-primary w-full">
             {loading ? "Logging in..." : "Login"}
           </button>
         </form>

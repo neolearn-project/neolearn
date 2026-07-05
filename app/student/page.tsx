@@ -1935,7 +1935,11 @@ const handleStartLesson = useCallback(async () => {
     {/* Fullscreen app shell */}
     <div className="neo-student-app-body min-h-0 flex-1 px-2 py-2 md:px-3 md:py-3">
       <div className="flex h-full min-h-0 flex-col gap-3">
-        <section className="neo-mobile-welcome-card relative hidden shrink-0 overflow-hidden md:hidden">
+        <section
+          className={`neo-mobile-welcome-card relative hidden shrink-0 overflow-hidden md:hidden ${
+            activeTab === "classroom" ? "is-classroom" : ""
+          }`}
+        >
           <div className="neo-mobile-welcome-topline">
             <div className="flex items-center gap-2">
               <div className="neo-mobile-brand-mark">N</div>
@@ -1982,9 +1986,47 @@ const handleStartLesson = useCallback(async () => {
             </div>
 
             <div className="neo-mobile-robot" aria-hidden="true">
-              <span className="neo-mobile-robot-antenna">✦</span>
-              <span className="neo-mobile-robot-eyes">● &nbsp; ●</span>
-              <span className="neo-mobile-robot-smile">⌣</span>
+              <svg
+                viewBox="0 0 88 96"
+                role="presentation"
+                focusable="false"
+              >
+                <defs>
+                  <linearGradient id="neoRoboBody" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stopColor="#ffffff" />
+                    <stop offset="1" stopColor="#bfdbfe" />
+                  </linearGradient>
+                  <linearGradient id="neoRoboBlue" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stopColor="#38bdf8" />
+                    <stop offset="1" stopColor="#4f46e5" />
+                  </linearGradient>
+                </defs>
+                <g className="neo-robo-float">
+                  <path d="M44 13V7" stroke="#e0e7ff" strokeWidth="3" strokeLinecap="round" />
+                  <circle cx="44" cy="5" r="3.5" fill="#fde68a" />
+                  <rect x="21" y="13" width="46" height="35" rx="15" fill="url(#neoRoboBody)" stroke="#c7d2fe" strokeWidth="2" />
+                  <rect x="27" y="20" width="34" height="20" rx="9" fill="#312e81" />
+                  <g className="neo-robo-eyes" fill="#a7f3d0">
+                    <ellipse cx="37" cy="29" rx="3" ry="4" />
+                    <ellipse cx="51" cy="29" rx="3" ry="4" />
+                  </g>
+                  <path d="M39 35c3 3 7 3 10 0" fill="none" stroke="#fef3c7" strokeWidth="2.2" strokeLinecap="round" />
+                  <path d="M30 50h28l5 27c-10 8-28 8-38 0z" fill="url(#neoRoboBody)" stroke="#c7d2fe" strokeWidth="2" />
+                  <rect x="34" y="55" width="20" height="14" rx="6" fill="url(#neoRoboBlue)" />
+                  <path d="M39 62l4 4 7-8" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M27 55L15 67" fill="none" stroke="#dbeafe" strokeWidth="7" strokeLinecap="round" />
+                  <circle cx="13" cy="69" r="4.5" fill="#ffffff" stroke="#c7d2fe" strokeWidth="2" />
+                  <g className="neo-robo-wave">
+                    <path d="M60 55l11-13" fill="none" stroke="#dbeafe" strokeWidth="7" strokeLinecap="round" />
+                    <circle cx="73" cy="39" r="4.5" fill="#ffffff" stroke="#c7d2fe" strokeWidth="2" />
+                  </g>
+                  <path d="M34 80l-2 9" stroke="#dbeafe" strokeWidth="7" strokeLinecap="round" />
+                  <path d="M54 80l2 9" stroke="#dbeafe" strokeWidth="7" strokeLinecap="round" />
+                  <path d="M25 91h10M53 91h10" stroke="#ffffff" strokeWidth="6" strokeLinecap="round" />
+                  <circle cx="44" cy="75" r="2" fill="#22c55e" />
+                </g>
+              </svg>
+              <span>NeO Robo</span>
             </div>
           </div>
         </section>

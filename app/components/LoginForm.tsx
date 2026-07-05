@@ -80,7 +80,7 @@ export default function LoginForm({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="neo-mobile-auth-form space-y-4">
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
@@ -88,7 +88,7 @@ export default function LoginForm({ onDone }: { onDone: () => void }) {
       )}
 
       <input
-        className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+        className="neo-mobile-auth-input w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
         placeholder="Student User ID"
         value={loginUserId}
         onChange={(e) => setLoginUserId(e.target.value.toLowerCase())}
@@ -97,7 +97,7 @@ export default function LoginForm({ onDone }: { onDone: () => void }) {
       <div className="relative">
         <input
           type={showPassword ? "text" : "password"}
-          className="w-full rounded-xl border border-slate-300 px-3 py-2 pr-16 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          className="neo-mobile-auth-input w-full rounded-xl border border-slate-300 px-3 py-2 pr-16 text-sm outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Password"
           value={loginPassword}
           onChange={(e) => setLoginPassword(e.target.value)}
@@ -119,7 +119,7 @@ export default function LoginForm({ onDone }: { onDone: () => void }) {
         type="button"
         disabled={loading}
         onClick={handleLogin}
-        className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+        className="neo-mobile-auth-submit w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {loading ? "Logging in..." : "Login"}
       </button>
