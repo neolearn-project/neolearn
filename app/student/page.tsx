@@ -255,6 +255,13 @@ function pauseAndResetAudio(audio: HTMLAudioElement | null) {
   } catch {}
 }
 
+function pauseAudio(audio: HTMLAudioElement | null) {
+  if (!audio) return;
+  try {
+    audio.pause();
+  } catch {}
+}
+
 const TOPIC_STATUS_UI: Record<string, string> = {
   completed: "Completed",
   in_progress: "In Progress",
@@ -924,6 +931,10 @@ const [audioUrl, setAudioUrl] = useState<string | null>(null);
 const lessonAudioRef = useRef<HTMLAudioElement | null>(null);
 const audioUrlRef = useRef<string | null>(null);
 const audioRequestVersionRef = useRef(0);
+
+const pauseLessonAudio = useCallback(() => {
+  pauseAudio(lessonAudioRef.current);
+}, []);
 
 const stopLessonAudio = useCallback(() => {
   audioRequestVersionRef.current += 1;
@@ -2115,6 +2126,7 @@ const handleStartLesson = useCallback(async () => {
               isAsking={isAsking}
               audioUrl={audioUrl}
               lessonAudioRef={lessonAudioRef}
+              onPauseLessonAudio={pauseLessonAudio}
               onStopLessonAudio={stopLessonAudio}
               audioError={audioError}
               messagesEndRef={messagesEndRef}
@@ -3470,6 +3482,7 @@ function ClassroomView(props: {
   isAsking: boolean;
   audioUrl: string | null;
   lessonAudioRef: React.RefObject<HTMLAudioElement | null>;
+  onPauseLessonAudio: () => void;
   onStopLessonAudio: () => void;
   audioError: string | null;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
@@ -3509,6 +3522,7 @@ function ClassroomView(props: {
     isAsking,
     audioUrl,
     lessonAudioRef,
+    onPauseLessonAudio,
     onStopLessonAudio,
     audioError,
     messagesEndRef,
@@ -3706,7 +3720,11 @@ const ensureRealtimeConnected = async (silent = false) => {
     new RealtimeTeacherClient(studentMobile, {
       onStatus: (s) => setRealtimeStatus(s),
       onError: (msg) => setRealtimeStatus(`Realtime error: ${msg}`),
+      onRemoteAudioStart: () => {
+        onPauseLessonAudio();
+      },
       onTranscript: (text) => {
+        onPauseLessonAudio();
         const safeText = String(text || "");
 
         setRealtimeTranscript(
@@ -3753,6 +3771,14 @@ const ensureRealtimeConnected = async (silent = false) => {
   const classroomRules =
     'Keep answers short, teacher-like, classroom-safe, and easy for a school student to understand. Do not drift into unrelated topics.';
 
+  const voiceStyle =
+    language === "Hindi"
+      ? "Speak with a clear, feminine Indian teacher voice in natural classroom Hindi. Be warm, crisp, friendly, and confident; never robotic, dull, foreign-accented, too slow, or overly dramatic."
+      : language === "Bengali"
+      ? "Speak with a clear, feminine Indian teacher voice in natural classroom Bengali. Be warm, crisp, friendly, and confident; never robotic, dull, foreign-accented, too slow, or overly dramatic."
+      : "Speak with a clear, feminine Indian teacher voice using natural Indian English pronunciation and classroom cadence. Be warm, crisp, friendly, and confident; never robotic, dull, foreign-accented, too slow, or overly dramatic.";
+
+  onPauseLessonAudio();
   await client.connect(
     realtimeLocale,
     [
@@ -3764,6 +3790,7 @@ const ensureRealtimeConnected = async (silent = false) => {
       strictLanguageGuard,
       offTopicGuard,
       classroomRules,
+      voiceStyle,
     ]
       .filter(Boolean)
       .join(" ")
@@ -3818,6 +3845,7 @@ const handleToggleRealtime = async () => {
     return;
   }
 
+  onPauseLessonAudio();
   const ent = await loadEntitlementsLocal();
   if (ent?.authRequired) {
     setRealtimeStatus("Please login again.");
@@ -3852,6 +3880,7 @@ const handleAskRealtime = async () => {
 
   if (isRealtimeOn || realtimeClient) {
     try {
+      onPauseLessonAudio();
       const client = await ensureRealtimeConnected(true);
       setRealtimeTranscript("");
       client.sendText(buildRealtimeQuestion(trimmed));
@@ -3868,6 +3897,7 @@ const handleAskRealtime = async () => {
 };
 
 const handleMicToggle = async () => {
+  onPauseLessonAudio();
   const ent = await loadEntitlementsLocal();
   if (ent?.authRequired) {
     setRealtimeStatus("Please login again.");
@@ -3904,6 +3934,34 @@ const handleMicToggle = async () => {
       }`
     );
   }
+};
+
+const disconnectRealtimeForLessonAudio = (status: string) => {
+  if (!realtimeClient && !isRealtimeOn) return;
+
+  try {
+    realtimeClient?.disconnect();
+  } catch {}
+
+  setRealtimeClient(null);
+  setIsRealtimeOn(false);
+  setIsListening(false);
+  setRealtimeTranscript("");
+  lastRealtimeTranscriptRef.current = "";
+  setRealtimeStatus(status);
+};
+
+const handleStartLessonClick = async () => {
+  disconnectRealtimeForLessonAudio(
+    "Realtime voice stopped while lesson audio is active."
+  );
+  await onStartLesson();
+};
+
+const handleLessonAudioPlay = () => {
+  disconnectRealtimeForLessonAudio(
+    "Realtime voice disconnected to play lesson audio."
+  );
 };
   
 const handleStartTopicTest = async () => {
@@ -4274,7 +4332,7 @@ const handleStartTopicTest = async () => {
         <div className="space-y-2">
           <button
             type="button"
-            onClick={() => !isStartingLesson && onStartLesson()}
+            onClick={() => !isStartingLesson && handleStartLessonClick()}
             disabled={isStartingLesson}
             className="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
           >
@@ -4318,6 +4376,7 @@ const handleStartTopicTest = async () => {
             id="lesson-audio"
             key={audioUrl}
             controls
+            onPlay={handleLessonAudioPlay}
             className="w-full"
           >
             <source src={audioUrl} />
@@ -4354,7 +4413,7 @@ const handleStartTopicTest = async () => {
       {railButton("P", () => goTab("progress"))}
       {railButton("G", () => goTab("gallery"))}
       {railButton("S", () => goTab("payments"))}
-      {railButton("▶", () => !isStartingLesson && onStartLesson())}
+      {railButton("▶", () => !isStartingLesson && handleStartLessonClick())}
     </div>
   );
 
@@ -4596,7 +4655,7 @@ const handleStartTopicTest = async () => {
               <div className="neo-mobile-quick-actions hidden shrink-0 md:hidden">
                 <button
                   type="button"
-                  onClick={() => !isStartingLesson && onStartLesson()}
+                  onClick={() => !isStartingLesson && handleStartLessonClick()}
                   disabled={isStartingLesson}
                   className="neo-mobile-quick-action is-primary"
                 >

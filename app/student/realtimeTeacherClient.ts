@@ -7,7 +7,10 @@ export type RealtimeTeacherEvents = {
   onStatus?: (status: string) => void;
   onError?: (message: string) => void;
   onTranscript?: (text: string) => void;
+  onRemoteAudioStart?: () => void;
 };
+
+const REALTIME_TEACHER_VOICE = "shimmer";
 
 export class RealtimeTeacherClient {
   private studentMobile: string;
@@ -72,6 +75,7 @@ export class RealtimeTeacherClient {
       if (!this.remoteAudio) return;
       const [stream] = event.streams;
       if (stream) {
+        this.events.onRemoteAudioStart?.();
         this.remoteAudio.srcObject = stream;
         this.remoteAudio.play().catch(() => {});
       }
@@ -96,7 +100,7 @@ export class RealtimeTeacherClient {
           instructions,
             audio: {
             output: {
-              voice: "alloy",
+              voice: REALTIME_TEACHER_VOICE,
             },
           },
         },
@@ -133,7 +137,7 @@ export class RealtimeTeacherClient {
         instructions,
         audio: {
           output: {
-            voice: "alloy",
+            voice: REALTIME_TEACHER_VOICE,
           },
         },
       })
@@ -176,6 +180,16 @@ export class RealtimeTeacherClient {
       const message = event?.error?.message || "Realtime API error.";
       this.emitError(message);
       return;
+    }
+
+    if (
+      event.type === "response.created" ||
+      event.type === "response.output_audio.delta" ||
+      event.type === "response.audio.delta" ||
+      event.type === "response.output_audio_transcript.delta" ||
+      event.type === "response.audio_transcript.delta"
+    ) {
+      this.events.onRemoteAudioStart?.();
     }
 
     const delta =
@@ -283,6 +297,12 @@ export class RealtimeTeacherClient {
     this.logStatus("Teacher is answering...");
   }
 
+  stopAudio() {
+    try {
+      this.remoteAudio?.pause();
+    } catch {}
+  }
+
   disconnect() {
     try {
       if (this.localStream) {
@@ -300,11 +320,10 @@ export class RealtimeTeacherClient {
       this.pc?.close();
     } catch {}
 
+    this.stopAudio();
+
     try {
-      if (this.remoteAudio) {
-        this.remoteAudio.pause();
-        this.remoteAudio.srcObject = null;
-      }
+      if (this.remoteAudio) this.remoteAudio.srcObject = null;
     } catch {}
 
     this.dc = null;

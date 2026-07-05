@@ -14,14 +14,16 @@ function normalizeLanguage(language: string) {
   if (v === "hi" || v.includes("hindi")) {
     return {
       label: "Hindi",
-      instruction: "Speak in clear, child-friendly Hindi. Use simple Hindi words.",
+      instruction:
+        "एक स्पष्ट, मधुर और आत्मीय भारतीय महिला स्कूल टीचर की तरह स्वाभाविक हिंदी में बोलें। आवाज साफ, crisp और friendly हो। बच्चों को समझाने वाली classroom-style Hindi का प्रयोग करें। केवल जरूरी academic terms के अलावा अनावश्यक English न मिलाएं।",
     };
   }
 
   if (v === "bn" || v.includes("bengali") || v.includes("bangla")) {
     return {
       label: "Bengali",
-      instruction: "Speak in clear, child-friendly Bengali. Use simple Bengali words.",
+      instruction:
+        "একজন স্পষ্ট, মিষ্টি এবং বন্ধুসুলভ ভারতীয় মহিলা স্কুল টিচারের মতো স্বাভাবিক বাংলায় বলুন। কণ্ঠস্বর পরিষ্কার, crisp এবং ছাত্রছাত্রীদের বোঝার মতো হোক। Bengali classroom style ব্যবহার করুন। জরুরি academic term ছাড়া অপ্রয়োজনীয় English মেশাবেন না।",
     };
   }
 
@@ -34,7 +36,8 @@ function normalizeLanguage(language: string) {
 
   return {
     label: "English",
-    instruction: "Speak in clear, child-friendly Indian English.",
+    instruction:
+      "Use natural Indian English pronunciation and the familiar cadence of an Indian school classroom.",
   };
 }
 
@@ -143,16 +146,17 @@ export async function POST(req: Request) {
     const ttsSpeed = normalizeSpeed(speedRaw);
 
     const instructions = [
-      "You are NeoLearn's friendly school teacher.",
+      "Speak as NeoLearn's warm, clear, feminine Indian school teacher.",
       lang.instruction,
-      "Speak slowly and clearly for a school student.",
-      "Use a warm classroom tone.",
+      "Use a distinctly feminine vocal character with crisp articulation, clear pronunciation, and a friendly classroom tone.",
+      "Keep a confident, caring, natural pace that Class 6 to 12 students can follow easily; do not speak too slowly.",
+      "Sound conversational and human, never robotic, dull, foreign-accented, sing-song, or overly dramatic.",
       "Do not add extra content beyond the given lesson text.",
     ].join(" ");
 
     const speech = await openai.audio.speech.create({
       model: "gpt-4o-mini-tts",
-      voice: "alloy",
+      voice: "shimmer",
       response_format: "mp3",
       input: safeText,
       instructions,

@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 const OPENAI_REALTIME_MODEL =
   process.env.OPENAI_REALTIME_MODEL || "gpt-realtime-mini";
+const REALTIME_TEACHER_VOICE = "shimmer";
 
 export async function GET(req: NextRequest) {
   try {
@@ -78,7 +79,7 @@ export async function GET(req: NextRequest) {
           model: OPENAI_REALTIME_MODEL,
           audio: {
             output: {
-              voice: "alloy",
+              voice: REALTIME_TEACHER_VOICE,
             },
           },
         },
