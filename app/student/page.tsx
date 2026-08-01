@@ -799,6 +799,8 @@ const [dailyError, setDailyError] = useState<string | null>(null);
 
 // ---------------- Notes Engine: Generate ----------------
 const effectiveStudentClassId = student?.classId ? String(student.classId) : "";
+const effectiveStudentTrack = String(student?.track || student?.subjectType || "regular").toLowerCase();
+const effectiveCompetitiveExam = student?.competitiveExam || student?.board || "Competitive";
 
 const handleGenerateNotes = useCallback(async () => {
   if (!student || !currentSubject || !currentChapter) {
@@ -817,7 +819,8 @@ const handleGenerateNotes = useCallback(async () => {
         mobile: student.mobile,
         board: "cbse",
         classId: effectiveStudentClassId,
-        courseType: "regular",
+        courseType: effectiveStudentTrack === "competitive" ? "competitive" : "regular",
+        competitiveExam: effectiveCompetitiveExam,
         subjectId: String(currentSubject.id),
         chapterId: String(currentChapter.id),
         topicId: currentTopic?.id ? String(currentTopic.id) : null,
@@ -843,7 +846,16 @@ const handleGenerateNotes = useCallback(async () => {
   } finally {
     setNotesLoading(false);
   }
-}, [student, selectedSubjectId, selectedChapterId, selectedTopicId, noteType]);
+}, [
+  student,
+  selectedSubjectId,
+  selectedChapterId,
+  selectedTopicId,
+  noteType,
+  effectiveStudentClassId,
+  effectiveStudentTrack,
+  effectiveCompetitiveExam,
+]);
 
 const getLangCode = (
   language: "English" | "Hindi" | "Bengali"
@@ -1615,9 +1627,13 @@ const handleStartLesson = useCallback(async () => {
         headers: studentAuthHeaders(true),
         body: JSON.stringify({
           mobile: student?.mobile,
-          board: "CBSE",
+          board: effectiveStudentTrack === "competitive" ? effectiveCompetitiveExam : "CBSE",
           classLevel: `Class ${student?.classId}`,
+          track: effectiveStudentTrack,
+          subjectType: effectiveStudentTrack,
+          competitiveExam: effectiveCompetitiveExam,
           subject: currentSubject.subject_name,
+          chapter: currentChapter.chapter_name,
           topic: currentTopic.topic_name,
           language: langCode,
         }),
@@ -1718,6 +1734,8 @@ const handleStartLesson = useCallback(async () => {
   student?.classId,
   student?.name,
   student?.mobile,
+  effectiveStudentTrack,
+  effectiveCompetitiveExam,
   language,
   speed,
   pushMessage,
@@ -1781,9 +1799,12 @@ const handleStartLesson = useCallback(async () => {
         question: trimmed,
 
         // full selected context - prevents fallback to maths/fractions
-        board: "cbse",
+        board: effectiveStudentTrack === "competitive" ? effectiveCompetitiveExam : "cbse",
         classId: String(student?.classId || "6"),
         classLevel: `Class ${student?.classId || "6"}`,
+        track: effectiveStudentTrack,
+        subjectType: effectiveStudentTrack,
+        competitiveExam: effectiveCompetitiveExam,
         lang: getLangCode(language),
         language: getLangCode(language),
 
@@ -1887,6 +1908,8 @@ const handleStartLesson = useCallback(async () => {
   student?.classId,
   student?.mobile,
   student?.studentId,
+  effectiveStudentTrack,
+  effectiveCompetitiveExam,
   language,
   pushMessage,
   loadEntitlements,
@@ -2133,6 +2156,8 @@ const handleStartLesson = useCallback(async () => {
               teacherAvatar={teacherAvatar}
               studentName={student.name}
               studentMobile={student.mobile}
+              studentTrack={String(student.track || student.subjectType || "regular")}
+              competitiveExam={student.competitiveExam || student.board || null}
               isClassLive={!!classSession?.isLive}
               remainingSeconds={remainingSeconds}
               onEnsureClassLive={startClassSession}
@@ -3316,6 +3341,7 @@ function GalleryView({
 
 interface TopicTestQuestion {
   id: number;
+  difficulty?: string;
   question: string;
   options: string[];
   correctIndex: number;
@@ -3489,6 +3515,8 @@ function ClassroomView(props: {
   teacherAvatar: string;
   studentName: string;
   studentMobile: string;
+  studentTrack: string;
+  competitiveExam: string | null;
   isClassLive: boolean;
   remainingSeconds: number;
   onEnsureClassLive?: () => void;
@@ -3529,6 +3557,8 @@ function ClassroomView(props: {
     teacherAvatar,
     studentName,
     studentMobile,
+    studentTrack,
+    competitiveExam,
     isClassLive,
     remainingSeconds,
     onEnsureClassLive,
@@ -3685,6 +3715,7 @@ useEffect(() => {
 
   const buildRealtimeQuestion = (raw: string) => {
   const trimmed = raw.trim();
+  const isCompetitiveRealtime = String(studentTrack).toLowerCase() === "competitive";
 
   return [
     `Selected language: ${language}. Respond only in this language.`,
@@ -3699,6 +3730,9 @@ useEffect(() => {
       : "",
     "Important rule: Answer only if the student's question is about the selected topic.",
     "If the question is outside the selected topic, politely refuse and ask the student to stay with the current lesson topic.",
+    isCompetitiveRealtime
+      ? `Competitive Deep Mode for ${competitiveExam || "Competitive Exam"}: answer with exam relevance, deep concept explanation, key formulas/facts/rules, solved example, shortcut/trick, common mistakes/traps, exam-style MCQs, answer explanations, quick revision points, and next practice task.`
+      : "",
     `Student question: ${trimmed}`,
   ]
     .filter(Boolean)
@@ -3769,7 +3803,9 @@ const ensureRealtimeConnected = async (silent = false) => {
     'If the student asks anything outside the selected subject/chapter/topic, do not answer that off-topic question. Politely say that you are the NeoLearn classroom teacher for the current lesson and ask the student to stay on the selected topic.';
 
   const classroomRules =
-    'Keep answers short, teacher-like, classroom-safe, and easy for a school student to understand. Do not drift into unrelated topics.';
+    String(studentTrack).toLowerCase() === "competitive"
+      ? `Use Competitive Deep Mode for ${competitiveExam || "Competitive Exam"}: make responses exam-focused and structured with exam relevance, deep concept explanation, key formulas/facts/rules, step-by-step solved example, shortcut/trick, common mistakes/traps, exam-style MCQs, answer explanations, quick revision points, and next practice task. Do not drift into unrelated topics.`
+      : 'Keep answers short, teacher-like, classroom-safe, and easy for a school student to understand. Do not drift into unrelated topics.';
 
   const voiceStyle =
     language === "Hindi"
@@ -3998,8 +4034,11 @@ const handleStartTopicTest = async () => {
       headers: studentAuthHeaders(true),
       body: JSON.stringify({
         mobile: studentMobile,
-        board: "CBSE",
-        classLevel: "Class 6",
+        board: String(studentTrack).toLowerCase() === "competitive" ? competitiveExam || "Competitive" : "CBSE",
+        classLevel: `Class ${currentSubject.class_number || 6}`,
+        track: studentTrack,
+        subjectType: studentTrack,
+        competitiveExam,
         subject: currentSubject.subject_name,
         chapter: currentChapter.chapter_name,
         topic: currentTopic.topic_name,
@@ -4887,7 +4926,15 @@ const handleStartTopicTest = async () => {
               {topicTest.map((q, index) => (
                 <div key={q.id} className="rounded-2xl border border-slate-200 p-4">
                   <div className="mb-3 text-sm font-semibold text-slate-800">
-                    Q{index + 1}. {q.question}
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
+                      <span>Q{index + 1}.</span>
+                      {q.difficulty && (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                          {q.difficulty}
+                        </span>
+                      )}
+                    </div>
+                    <div>{q.question}</div>
                   </div>
 
                   <div className="space-y-2">
@@ -4949,6 +4996,15 @@ const handleStartTopicTest = async () => {
                       );
                     })}
                   </div>
+
+                  {topicTestResult && q.explanation && (
+                    <div className="mt-3 rounded-2xl bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-700">
+                      <span className="font-semibold text-slate-900">
+                        Explanation:
+                      </span>{" "}
+                      {q.explanation}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

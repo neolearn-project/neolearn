@@ -3,11 +3,17 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { OwnershipError, ownershipErrorResponse, requireStudentMobile } from "@/lib/auth/ownership";
 import { readJsonResponse } from "@/app/lib/safeResponse";
+import {
+  buildCompetitiveJsonQuestionInstruction,
+  competitiveExamLabel,
+  isCompetitiveMode,
+} from "@/app/lib/competitivePrompt";
 
 export const dynamic = "force-dynamic";
 
 type TopicTestQuestion = {
   id: number;
+  difficulty?: "Easy" | "Moderate" | "Hard" | string;
   question: string;
   options: string[];
   correctIndex: number;
@@ -80,6 +86,13 @@ if (!ent.features?.topicTest) {
     const chapter = (body.chapter as string) || "";
     const topic = (body.topic as string) || "";
     const numQuestions = Number(body.numQuestions || 5);
+    const track = String(body?.track || body?.subjectType || body?.courseType || "regular");
+    const competitiveExam = competitiveExamLabel(body?.competitiveExam || body?.exam || board);
+    const isCompetitive = isCompetitiveMode(track);
+    const needsNumericalApplication =
+      /\b(math|mathematics|physics|quant|aptitude|jee)\b/i.test(
+        `${subject} ${competitiveExam}`
+      );
 
     const language: "en" | "hi" | "bn" =
       (body.language as "en" | "hi" | "bn") || "en";
@@ -109,21 +122,24 @@ Do NOT use any religious greeting or phrase. Neutral school tone only.
 `.trim();
 
     const systemPrompt = `
-You are an experienced school exam paper setter for Indian boards.
+You are an experienced ${isCompetitive ? `${competitiveExam} competitive exam` : "school exam"} paper setter for Indian students.
 
 Your task:
 - Create ${numQuestions} multiple-choice questions (MCQs)
 - Topic: "${topic}" in ${classLevel}
 - Subject: ${subject}, Board: ${board}
-- Difficulty: Easy to medium for revision, not olympiad level.
+- Difficulty: ${isCompetitive ? "medium to exam-level with conceptual traps, not generic recall" : "Easy to medium for revision, not olympiad level"}.
 
 ${languageInstruction}
+
+${isCompetitive ? buildCompetitiveJsonQuestionInstruction(competitiveExam) : ""}
 
 Return ONLY valid JSON (no markdown, no backticks), in this exact format:
 
 [
   {
     "id": 1,
+    ${isCompetitive ? '"difficulty": "Moderate",' : ""}
     "question": "Question text here",
     "options": ["Option A", "Option B", "Option C", "Option D"],
     "correctIndex": 0,
@@ -134,9 +150,12 @@ Return ONLY valid JSON (no markdown, no backticks), in this exact format:
 Rules:
 - 4 options per question.
 - correctIndex is 0, 1, 2 or 3 matching the correct option.
-- explanation should be 1â€“3 short sentences.
+${isCompetitive ? "- difficulty must be Easy, Moderate, or Hard." : ""}
+${isCompetitive && needsNumericalApplication ? "- At least 2 questions must be numerical/application MCQs with values, formula use, and calculation logic." : ""}
+- explanation should be ${isCompetitive ? "2-4 compact sentences with correct logic and trap analysis" : "1-3 short sentences"}.
+- ${isCompetitive ? "explanation should include the key concept, correct option logic, and one common trap." : "Keep explanations simple and revision friendly."}
 - No religious or political content.
-- No extra fields.
+- No extra fields beyond ${isCompetitive ? "id, difficulty, question, options, correctIndex, explanation" : "id, question, options, correctIndex, explanation"}.
 `.trim();
 
     const userPrompt = `
@@ -144,6 +163,7 @@ Generate ${numQuestions} MCQs for:
 
 Board: ${board}
 Class: ${classLevel}
+Track: ${isCompetitive ? `competitive (${competitiveExam})` : "regular"}
 Subject: ${subject}
 Chapter: ${chapter || "(chapter name not given)"}
 Topic: ${topic}
@@ -196,6 +216,11 @@ Return ONLY JSON in the exact array format described.
     const cleaned = questions
       .map((q, index) => ({
         id: q.id ?? index + 1,
+        difficulty: ["Easy", "Moderate", "Hard"].includes(String((q as any).difficulty || ""))
+          ? String((q as any).difficulty)
+          : isCompetitive
+          ? "Moderate"
+          : undefined,
         question: String(q.question || "").trim(),
         options: Array.isArray(q.options) ? q.options.map(String) : [],
         correctIndex: typeof q.correctIndex === "number" ? q.correctIndex : 0,

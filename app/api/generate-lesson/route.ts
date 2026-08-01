@@ -2,6 +2,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { OwnershipError, ownershipErrorResponse, requireStudentMobile } from "@/lib/auth/ownership";
+import {
+  buildCompetitiveStructureInstruction,
+  competitiveExamLabel,
+  isCompetitiveMode,
+} from "@/app/lib/competitivePrompt";
 
 const client = new OpenAI({
   apiKey: process.env.NEOLEARN_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
@@ -16,7 +21,11 @@ export async function POST(req: NextRequest) {
     const board = (body.board as string) || "CBSE";
     const classLevel = (body.classLevel as string) || "Class 6";
     const subject = (body.subject as string) || "Mathematics";
+    const chapter = (body.chapter as string) || "";
     const topic = (body.topic as string) || "Fractions";
+    const track = String(body?.track || body?.subjectType || body?.courseType || "regular");
+    const competitiveExam = competitiveExamLabel(body?.competitiveExam || board);
+    const isCompetitive = isCompetitiveMode(track);
 
     // ðŸ‘‡ from frontend: "en" | "hi" | "bn"
     const language: "en" | "hi" | "bn" = (body.language as any) || "en";
@@ -52,11 +61,21 @@ Do NOT use any religious greeting or phrase (for example "Assalamu Alaikum",
 Do not speak like a foreign teacher.
 `.trim();
 
+    const competitiveInstruction = isCompetitive
+      ? buildCompetitiveStructureInstruction(competitiveExam, {
+          responseType: "lesson",
+          subject,
+        })
+      : "";
+
         const systemPrompt = `
-You are a very friendly FEMALE teacher in a professional Indian coaching institute called NeoLearn.
-You always teach slowly, clearly and in a warm, encouraging tone.
+${isCompetitive
+  ? "You are a serious FEMALE competitive exam mentor in a professional Indian coaching institute called NeoLearn. You teach with precision, exam discipline, and no filler."
+  : "You are a very friendly FEMALE teacher in a professional Indian coaching institute called NeoLearn.\nYou always teach slowly, clearly and in a warm, encouraging tone."}
 
 ${languageInstruction}
+
+${competitiveInstruction}
 
 You are teaching one child, not a classroom.
 
@@ -76,7 +95,9 @@ Very important style rules:
 When you teach the topic, follow this structure, but write it as natural speech
 (one continuous talk with line breaks, NOT headings):
 
-1) Greeting + Topic Introduction
+${isCompetitive ? `
+For Competitive Deep Mode, ignore the regular school lesson outline below and use the exact 10 numbered competitive headings from Competitive Deep Mode. Make the lesson deep enough for ${competitiveExam} preparation.
+`.trim() : `1) Greeting + Topic Introduction
    - Give a neutral classroom greeting (1â€“2 sentences) with no religious wording.
    - Say which topic you will teach and why it is useful (1â€“2 sentences).
 
@@ -99,13 +120,16 @@ When you teach the topic, follow this structure, but write it as natural speech
 
 6) Homework / Practice
    - Give 2 or 3 easy practice questions for homework (different from the mini test).
+`}
 `.trim();
 
 
     const userPrompt = `
 Board: ${board}
 Class: ${classLevel}
+Track: ${isCompetitive ? `competitive (${competitiveExam})` : "regular"}
 Subject: ${subject}
+Chapter: ${chapter || "(chapter name not given)"}
 Topic: ${topic}
 
 Write the teaching script exactly as you would speak to one student

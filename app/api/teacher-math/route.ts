@@ -17,6 +17,11 @@ import {
   buildPersonaInstruction,
   type PersonaProfile,
 } from "@/app/lib/personaEngine";
+import {
+  buildCompetitiveStructureInstruction,
+  competitiveExamLabel,
+  isCompetitiveMode,
+} from "@/app/lib/competitivePrompt";
 
 // ------------------------
 // Decide model based on question complexity
@@ -124,6 +129,9 @@ const topicId = String(body?.topicId || "").trim();
     const selectedTopicName = String(
       body?.selectedTopic || body?.topic || ""
     ).trim();
+    const track = String(body?.track || body?.subjectType || body?.courseType || "regular");
+    const competitiveExam = competitiveExamLabel(body?.competitiveExam || body?.exam || body?.board || board);
+    const isCompetitive = isCompetitiveMode(track);
 
     const isRepeatRequest =
       /\b(repeat|again|explain again|describe again|explain it again|describe this chapter|cant understand|can't understand|cannot understand|i cant understand|i can't understand|didnt get|didn't get|did'nt get|did not get|not understand|did not understand|dont understand|don't understand|i dont understand|i don't understand|confused|ok|okay|samjha nahi|samajh nahi|samajh nehi|samajh me nahi|samajh me nehi|samajh me nahi aaya|samajh me nehi aaya|samajh mein nahi|samajh mein nehi|dobara|fir se|phir se)\b/i.test(question);
@@ -207,7 +215,7 @@ const topicId = String(body?.topicId || "").trim();
       }
 
       const directPrompt = `
-You are a kind Indian school teacher.
+${isCompetitive ? "You are a serious Indian competitive exam mentor." : "You are a kind Indian school teacher."}
 
 The student is asking a doubt or response inside the current lesson. Answer only inside the selected subject, chapter, and topic.
 
@@ -221,6 +229,10 @@ Board: ${boardLabel}
 Student message: ${question}
 
 Rules:
+${isCompetitive ? buildCompetitiveStructureInstruction(competitiveExam, {
+  responseType: "doubt",
+  subject: selectedSubjectName,
+}) : ""}
 - SANSKRIT ACCURACY GUARD:
   If Subject is Sanskrit, keep Sanskrit examples grammatically correct.
   Do not convert Sanskrit forms into Hindi plural words.
@@ -238,11 +250,11 @@ Rules:
 - If Subject is English, explain the selected story/literature topic only.
 - If Subject is Science, explain the selected science topic only.
 - If Subject is Sanskrit or Hindi, explain the selected grammar/literature topic only.
-- Use simple child-friendly language.
-- Start with: "Restating your doubt:"
+${isCompetitive ? "- Use crisp exam-mentor language: compact, direct, and high-value." : "- Use simple child-friendly language."}
+${isCompetitive ? "- Use the Competitive Deep Mode headings instead of the regular short doubt format." : `- Start with: "Restating your doubt:"
 - Then explain in 4 to 6 short steps.
 - Give 1 or 2 examples from the selected topic.
-- End with one follow-up question.
+- End with one follow-up question.`}
 `.trim();
 
       const directResponse = await openai.responses.create({
@@ -371,10 +383,15 @@ const languageInstruction =
     // 2) OTHERWISE CALL OPENAI
     // ------------------------
     const systemPrompt = `
-You are a kind Indian school teacher.
+${isCompetitive ? "You are a serious Indian competitive exam mentor." : "You are a kind Indian school teacher."}
 
 PERSONA RULES (must follow):
 ${personaInstruction}
+
+${isCompetitive ? buildCompetitiveStructureInstruction(competitiveExam, {
+  responseType: "doubt",
+  subject: selectedSubjectName || teacher.displayName,
+}) : ""}
 
 Subject: ${teacher.displayName}
 Board: ${boardLabel}
@@ -384,11 +401,13 @@ Chapter: ${chapter.title}
 ${languageInstruction}
 
 Your job is to:
-- Restate the child's doubt in one simple line.
+${isCompetitive ? `- Answer using the exact Competitive Deep Mode 10-heading structure.
+- Make the response suitable for ${competitiveExam} preparation.
+- Include solved example, shortcut, traps, MCQs, explanations, revision points, and next practice task.` : `- Restate the child's doubt in one simple line.
 - Explain step-by-step clearly.
 - Give 1 to 2 small worked examples related only to the selected topic: ${selectedTopicName || selectedChapterName || chapter.title}.
 - Use short, simple sentences.
-- End with one follow-up question to check understanding.
+- End with one follow-up question to check understanding.`}
 `.trim();
 
 // âœ… If confusion detected, mark topic as weak (best effort)
@@ -436,6 +455,7 @@ try {
     const userPrompt = `
 Internal class: ${teacher.classId}
 Board: ${boardLabel}
+Track: ${isCompetitive ? `competitive (${competitiveExam})` : "regular"}
 Chapter: ${chapter.title}
 
 Student question: ${question}

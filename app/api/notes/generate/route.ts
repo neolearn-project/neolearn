@@ -4,6 +4,11 @@ import OpenAI from "openai";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createClient } from "@supabase/supabase-js";
 import { matchCatalogRows, normalizeText, type CatalogRow } from "@/app/lib/catalogMatch";
+import {
+  buildCompetitiveStructureInstruction,
+  competitiveExamLabel,
+  isCompetitiveMode,
+} from "@/app/lib/competitivePrompt";
 
 export const dynamic = "force-dynamic";
 
@@ -152,6 +157,7 @@ async function buildOpenAiMarkdown(args: {
   noteType: NoteType;
   chapterType?: string | null;
   bookName?: string | null;
+  competitiveExam?: string | null;
 }) {
   const client = new OpenAI({ apiKey: args.apiKey });
 
@@ -215,6 +221,29 @@ async function buildOpenAiMarkdown(args: {
     : "## Important points/formulas";
 
   const sourceBookLine = args.bookName ? `Book/Textbook: ${args.bookName}` : "";
+  const isCompetitive = isCompetitiveMode(args.courseType);
+  const competitiveExam = competitiveExamLabel(args.competitiveExam || args.board);
+  const competitiveInstruction = isCompetitive
+    ? `
+Competitive Deep Mode:
+${buildCompetitiveStructureInstruction(competitiveExam, {
+  responseType: "notes",
+  subject: args.subjectName,
+})}
+- For notes, keep the same Markdown output style but include these competitive sections:
+  ## Exam relevance
+  ## Deep concept explanation
+  ## Key formulas/facts/rules
+  ## Step-by-step solved example
+  ## Shortcut/trick
+  ## Common mistakes/traps
+  ## Exam-style MCQs
+  ## Answer explanations
+  ## Quick revision points
+  ## Next practice task
+- Make MCQs ${competitiveExam}-style with trap options and answer logic.
+`.trim()
+    : "";
 
   const prompt = `Create NeoLearn-standard ${noteTypeLabel} in Markdown for an Indian school student.
 
@@ -227,11 +256,13 @@ Chapter: ${args.chapterName}
 Topic: ${args.topicName}
 Chapter type: ${args.chapterType || "general"}
 
+${competitiveInstruction}
+
 Primary goal:
 - Make the notes VERY SIMPLE to understand.
 - Make the notes EASY TO MEMORIZE.
 - Keep the format STANDARD across NeoLearn.
-- Make them useful for school exams.
+- Make them useful for ${isCompetitive ? `${competitiveExam} competitive exam preparation` : "school exams"}.
 
 Writing rules:
 - Use short sentences.
@@ -246,6 +277,7 @@ Writing rules:
 - Do not make Class ${args.classId} content unnecessarily advanced.
 
 NeoLearn standard structure:
+${isCompetitive ? `Use the Competitive Deep Mode sections listed above as the main structure. You may add compact sub-bullets inside those sections, but do not replace them with the regular school notes structure below.` : ""}
 ## Overview
 - Write 3 to 5 very short lines only.
 
@@ -552,6 +584,7 @@ export async function POST(req: Request) {
     const board = String(body?.board || "cbse").toLowerCase();
     const classId = String(body?.classId || "").trim();
     const courseType = String(body?.courseType || "regular").trim() || "regular";
+    const competitiveExam = String(body?.competitiveExam || "").trim() || null;
     const subjectId = String(body?.subjectId || "").trim();
     const chapterId = String(body?.chapterId || "").trim();
     const topicIdRaw = body?.topicId;
@@ -741,6 +774,7 @@ export async function POST(req: Request) {
           noteType,
           chapterType,
           bookName,
+          competitiveExam,
         });
 
         if (aiMarkdown) {
