@@ -3348,6 +3348,21 @@ interface TopicTestQuestion {
   explanation: string;
 }
 
+type CompetitivePracticeQuestion = {
+  id: number;
+  difficulty: "Easy" | "Moderate" | "Hard";
+  question: string;
+  answer: string;
+  explanation: string;
+};
+
+type WeakAreaDiagnosis = {
+  weakAreas: string[];
+  trigger: string;
+  advice: string;
+  practice: CompetitivePracticeQuestion[];
+};
+
 function RoutineView({
   subjects,
   routine,
@@ -3588,6 +3603,7 @@ function ClassroomView(props: {
     correct: number;
     total: number;
     percent: number;
+    weakDiagnosis?: WeakAreaDiagnosis | null;
   } | null>(null);
   const [isLoadingTest, setIsLoadingTest] = useState(false);
   const [isTopicTestOpen, setIsTopicTestOpen] = useState(false);
@@ -4082,6 +4098,71 @@ const handleStartTopicTest = async () => {
   }
 };
 
+  const buildCompetitiveWeakDiagnosis = (
+    questions: TopicTestQuestion[],
+    answers: Record<number, number | null>,
+    percent: number
+  ): WeakAreaDiagnosis | null => {
+    if (String(studentTrack).toLowerCase() !== "competitive" || questions.length === 0) {
+      return null;
+    }
+
+    const wrong = questions.filter((q) => answers[q.id] !== q.correctIndex);
+    const sourceQuestions = wrong.length > 0 ? wrong : questions.slice(0, Math.min(3, questions.length));
+    const topicLabel = currentTopic?.topic_name || "this topic";
+
+    const weakAreas =
+      wrong.length > 0
+        ? sourceQuestions.slice(0, 3).map((q, index) => {
+            const compactQuestion = q.question.replace(/\s+/g, " ").trim();
+            return `${index + 1}. ${compactQuestion.slice(0, 88)}${compactQuestion.length > 88 ? "..." : ""}`;
+          })
+        : [
+            "No major weak area detected from this attempt.",
+            "Polish speed, option elimination, and trap checking for exam accuracy.",
+          ];
+
+    const trigger =
+      wrong.length > 0
+        ? `${wrong.length} incorrect answer${wrong.length === 1 ? "" : "s"} found in this test.`
+        : percent < 80
+        ? `Score is ${percent}%, so revision is still needed.`
+        : `Score is ${percent}%, so focus on speed and avoiding traps.`;
+
+    const advice =
+      percent < 50
+        ? `Revise ${topicLabel} from basics, then solve these without a timer. Mark the step where you get stuck.`
+        : percent < 80
+        ? `Rework the wrong patterns, then solve these in 8-10 minutes with option elimination.`
+        : `Maintain accuracy. Solve these in 6-8 minutes and check for hidden traps before marking answers.`;
+
+    const practicePool = sourceQuestions.length ? sourceQuestions : questions;
+    const practice: CompetitivePracticeQuestion[] = Array.from({ length: 5 }, (_, index) => {
+      const base = practicePool[index % practicePool.length];
+      const correctOption = base.options[base.correctIndex] || "Correct option";
+      const optionsText = base.options
+        .map((option, optionIndex) => `${String.fromCharCode(65 + optionIndex)}. ${option}`)
+        .join(" | ");
+
+      return {
+        id: index + 1,
+        difficulty:
+          index < 2
+            ? "Easy"
+            : index < 4
+            ? "Moderate"
+            : "Hard",
+        question: `Targeted practice ${index + 1} on ${topicLabel}: ${base.question} Options: ${optionsText}`,
+        answer: `${String.fromCharCode(65 + base.correctIndex)}. ${correctOption}`,
+        explanation:
+          base.explanation ||
+          `Use the core rule from ${topicLabel}, eliminate close distractors, and verify the final option before marking.`,
+      };
+    });
+
+    return { weakAreas, trigger, advice, practice };
+  };
+
   const handleSubmitTopicTest = async () => {
     try {
       if (!topicTest || topicTest.length === 0) return;
@@ -4093,8 +4174,13 @@ const handleStartTopicTest = async () => {
 
       const total = topicTest.length;
       const percent = Math.round((correct / total) * 100);
+      const weakDiagnosis = buildCompetitiveWeakDiagnosis(
+        topicTest,
+        topicTestAnswers,
+        percent
+      );
 
-      setTopicTestResult({ correct, total, percent });
+      setTopicTestResult({ correct, total, percent, weakDiagnosis });
 
       if (!currentTopic?.id) return;
 
@@ -5013,6 +5099,60 @@ const handleStartTopicTest = async () => {
               <div className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
                 Result: {topicTestResult.correct}/{topicTestResult.total} (
                 {topicTestResult.percent}%)
+              </div>
+            )}
+
+            {topicTestResult?.weakDiagnosis && (
+              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-slate-800">
+                <div className="text-sm font-bold text-amber-900">
+                  Weak Area Diagnosis
+                </div>
+                <div className="mt-1 text-xs font-semibold text-amber-800">
+                  {topicTestResult.weakDiagnosis.trigger}
+                </div>
+
+                <div className="mt-3">
+                  <div className="text-xs font-bold uppercase text-slate-600">
+                    Focus areas
+                  </div>
+                  <ul className="mt-1 list-disc space-y-1 pl-5 text-xs leading-5">
+                    {topicTestResult.weakDiagnosis.weakAreas.map((area) => (
+                      <li key={area}>{area}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="mt-3">
+                  <div className="text-xs font-bold uppercase text-slate-600">
+                    Targeted practice
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {topicTestResult.weakDiagnosis.practice.map((practice) => (
+                      <div
+                        key={practice.id}
+                        className="rounded-2xl bg-white px-3 py-2 text-xs leading-5 shadow-sm"
+                      >
+                        <div className="mb-1 flex flex-wrap items-center gap-2">
+                          <span className="font-bold">Q{practice.id}</span>
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
+                            {practice.difficulty}
+                          </span>
+                        </div>
+                        <div>{practice.question}</div>
+                        <div className="mt-1 font-semibold text-emerald-700">
+                          Answer: {practice.answer}
+                        </div>
+                        <div className="mt-1 text-slate-600">
+                          {practice.explanation}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-3 rounded-2xl bg-white px-3 py-2 text-xs font-semibold leading-5 text-slate-700">
+                  Improvement advice: {topicTestResult.weakDiagnosis.advice}
+                </div>
               </div>
             )}
 

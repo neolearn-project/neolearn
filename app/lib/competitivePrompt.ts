@@ -41,7 +41,7 @@ export function buildCompetitiveStructureInstruction(
     responseType === "lesson"
       ? "- This is a lesson: build the concept from first principles, then move into exam application."
       : responseType === "doubt"
-      ? "- This is a doubt reply: do not repeat a full lesson; diagnose the doubt, give a fresh angle, and use a new example."
+      ? '- This is a doubt reply: do not repeat a full lesson; diagnose the doubt, give a fresh angle, use a new example, and include a compact "Weak Area Diagnosis" with targeted practice.'
       : "- This is notes content: keep it revision-first, compact, and highly scannable.";
 
   return `
@@ -80,6 +80,7 @@ ${numericalSubject ? "- For Physics/Math, at least 2 of the 5 MCQs must be numer
 - Quick revision points must be concise, memory-ready bullets only; no long paragraphs.
 - Next practice task must be one concrete task with difficulty and expected time.
 - Avoid repeating the same wording, example, or MCQ pattern across lesson and doubt replies; use a fresh angle when answering a doubt.
+${responseType === "doubt" ? '- After section 10, add "Weak Area Diagnosis" with 2-3 likely weak concepts, 5 targeted practice questions, answer key, compact explanations, and short improvement advice.' : ""}
 `.trim();
 }
 
