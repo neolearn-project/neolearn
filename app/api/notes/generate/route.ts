@@ -25,7 +25,7 @@ const NOTE_TYPES: NoteType[] = [
   "mcq_only",
 ];
 
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 
 function sanitizeGeneratedText(input: string): string {
   return sanitizePdfSafeText(String(input || "")
@@ -770,6 +770,7 @@ export async function POST(req: NextRequest) {
                 chapter: chapterName,
                 topic: topicName,
                 exam: competitiveExam || board,
+                mode: "notes",
               })
             : cachedContent,
           qualityScore: Number(cached.quality_score || 0),
@@ -818,6 +819,7 @@ export async function POST(req: NextRequest) {
               chapter: chapterName,
               topic: topicName,
               exam: competitiveExam || board,
+              mode: "notes",
             });
           }
           source = "openai";
@@ -845,6 +847,7 @@ export async function POST(req: NextRequest) {
           chapter: chapterName,
           topic: topicName,
           exam: competitiveExam || board,
+          mode: "notes",
         });
       }
       source = "internal";
