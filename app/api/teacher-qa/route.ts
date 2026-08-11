@@ -86,7 +86,7 @@ ${languageInstruction}
       completion.choices[0]?.message?.content?.trim() ||
       "I am sorry, I could not generate an answer. Please try again.";
     const answer = isCompetitive
-      ? qaRepairCompetitiveText(rawAnswer, { subject, topic: chapter, exam: competitiveExam })
+      ? qaRepairCompetitiveText(rawAnswer, { subject, chapter, topic: chapter, exam: competitiveExam })
       : rawAnswer;
 
     return NextResponse.json({ answer });

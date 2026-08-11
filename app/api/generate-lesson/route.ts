@@ -150,7 +150,7 @@ but DO NOT mention "NeoLearn" or "AI" in the script.
 
     const rawScript = (response.output_text || "").trim();
     const script = isCompetitive
-      ? qaRepairCompetitiveText(rawScript, { subject, topic, exam: competitiveExam })
+      ? qaRepairCompetitiveText(rawScript, { subject, chapter, topic, exam: competitiveExam })
       : rawScript;
 
     if (!script) {

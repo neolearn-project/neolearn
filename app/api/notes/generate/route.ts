@@ -246,6 +246,8 @@ ${buildCompetitiveStructureInstruction(competitiveExam, {
   ## Quick revision points
   ## Next practice task
 - Make MCQs ${competitiveExam}-style with trap options and answer logic.
+- Keep every MCQ visibly about "${args.topicName}" under "${args.chapterName}"; never mention internal IDs, numeric topic codes, subject IDs, chapter IDs, or catalog codes.
+- Each MCQ must have four unique options. Do not include equivalent options such as "5" and "25/5".
 `.trim()
     : "";
 
@@ -765,6 +767,7 @@ export async function POST(req: NextRequest) {
           content: isCompetitiveMode(courseType)
             ? qaRepairCompetitiveText(cachedContent, {
                 subject: subjectName,
+                chapter: chapterName,
                 topic: topicName,
                 exam: competitiveExam || board,
               })
@@ -812,6 +815,7 @@ export async function POST(req: NextRequest) {
           if (isCompetitiveMode(courseType)) {
             content = qaRepairCompetitiveText(content, {
               subject: subjectName,
+              chapter: chapterName,
               topic: topicName,
               exam: competitiveExam || board,
             });
@@ -838,6 +842,7 @@ export async function POST(req: NextRequest) {
       if (isCompetitiveMode(courseType)) {
         content = qaRepairCompetitiveText(content, {
           subject: subjectName,
+          chapter: chapterName,
           topic: topicName,
           exam: competitiveExam || board,
         });

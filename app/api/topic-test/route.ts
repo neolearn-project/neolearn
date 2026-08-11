@@ -41,6 +41,25 @@ function extractNumbers(value: string) {
   }).filter(Number.isFinite);
 }
 
+function numericExpressionValue(value: string) {
+  const text = String(value || "")
+    .replace(/×/g, "x")
+    .replace(/÷/g, "/")
+    .replace(/\s+/g, "");
+  const afterEquals = text.match(/=\s*(-?\d+(?:\.\d+)?(?:\/-?\d+(?:\.\d+)?)?)/);
+  if (afterEquals?.[1]) return extractNumbers(afterEquals[1])[0] ?? null;
+
+  if (/^-?\d+(?:\.\d+)?\/-?\d+(?:\.\d+)?$/.test(text)) {
+    return extractNumbers(text)[0] ?? null;
+  }
+
+  const product = text.match(/(-?\d+(?:\.\d+)?)x(-?\d+(?:\.\d+)?)/i);
+  if (product) return Number(product[1]) * Number(product[2]);
+
+  const numbers = extractNumbers(text);
+  return numbers.length === 1 ? numbers[0] : null;
+}
+
 function sameNumber(a: number, b: number) {
   return Math.abs(a - b) < 1e-9;
 }
@@ -60,6 +79,8 @@ function extractFinalExplanationNumber(explanation: string) {
 
 function alignCompetitiveCorrectOption(q: TopicTestQuestion): TopicTestQuestion | null {
   const options = q.options.map((option) => String(option || "").trim());
+  if (hasDuplicateOrEquivalentOptions(options)) return null;
+
   const correctIndex = q.correctIndex;
   const correctOption = options[correctIndex] || "";
   const explanation = String(q.explanation || "");
@@ -80,7 +101,10 @@ function alignCompetitiveCorrectOption(q: TopicTestQuestion): TopicTestQuestion 
   const optionMatches = options
     .map((option, index) => ({
       index,
-      matches: optionNumberSets[index].some((num) => sameNumber(num, finalNumber)),
+      matches:
+        numericExpressionValue(option) === null
+          ? optionNumberSets[index].some((num) => sameNumber(num, finalNumber))
+          : sameNumber(numericExpressionValue(option) as number, finalNumber),
     }))
     .filter((item) => item.matches);
 
@@ -99,6 +123,28 @@ function alignCompetitiveCorrectOption(q: TopicTestQuestion): TopicTestQuestion 
   return selectedText === matchedText || q.correctIndex === matchedIndex
     ? q
     : { ...q, correctIndex: matchedIndex };
+}
+
+function optionEquivalenceKey(option: string) {
+  const sanitized = sanitizePdfSafeText(option)
+    .toLowerCase()
+    .replace(/^[a-d][).:\-\s]+/i, "")
+    .replace(/\b(m\/s\^?2|m\/s2|days?|cm|m|kg|s|sec|seconds?|units?)\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const value = numericExpressionValue(sanitized);
+  if (value !== null && Number.isFinite(value)) return `num:${Number(value.toFixed(10))}`;
+  return `text:${sanitized.replace(/[^a-z0-9]+/g, "")}`;
+}
+
+function hasDuplicateOrEquivalentOptions(options: string[]) {
+  const seen = new Set<string>();
+  for (const option of options) {
+    const key = optionEquivalenceKey(option);
+    if (!key || seen.has(key)) return true;
+    seen.add(key);
+  }
+  return false;
 }
 
 function questionSignature(value: string) {

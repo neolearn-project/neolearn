@@ -277,6 +277,7 @@ ${isCompetitive ? "- Use the Competitive Deep Mode headings instead of the regul
       const answer = isCompetitive
         ? qaRepairCompetitiveText(rawAnswer, {
             subject: selectedSubjectName,
+            chapter: selectedChapterName,
             topic: selectedTopicName,
             exam: competitiveExam,
           })
@@ -498,6 +499,7 @@ Explain according to the syllabus of this class and board, focused on the given 
     if (isCompetitive) {
       answer = qaRepairCompetitiveText(answer, {
         subject: selectedSubjectName || teacher.displayName,
+        chapter: selectedChapterName || chapter.title,
         topic: selectedTopicName || selectedChapterName || chapter.title,
         exam: competitiveExam,
       });

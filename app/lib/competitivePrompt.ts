@@ -94,6 +94,7 @@ Competitive Deep Mode for ${competitiveExamLabel(exam)}:
 - Prefer previous-exam style wording, tight data, plausible distractors, and one clearly tempting trap option.
 - Add a difficulty label to every question: Easy, Moderate, or Hard.
 - Options must be concise, parallel, and mutually exclusive.
+- Options must be unique in meaning and value. Do not include equivalent options such as 5 and 25/5.
 - Explanations must include answer logic, why the correct option is correct, and why one tempting wrong option fails.
 - Before returning JSON, verify that correctIndex points to the exact option proven by the explanation.
 - If an explanation contains a calculation or final numeric result, that result must be present in the correct option and must not point to a different numeric option.

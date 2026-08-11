@@ -1,5 +1,6 @@
 type CompetitiveQaContext = {
   subject?: string | null;
+  chapter?: string | null;
   topic?: string | null;
   exam?: string | null;
 };
@@ -25,6 +26,25 @@ function extractNumbers(value: string) {
     .filter(Number.isFinite);
 }
 
+function numericExpressionValue(value: string) {
+  const text = String(value || "")
+    .replace(/×/g, "x")
+    .replace(/÷/g, "/")
+    .replace(/\s+/g, "");
+  const afterEquals = text.match(/=\s*(-?\d+(?:\.\d+)?(?:\/-?\d+(?:\.\d+)?)?)/);
+  if (afterEquals?.[1]) return extractNumbers(afterEquals[1])[0] ?? null;
+
+  if (/^-?\d+(?:\.\d+)?\/-?\d+(?:\.\d+)?$/.test(text)) {
+    return extractNumbers(text)[0] ?? null;
+  }
+
+  const product = text.match(/(-?\d+(?:\.\d+)?)x(-?\d+(?:\.\d+)?)/i);
+  if (product) return Number(product[1]) * Number(product[2]);
+
+  const numbers = extractNumbers(text);
+  return numbers.length === 1 ? numbers[0] : null;
+}
+
 function sameNumber(a: number, b: number) {
   return Math.abs(a - b) < 1e-9;
 }
@@ -41,6 +61,8 @@ function finalExplanationNumber(explanation: string) {
 
 function sanitizePdfSafeText(input: string) {
   return String(input || "")
+    .replace(/sqrt\s*([0-9]+(?:\.[0-9]+)?)/gi, "sqrt($1)")
+    .replace(/"H\d*\.?/g, "")
     .replace(/â€“|â€”/g, "-")
     .replace(/â€˜|â€™|’|‘/g, "'")
     .replace(/â€œ|â€\u009d|“|”/g, '"')
@@ -63,6 +85,7 @@ function sanitizePdfSafeText(input: string) {
     .replace(/â(?=\s|[A-Za-z])/g, "-")
     .replace(/"\u0012/g, "-")
     .replace(/\u0012|\u0013|\u0014/g, "-")
+    .replace(/sqrt\s*([0-9]+(?:\.[0-9]+)?)/gi, "sqrt($1)")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
@@ -115,31 +138,108 @@ function answerIndexFromLine(answerLine: string) {
   return match ? match[1].toUpperCase().charCodeAt(0) - 65 : -1;
 }
 
+function visibleTopic(ctx: CompetitiveQaContext) {
+  const candidates = [ctx.topic, ctx.chapter, ctx.subject]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .filter((value) => !/^\d{4,}$/.test(value))
+    .filter((value) => !/^[a-z]{0,4}\d{3,}$/i.test(value));
+
+  return candidates[0] || "the selected topic";
+}
+
 function replacementMcq(ctx: CompetitiveQaContext, sequence: number) {
-  const topic = String(ctx.topic || "this topic").trim();
-  const exam = String(ctx.exam || "competitive exam").trim();
-  const focus = [
-    "core concept",
-    "formula selection",
-    "trap elimination",
-    "application step",
-    "final verification",
-  ][sequence % 5];
+  const topic = visibleTopic(ctx);
+  const lowerTopic = topic.toLowerCase();
+
+  if (lowerTopic.includes("hcf") || lowerTopic.includes("lcm")) {
+    const variants = [
+      [
+        `**${sequence}.** Two events repeat every 4 days and 6 days. After how many days will they occur together again?`,
+        "- A) 10 days",
+        "- B) 12 days",
+        "- C) 18 days",
+        "- D) 24 days",
+        "- **Answer:** B) 12 days",
+        "- **Explanation:** Find LCM of 4 and 6. LCM = 12, so both events repeat together after 12 days.",
+      ],
+      [
+        `**${sequence}.** What is the HCF of 18 and 24?`,
+        "- A) 3",
+        "- B) 6",
+        "- C) 12",
+        "- D) 18",
+        "- **Answer:** B) 6",
+        "- **Explanation:** Common factors of 18 and 24 include 1, 2, 3, and 6. The highest common factor is 6.",
+      ],
+      [
+        `**${sequence}.** The LCM of 8 and 12 is:`,
+        "- A) 16",
+        "- B) 20",
+        "- C) 24",
+        "- D) 96",
+        "- **Answer:** C) 24",
+        "- **Explanation:** Multiples of 8 are 8, 16, 24. Multiples of 12 are 12, 24. The least common multiple is 24.",
+      ],
+      [
+        `**${sequence}.** Which number divides both 36 and 48 exactly and is the greatest possible?`,
+        "- A) 6",
+        "- B) 8",
+        "- C) 12",
+        "- D) 18",
+        "- **Answer:** C) 12",
+        "- **Explanation:** 12 divides both 36 and 48 exactly. No greater option listed divides both numbers exactly.",
+      ],
+      [
+        `**${sequence}.** Two bells ring every 5 minutes and 15 minutes. When will they ring together again?`,
+        "- A) 10 minutes",
+        "- B) 15 minutes",
+        "- C) 20 minutes",
+        "- D) 30 minutes",
+        "- **Answer:** B) 15 minutes",
+        "- **Explanation:** Find LCM of 5 and 15. Since 15 is already a multiple of 5, the LCM is 15 minutes.",
+      ],
+    ];
+    return variants[(sequence - 1) % variants.length].join("\n");
+  }
 
   return [
-    `**${sequence}.** In ${topic}, what should you verify first while solving a ${exam} MCQ on ${focus}?`,
-    "- A) The concept used, the given data, and the final option",
-    "- B) Only the longest option",
-    "- C) Only the first formula remembered",
-    "- D) Only the option that looks familiar",
-    "- **Answer:** A) The concept used, the given data, and the final option",
-    "- **Explanation:** Option A is correct because competitive MCQs need concept check, data check, and answer-option verification. The other options are common traps.",
+    `**${sequence}.** Which step is most important when solving a competitive MCQ from ${topic}?`,
+    "- A) Identify the tested concept, solve it, and match the final answer to one option",
+    "- B) Select the option with the most familiar wording",
+    "- C) Ignore the given values and use a memorized answer",
+    "- D) Mark the first option that looks close",
+    "- **Answer:** A) Identify the tested concept, solve it, and match the final answer to one option",
+    "- **Explanation:** Option A is correct because the answer must follow from the selected concept and match exactly one option. The other choices are unsafe shortcuts.",
   ].join("\n");
+}
+
+function optionEquivalenceKey(option: string) {
+  const sanitized = sanitizePdfSafeText(option)
+    .toLowerCase()
+    .replace(/^[a-d][).:\-\s]+/i, "")
+    .replace(/\b(m\/s\^?2|m\/s2|days?|cm|m|kg|s|sec|seconds?|units?)\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const value = numericExpressionValue(sanitized);
+  if (value !== null && Number.isFinite(value)) return `num:${Number(value.toFixed(10))}`;
+  return `text:${sanitized.replace(/[^a-z0-9]+/g, "")}`;
+}
+
+function hasDuplicateOrEquivalentOptions(options: string[]) {
+  const seen = new Set<string>();
+  for (const option of options) {
+    const key = optionEquivalenceKey(option);
+    if (!key || seen.has(key)) return true;
+    seen.add(key);
+  }
+  return false;
 }
 
 function repairMcqBlock(block: string, ctx: CompetitiveQaContext, sequence: number) {
   const parsed = parseMcqBlock(block);
   if (!parsed) return block;
+  if (hasDuplicateOrEquivalentOptions(parsed.options)) return replacementMcq(ctx, sequence);
 
   let answerIndex = answerIndexFromLine(parsed.answerLine);
   if (answerIndex < 0 || answerIndex > 3) return replacementMcq(ctx, sequence);
@@ -149,7 +249,10 @@ function repairMcqBlock(block: string, ctx: CompetitiveQaContext, sequence: numb
     const optionMatches = parsed.options
       .map((option, index) => ({
         index,
-        matches: extractNumbers(option).some((num) => sameNumber(num, finalNumber)),
+        matches:
+          numericExpressionValue(option) === null
+            ? extractNumbers(option).some((num) => sameNumber(num, finalNumber))
+            : sameNumber(numericExpressionValue(option) as number, finalNumber),
       }))
       .filter((item) => item.matches);
 
@@ -169,7 +272,7 @@ function repairMcqBlock(block: string, ctx: CompetitiveQaContext, sequence: numb
 
 export function qaRepairCompetitiveText(input: string, ctx: CompetitiveQaContext = {}) {
   const safe = sanitizePdfSafeText(input);
-  const blocks = safe.split(/(?=^\s*(?:\*\*)?\d+[\).]\s+)/gm);
+  const blocks = safe.split(/(?=^\s*(?:\*\*)?(?:Q\s*)?\d+[\).]\s+)/gim);
   let mcqSequence = 1;
 
   return blocks
