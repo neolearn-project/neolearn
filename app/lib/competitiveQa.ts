@@ -65,9 +65,7 @@ function sanitizePdfSafeText(input: string) {
     .replace(/sqrt\s*\(\s*17\s*\)\s*"H\d*\.?/gi, "check divisibility up to 4")
     .replace(/sqrt\s*\(\s*17\s*\)\s*[\"']?\s*H\d*\.?/gi, "check divisibility up to 4")
     .replace(/sqrt\s*([0-9]+(?:\.[0-9]+)?)/gi, "sqrt($1)")
-    .replace(/"H\s*/g, " approx ")
-    .replace(/"?H\s*/g, " approx ")
-    .replace(/"H\d*\.?/g, "")
+    .replace(/"H\s*(?=\d)/g, " approx ")
     .replace(/â€“|â€”/g, "-")
     .replace(/â€˜|â€™|’|‘/g, "'")
     .replace(/â€œ|â€\u009d|“|”/g, '"')
@@ -239,17 +237,19 @@ function replacementMcq(ctx: CompetitiveQaContext, sequence: number) {
   }
 
   if (ctx.mode === "notes") {
-    const chapter = visibleTopic({ topic: ctx.chapter, subject: ctx.subject });
-    const displayTopic = topic === "the selected topic" ? chapter : topic;
-    return [
-      `**${sequence}.** Which statement is correct for ${displayTopic}?`,
-      "- A) Use the selected concept and verify the answer with the given data",
-      "- B) Ignore the selected concept and guess from option length",
-      "- C) Use an unrelated shortcut from another chapter",
-      "- D) Mark any option without checking the explanation",
-      "- **Answer:** A) Use the selected concept and verify the answer with the given data",
-      `- **Explanation:** Option A is correct because this notes question is about ${displayTopic}. The other options describe guessing or unrelated methods.`,
-    ].join("\n");
+    if (lowerTopic.includes("fraction")) {
+      return [
+        `**${sequence}.** Which fraction is the smallest?`,
+        "- A) 3/7",
+        "- B) 4/9",
+        "- C) 5/11",
+        "- D) 2/3",
+        "- **Answer:** A) 3/7",
+        "- **Explanation:** Compare decimal values: 3/7 approx 0.4286, 4/9 approx 0.4444, 5/11 approx 0.4545, 2/3 approx 0.6667. Therefore, 3/7 is the smallest.",
+      ].join("\n");
+    }
+
+    return "";
   }
 
   return [
@@ -259,7 +259,7 @@ function replacementMcq(ctx: CompetitiveQaContext, sequence: number) {
     "- C) Ignore the given values and use a memorized answer",
     "- D) Mark the first option that looks close",
     "- **Answer:** A) Identify the tested concept, solve it, and match the final answer to one option",
-    "- **Explanation:** Option A is correct because the answer must follow from the selected concept and match exactly one option. The other choices are unsafe shortcuts.",
+    "- **Explanation:** Option A is correct because the answer must follow from the solved result and match exactly one option. The other choices are unsafe shortcuts.",
   ].join("\n");
 }
 
@@ -433,10 +433,20 @@ export function qaRepairCompetitiveText(input: string, ctx: CompetitiveQaContext
   const safe = ctx.mode === "notes"
     ? stripInternalQaText(sanitizePdfSafeText(input))
     : sanitizePdfSafeText(input);
-  const blocks = safe.split(/(?=^\s*(?:\*\*)?(?:Q\s*)?\d+[\).]\s+)/gim);
+  const repaired = ctx.mode === "notes"
+    ? repairNotesMcqSections(safe, ctx)
+    : repairMcqBlocks(safe, ctx);
+
+  return ctx.mode === "notes"
+    ? stripInternalQaText(sanitizePdfSafeText(repaired))
+    : repaired;
+}
+
+function repairMcqBlocks(input: string, ctx: CompetitiveQaContext) {
+  const blocks = input.split(/(?=^\s*(?:\*\*)?(?:Q\s*)?\d+[\).]\s+)/gim);
   let mcqSequence = 1;
 
-  const repaired = blocks
+  return blocks
     .map((block) => {
       const repaired = repairMcqBlock(block, ctx, mcqSequence);
       if (parseMcqBlock(block)) mcqSequence += 1;
@@ -444,10 +454,33 @@ export function qaRepairCompetitiveText(input: string, ctx: CompetitiveQaContext
     })
     .join("")
     .trim();
+}
 
-  return ctx.mode === "notes"
-    ? stripInternalQaText(sanitizePdfSafeText(repaired))
-    : repaired;
+function repairNotesMcqSections(input: string, ctx: CompetitiveQaContext) {
+  const lines = input.split("\n");
+  const output: string[] = [];
+  let section: string[] = [];
+  let inMcqSection = false;
+
+  const flush = () => {
+    if (!section.length) return;
+    const text = section.join("\n");
+    output.push(inMcqSection ? repairMcqBlocks(text, ctx) : text);
+    section = [];
+  };
+
+  for (const line of lines) {
+    const heading = line.match(/^##\s+(.+?)\s*$/);
+    if (heading) {
+      flush();
+      const title = heading[1].toLowerCase();
+      inMcqSection = /\bmcq\b|multiple[-\s]?choice|exam-style mcqs/.test(title);
+    }
+    section.push(line);
+  }
+
+  flush();
+  return output.join("\n").trim();
 }
 
 export { sanitizePdfSafeText };
