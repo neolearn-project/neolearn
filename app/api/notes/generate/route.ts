@@ -12,6 +12,7 @@ import {
   competitiveExamLabel,
   isCompetitiveMode,
 } from "@/app/lib/competitivePrompt";
+import { qaRepairCompetitiveText, sanitizePdfSafeText } from "@/app/lib/competitiveQa";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ const NOTE_TYPES: NoteType[] = [
 const CACHE_VERSION = 2;
 
 function sanitizeGeneratedText(input: string): string {
-  return String(input || "")
+  return sanitizePdfSafeText(String(input || "")
     .replace(/â€“/g, "-")
     .replace(/â€”/g, "-")
     .replace(/â€"/g, "-")
@@ -55,7 +56,7 @@ function sanitizeGeneratedText(input: string): string {
     .replace(/\u0014/g, "-")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
-    .trim();
+    .trim());
 }
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -757,10 +758,17 @@ export async function POST(req: NextRequest) {
           : await baseCacheQuery.eq("topic_id", topicId).maybeSingle();
 
       if (!cacheErr && cached?.content) {
+        const cachedContent = sanitizeGeneratedText(String(cached.content || ""));
         return NextResponse.json({
           ok: true,
           source: "cache",
-          content: sanitizeGeneratedText(String(cached.content || "")),
+          content: isCompetitiveMode(courseType)
+            ? qaRepairCompetitiveText(cachedContent, {
+                subject: subjectName,
+                topic: topicName,
+                exam: competitiveExam || board,
+              })
+            : cachedContent,
           qualityScore: Number(cached.quality_score || 0),
           resolved: {
             subjectName,
@@ -801,6 +809,13 @@ export async function POST(req: NextRequest) {
 
         if (aiMarkdown) {
           content = sanitizeGeneratedText(aiMarkdown);
+          if (isCompetitiveMode(courseType)) {
+            content = qaRepairCompetitiveText(content, {
+              subject: subjectName,
+              topic: topicName,
+              exam: competitiveExam || board,
+            });
+          }
           source = "openai";
           qualityScore = 0.95;
         }
@@ -820,6 +835,13 @@ export async function POST(req: NextRequest) {
         chapterType,
       });
       content = sanitizeGeneratedText(internal.markdown);
+      if (isCompetitiveMode(courseType)) {
+        content = qaRepairCompetitiveText(content, {
+          subject: subjectName,
+          topic: topicName,
+          exam: competitiveExam || board,
+        });
+      }
       source = "internal";
       qualityScore = internal.qualityScore;
     }

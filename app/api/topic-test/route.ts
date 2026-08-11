@@ -8,6 +8,7 @@ import {
   competitiveExamLabel,
   isCompetitiveMode,
 } from "@/app/lib/competitivePrompt";
+import { sanitizePdfSafeText } from "@/app/lib/competitiveQa";
 
 export const dynamic = "force-dynamic";
 
@@ -98,6 +99,96 @@ function alignCompetitiveCorrectOption(q: TopicTestQuestion): TopicTestQuestion 
   return selectedText === matchedText || q.correctIndex === matchedIndex
     ? q
     : { ...q, correctIndex: matchedIndex };
+}
+
+function questionSignature(value: string) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word.length > 2)
+    .slice(0, 16)
+    .join(" ");
+}
+
+function buildCompetitiveFallbackQuestion(args: {
+  id: number;
+  subject: string;
+  topic: string;
+  competitiveExam: string;
+}): TopicTestQuestion {
+  const focus = [
+    "core concept",
+    "formula selection",
+    "calculation setup",
+    "trap elimination",
+    "final verification",
+  ][(args.id - 1) % 5];
+  const topic = args.topic || args.subject || "this topic";
+
+  return {
+    id: args.id,
+    difficulty: args.id <= 2 ? "Easy" : args.id <= 4 ? "Moderate" : "Hard",
+    question: `For ${args.competitiveExam}, which approach is safest for an MCQ on ${topic} that tests ${focus}?`,
+    options: [
+      "Check the concept, solve cleanly, and match the final answer with one option",
+      "Pick the option that looks longest",
+      "Use any remembered formula without checking the data",
+      "Ignore units and signs if the answer looks close",
+    ],
+    correctIndex: 0,
+    explanation:
+      "Option A is correct because competitive MCQs require concept check, clean solving, and final option verification. The other options are common traps that create answer-option mismatch.",
+  };
+}
+
+function cleanCompetitiveQuestionText(q: TopicTestQuestion): TopicTestQuestion {
+  return {
+    ...q,
+    question: sanitizePdfSafeText(q.question),
+    options: q.options.map((option) => sanitizePdfSafeText(option)),
+    explanation: sanitizePdfSafeText(q.explanation),
+  };
+}
+
+function ensureCompetitiveQuestionCount(args: {
+  questions: TopicTestQuestion[];
+  requestedCount: number;
+  subject: string;
+  topic: string;
+  competitiveExam: string;
+}) {
+  const target = Math.max(1, Math.min(10, Math.floor(args.requestedCount || 5)));
+  const result: TopicTestQuestion[] = [];
+  const seen = new Set<string>();
+
+  for (const q of args.questions) {
+    const cleaned = cleanCompetitiveQuestionText(q);
+    const signature = questionSignature(cleaned.question);
+    if (!signature || seen.has(signature)) continue;
+    seen.add(signature);
+    result.push({ ...cleaned, id: result.length + 1 });
+    if (result.length === target) break;
+  }
+
+  while (result.length < target) {
+    const fallback = buildCompetitiveFallbackQuestion({
+      id: result.length + 1,
+      subject: args.subject,
+      topic: args.topic,
+      competitiveExam: args.competitiveExam,
+    });
+    const signature = questionSignature(fallback.question);
+    if (!seen.has(signature)) {
+      seen.add(signature);
+      result.push(fallback);
+    } else {
+      result.push({ ...fallback, id: result.length + 1 });
+    }
+  }
+
+  return result;
 }
 
 export async function POST(req: NextRequest) {
@@ -323,14 +414,24 @@ Return ONLY JSON in the exact array format described.
           .filter((q): q is TopicTestQuestion => !!q)
       : cleanedBase;
 
-    if (!cleaned.length) {
+    if (!cleaned.length && !isCompetitive) {
       return NextResponse.json(
         { ok: false, error: "All generated questions were invalid." },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ ok: true, questions: cleaned });
+    const responseQuestions = isCompetitive
+      ? ensureCompetitiveQuestionCount({
+          questions: cleaned,
+          requestedCount: numQuestions,
+          subject,
+          topic,
+          competitiveExam,
+        })
+      : cleaned;
+
+    return NextResponse.json({ ok: true, questions: responseQuestions });
   } catch (err) {
     if (err instanceof OwnershipError) return ownershipErrorResponse(err);
     console.error("topic-test route error:", err);

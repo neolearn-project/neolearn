@@ -7,6 +7,7 @@ import {
   competitiveExamLabel,
   isCompetitiveMode,
 } from "@/app/lib/competitivePrompt";
+import { qaRepairCompetitiveText } from "@/app/lib/competitiveQa";
 
 const client = new OpenAI({
   apiKey: process.env.NEOLEARN_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
@@ -147,7 +148,10 @@ but DO NOT mention "NeoLearn" or "AI" in the script.
       ],
     });
 
-    const script = (response.output_text || "").trim();
+    const rawScript = (response.output_text || "").trim();
+    const script = isCompetitive
+      ? qaRepairCompetitiveText(rawScript, { subject, topic, exam: competitiveExam })
+      : rawScript;
 
     if (!script) {
       return NextResponse.json(

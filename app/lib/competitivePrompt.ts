@@ -50,6 +50,7 @@ Competitive Deep Mode for ${competitiveExamLabel(exam)}:
 - Keep the answer strictly exam-focused, conceptually deep, and practice-oriented.
 - Cover the selected subject/chapter/topic only.
 - Use compact bullets under each heading so the answer works on mobile.
+- Use PDF-safe ASCII math notation: use => for arrows, x for multiplication, / for division, sqrt(...) for roots, ^ for powers, >= and <= for inequalities.
 - Target 550-850 words for doubt replies and 850-1200 words for full lessons; stay compact by using bullets, not long paragraphs.
 - Minimum depth: every concept section must include why it matters, how to apply it, and one exam-style edge case.
 - No generic filler, praise, motivational padding, vague advice, or repeated definitions.
@@ -72,6 +73,7 @@ ${responseFocus}
 - For headings 1-6, use 2-4 high-value bullets each.
 - In section 7, include exactly 5 exam-style MCQs.
 - Each MCQ must show difficulty (Easy/Moderate/Hard), four options (A-D), correct answer, and a compact explanation.
+- Every MCQ correct answer must exactly match one option and must match the explanation/calculation.
 - In section 8, explain all 5 MCQs: why the correct option is correct and why one tempting wrong option fails.
 ${numericalSubject ? "- For Physics/Math, at least 2 of the 5 MCQs must be numerical or application-based with values, formula use, and calculation logic." : "- For non-numerical subjects, at least 2 of the 5 MCQs must be application, assertion, passage, case, statement-pair, or elimination-based."}
 - For numerical subjects, show formula, substitution, calculation steps, units, and final answer.
@@ -97,6 +99,7 @@ Competitive Deep Mode for ${competitiveExamLabel(exam)}:
 - If an explanation contains a calculation or final numeric result, that result must be present in the correct option and must not point to a different numeric option.
 - Never generate an explanation where the calculated answer is missing from the options; revise the options or correctIndex first.
 - Keep every question strictly within the selected topic.
+- Use PDF-safe ASCII math notation only: =>, x, /, sqrt(...), ^2, >=, <=.
 - Keep explanations compact enough for mobile: 2-4 short sentences.
 `.trim();
 }

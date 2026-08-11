@@ -4119,7 +4119,21 @@ const handleStartTopicTest = async () => {
       );
     }
 
-    const questions: TopicTestQuestion[] = data.questions;
+    const expectedQuestionCount = 5;
+    const isCompetitiveTest = String(studentTrack).toLowerCase() === "competitive";
+    const questions: TopicTestQuestion[] = data.questions
+      .slice(0, expectedQuestionCount)
+      .map((q: TopicTestQuestion, index: number) => ({
+        ...q,
+        id: index + 1,
+      }));
+
+    if (isCompetitiveTest && questions.length !== expectedQuestionCount) {
+      throw new Error(
+        `Competitive topic test must contain exactly ${expectedQuestionCount} valid questions. Please try again.`
+      );
+    }
+
     const initialAnswers: Record<number, number | null> = {};
 
     questions.forEach((q) => {
@@ -4239,14 +4253,26 @@ const handleStartTopicTest = async () => {
       if (!topicTest || topicTest.length === 0) return;
 
       let correct = 0;
-      topicTest.forEach((q) => {
+      const displayedQuestions = topicTest.filter(
+        (q) =>
+          q.question &&
+          Array.isArray(q.options) &&
+          q.options.length === 4 &&
+          q.correctIndex >= 0 &&
+          q.correctIndex < q.options.length
+      );
+      if (displayedQuestions.length === 0) return;
+
+      setTopicTest(displayedQuestions);
+
+      displayedQuestions.forEach((q) => {
         if (topicTestAnswers[q.id] === q.correctIndex) correct += 1;
       });
 
-      const total = topicTest.length;
+      const total = displayedQuestions.length;
       const percent = Math.round((correct / total) * 100);
       const weakDiagnosis = buildCompetitiveWeakDiagnosis(
-        topicTest,
+        displayedQuestions,
         topicTestAnswers,
         percent
       );

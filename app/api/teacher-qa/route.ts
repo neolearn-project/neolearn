@@ -6,6 +6,7 @@ import {
   competitiveExamLabel,
   isCompetitiveMode,
 } from "@/app/lib/competitivePrompt";
+import { qaRepairCompetitiveText } from "@/app/lib/competitiveQa";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -81,9 +82,12 @@ ${languageInstruction}
       temperature: 0.6,
     });
 
-    const answer =
+    const rawAnswer =
       completion.choices[0]?.message?.content?.trim() ||
       "I am sorry, I could not generate an answer. Please try again.";
+    const answer = isCompetitive
+      ? qaRepairCompetitiveText(rawAnswer, { subject, topic: chapter, exam: competitiveExam })
+      : rawAnswer;
 
     return NextResponse.json({ answer });
   } catch (err) {

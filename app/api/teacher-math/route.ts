@@ -22,6 +22,7 @@ import {
   competitiveExamLabel,
   isCompetitiveMode,
 } from "@/app/lib/competitivePrompt";
+import { qaRepairCompetitiveText } from "@/app/lib/competitiveQa";
 
 // ------------------------
 // Decide model based on question complexity
@@ -272,7 +273,14 @@ ${isCompetitive ? "- Use the Competitive Deep Mode headings instead of the regul
         ],
       });
 
-      const answer = String((directResponse as any).output_text || "").trim();
+      const rawAnswer = String((directResponse as any).output_text || "").trim();
+      const answer = isCompetitive
+        ? qaRepairCompetitiveText(rawAnswer, {
+            subject: selectedSubjectName,
+            topic: selectedTopicName,
+            exam: competitiveExam,
+          })
+        : rawAnswer;
 
       return NextResponse.json(
         {
@@ -485,6 +493,14 @@ Explain according to the syllabus of this class and board, focused on the given 
       }
     } catch (e) {
       console.error("Answer parsing error:", e);
+    }
+
+    if (isCompetitive) {
+      answer = qaRepairCompetitiveText(answer, {
+        subject: selectedSubjectName || teacher.displayName,
+        topic: selectedTopicName || selectedChapterName || chapter.title,
+        exam: competitiveExam,
+      });
     }
 
     // ------------------------
