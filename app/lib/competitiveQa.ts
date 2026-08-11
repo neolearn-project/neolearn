@@ -65,6 +65,8 @@ function sanitizePdfSafeText(input: string) {
     .replace(/sqrt\s*\(\s*17\s*\)\s*"H\d*\.?/gi, "check divisibility up to 4")
     .replace(/sqrt\s*\(\s*17\s*\)\s*[\"']?\s*H\d*\.?/gi, "check divisibility up to 4")
     .replace(/sqrt\s*([0-9]+(?:\.[0-9]+)?)/gi, "sqrt($1)")
+    .replace(/"H\s*/g, " approx ")
+    .replace(/"?H\s*/g, " approx ")
     .replace(/"H\d*\.?/g, "")
     .replace(/â€“|â€”/g, "-")
     .replace(/â€˜|â€™|’|‘/g, "'")
@@ -94,6 +96,27 @@ function sanitizePdfSafeText(input: string) {
     .trim();
 }
 
+function stripInternalQaText(input: string) {
+  return String(input || "")
+    .split("\n")
+    .filter((line) => {
+      const lower = line.toLowerCase();
+      return !(
+        lower.includes("correct answer should") ||
+        lower.includes("option shown above") ||
+        lower.includes("debug") ||
+        lower.includes("internal qa") ||
+        lower.includes("qa note") ||
+        lower.includes("repair hint")
+      );
+    })
+    .join("\n")
+    .replace(/\bQ&A\b/g, "Questions and Answers")
+    .replace(/\bQA\b/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function parseOption(line: string) {
   const match = line.match(/^\s*(?:[-*]\s*)?([A-D])[\).:\-]\s*(.+?)\s*$/i);
   return match ? { letter: match[1].toUpperCase(), text: match[2].trim() } : null;
@@ -116,7 +139,7 @@ function parseMcqBlock(block: string): ParsedMcq | null {
       continue;
     }
 
-    if (/answer|correct option/i.test(line)) {
+    if (/answer|correct option|^\s*(?:[-*]\s*)?(?:\*\*)?correct(?:\*\*)?\s*:/i.test(line)) {
       answerLine = line.trim();
       seenAnswer = true;
       continue;
@@ -139,6 +162,15 @@ function parseMcqBlock(block: string): ParsedMcq | null {
 function answerIndexFromLine(answerLine: string) {
   const match = answerLine.match(/\b([A-D])\b/i);
   return match ? match[1].toUpperCase().charCodeAt(0) - 65 : -1;
+}
+
+function hasConflictingAnswerText(block: string) {
+  const lower = String(block || "").toLowerCase();
+  return (
+    lower.includes("correct answer should") ||
+    lower.includes("option shown above") ||
+    /\bcorrect\s*:\s*[a-d]\b.*\b(correct answer|answer)\b.*\b[a-d]\b/is.test(lower)
+  );
 }
 
 function visibleTopic(ctx: CompetitiveQaContext) {
@@ -256,6 +288,13 @@ function hasDuplicateOrEquivalentOptions(options: string[]) {
 function repairMcqBlock(block: string, ctx: CompetitiveQaContext, sequence: number) {
   const parsed = parseMcqBlock(block);
   if (!parsed) return block;
+  if (ctx.mode === "notes" && /\b(?:in|topic|chapter|id)\s+\d{4,}\b/i.test(block)) {
+    return replacementMcq(ctx, sequence);
+  }
+  if (isFractionComparisonQuestion(parsed)) {
+    return repairFractionComparisonBlock(block, parsed, ctx, sequence);
+  }
+  if (hasConflictingAnswerText(block)) return replacementMcq(ctx, sequence);
   if (/which step is most important when solving a competitive mcq/i.test(block)) {
     return replacementMcq({ ...ctx, mode: "notes" }, sequence);
   }
@@ -293,6 +332,69 @@ function repairMcqBlock(block: string, ctx: CompetitiveQaContext, sequence: numb
   return block.replace(parsed.answerLine, repairedAnswer);
 }
 
+function fractionValue(value: string) {
+  const match = String(value || "").match(/(-?\d+(?:\.\d+)?)\s*\/\s*(-?\d+(?:\.\d+)?)/);
+  if (!match) return null;
+  const numerator = Number(match[1]);
+  const denominator = Number(match[2]);
+  return denominator ? numerator / denominator : null;
+}
+
+function fractionText(value: string) {
+  return String(value || "").match(/-?\d+(?:\.\d+)?\s*\/\s*-?\d+(?:\.\d+)?/)?.[0]?.replace(/\s+/g, "") || "";
+}
+
+function isFractionComparisonQuestion(parsed: ParsedMcq) {
+  const text = `${parsed.question}\n${parsed.options.join("\n")}\n${parsed.explanation}`.toLowerCase();
+  const fractionOptions = parsed.options.filter((option) => fractionValue(option) !== null);
+  return fractionOptions.length >= 3 && /\b(smallest|largest|ascending|descending|compare|fraction)\b/.test(text);
+}
+
+function repairFractionComparisonBlock(
+  block: string,
+  parsed: ParsedMcq,
+  ctx: CompetitiveQaContext,
+  sequence: number
+) {
+  const optionValues = parsed.options.map((option, index) => ({
+    index,
+    text: option,
+    fraction: fractionText(option),
+    value: fractionValue(option),
+  }));
+  if (optionValues.some((item) => item.value === null)) return replacementMcq(ctx, sequence);
+
+  const text = `${parsed.question}\n${parsed.explanation}`.toLowerCase();
+  const wantsLargest = /\b(largest|greatest|descending)\b/.test(text);
+  const target = optionValues.reduce((best, item) => {
+    if (best.value === null || item.value === null) return best;
+    return wantsLargest
+      ? item.value > best.value
+        ? item
+        : best
+      : item.value < best.value
+      ? item
+      : best;
+  }, optionValues[0]);
+
+  if (target.value === null) return replacementMcq(ctx, sequence);
+  const sameValueCount = optionValues.filter((item) => item.value !== null && sameNumber(item.value, target.value as number)).length;
+  if (sameValueCount !== 1) return replacementMcq(ctx, sequence);
+
+  const answerLetter = String.fromCharCode(65 + target.index);
+  const comparisonWord = wantsLargest ? "largest" : "smallest";
+  const decimals = optionValues
+    .map((item) => `${item.fraction} approx ${(item.value as number).toFixed(4)}`)
+    .join(", ");
+
+  return [
+    parsed.question || `**${sequence}.** Which fraction is the ${comparisonWord}?`,
+    ...parsed.options.map((option, index) => `- ${String.fromCharCode(65 + index)}) ${option}`),
+    `- **Answer:** ${answerLetter}) ${target.text}`,
+    `- **Explanation:** Compare decimal values: ${decimals}. Therefore, ${target.fraction} is the ${comparisonWord}.`,
+  ].join("\n");
+}
+
 function isLcmFourSixTimingQuestion(parsed: ParsedMcq) {
   const text = `${parsed.question}\n${parsed.options.join("\n")}\n${parsed.explanation}`.toLowerCase();
   return (
@@ -328,11 +430,13 @@ function repairLcmFourSixTimingBlock(block: string, parsed: ParsedMcq) {
 }
 
 export function qaRepairCompetitiveText(input: string, ctx: CompetitiveQaContext = {}) {
-  const safe = sanitizePdfSafeText(input);
+  const safe = ctx.mode === "notes"
+    ? stripInternalQaText(sanitizePdfSafeText(input))
+    : sanitizePdfSafeText(input);
   const blocks = safe.split(/(?=^\s*(?:\*\*)?(?:Q\s*)?\d+[\).]\s+)/gim);
   let mcqSequence = 1;
 
-  return blocks
+  const repaired = blocks
     .map((block) => {
       const repaired = repairMcqBlock(block, ctx, mcqSequence);
       if (parseMcqBlock(block)) mcqSequence += 1;
@@ -340,6 +444,10 @@ export function qaRepairCompetitiveText(input: string, ctx: CompetitiveQaContext
     })
     .join("")
     .trim();
+
+  return ctx.mode === "notes"
+    ? stripInternalQaText(sanitizePdfSafeText(repaired))
+    : repaired;
 }
 
 export { sanitizePdfSafeText };
