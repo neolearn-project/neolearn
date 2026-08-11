@@ -1,8 +1,11 @@
 ﻿import { NextResponse } from "next/server";
 import { headers } from "next/headers";
+import type { NextRequest } from "next/server";
 import OpenAI from "openai";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createClient } from "@supabase/supabase-js";
+import { OwnershipError, ownershipErrorResponse, requireStudentMobile } from "@/lib/auth/ownership";
+import { readJsonResponse } from "@/app/lib/safeResponse";
 import { matchCatalogRows, normalizeText, type CatalogRow } from "@/app/lib/catalogMatch";
 import {
   buildCompetitiveStructureInstruction,
@@ -543,42 +546,61 @@ async function resolveTextbookSourceMap(args: {
 
   return exact || null;
 }
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
     const mobile = String(body?.mobile || "").trim();
 
     try {
+      if (!mobile) {
+        return NextResponse.json({ ok: false, error: "Invalid request body." }, { status: 400 });
+      }
+
+      await requireStudentMobile(req, mobile);
+
       const h = headers();
       const host = h.get("x-forwarded-host") || h.get("host");
       const proto = h.get("x-forwarded-proto") || "http";
-      const origin = host ? `${proto}://${host}` : "";
+      const origin = host ? `${proto}://${host}` : new URL(req.url).origin;
 
-      if (origin) {
-        const accessRes = await fetch(
-          `${origin}/api/access/check?mobile=${encodeURIComponent(mobile)}`,
-          { cache: "no-store" }
+      const entitlementRes = await fetch(
+        `${origin}/api/student/entitlements?mobile=${encodeURIComponent(mobile)}`,
+        {
+          cache: "no-store",
+          headers: {
+            Authorization: req.headers.get("authorization") || "",
+            cookie: req.headers.get("cookie") || "",
+          },
+        }
+      );
+
+      const { data: ent, errorText } = await readJsonResponse<any>(entitlementRes);
+
+      if (!entitlementRes.ok || !ent?.ok) {
+        return NextResponse.json(
+          { ok: false, error: ent?.error || errorText || "Unable to verify plan right now." },
+          {
+            status:
+              entitlementRes.status >= 400 && entitlementRes.status < 500
+                ? entitlementRes.status
+                : 503,
+          }
         );
-
-        const access = await accessRes.json().catch(() => null);
-
-        if (!accessRes.ok || !access?.ok) {
-          return NextResponse.json(
-            { ok: false, error: "Unable to verify plan right now." },
-            { status: 503 }
-          );
-        }
-
-        if (!access.allowed) {
-          return NextResponse.json(
-            { ok: false, error: "Trial ended. Please subscribe to generate notes." },
-            { status: 403 }
-          );
-        }
       }
-    } catch {
-      // fail-open
+
+      if (!ent.state?.hasPaidAccess && !ent.state?.hasFreeAccess) {
+        return NextResponse.json(
+          { ok: false, error: "Trial ended. Please subscribe to generate notes." },
+          { status: 403 }
+        );
+      }
+    } catch (err) {
+      if (err instanceof OwnershipError) return ownershipErrorResponse(err);
+      return NextResponse.json(
+        { ok: false, error: "Unable to verify plan right now." },
+        { status: 503 }
+      );
     }
 
     const board = String(body?.board || "cbse").toLowerCase();

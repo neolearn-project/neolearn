@@ -93,6 +93,9 @@ Competitive Deep Mode for ${competitiveExamLabel(exam)}:
 - Add a difficulty label to every question: Easy, Moderate, or Hard.
 - Options must be concise, parallel, and mutually exclusive.
 - Explanations must include answer logic, why the correct option is correct, and why one tempting wrong option fails.
+- Before returning JSON, verify that correctIndex points to the exact option proven by the explanation.
+- If an explanation contains a calculation or final numeric result, that result must be present in the correct option and must not point to a different numeric option.
+- Never generate an explanation where the calculated answer is missing from the options; revise the options or correctIndex first.
 - Keep every question strictly within the selected topic.
 - Keep explanations compact enough for mobile: 2-4 short sentences.
 `.trim();

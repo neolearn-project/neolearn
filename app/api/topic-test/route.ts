@@ -20,6 +20,86 @@ type TopicTestQuestion = {
   explanation: string;
 };
 
+function normalizeOptionText(value: string) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/^[a-d][).:\-\s]+/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractNumbers(value: string) {
+  const matches = String(value || "").match(/-?\d+(?:\.\d+)?(?:\s*\/\s*-?\d+(?:\.\d+)?)?/g) || [];
+  return matches.map((raw) => {
+    const compact = raw.replace(/\s+/g, "");
+    if (compact.includes("/")) {
+      const [n, d] = compact.split("/").map(Number);
+      return d ? n / d : NaN;
+    }
+    return Number(compact);
+  }).filter(Number.isFinite);
+}
+
+function sameNumber(a: number, b: number) {
+  return Math.abs(a - b) < 1e-9;
+}
+
+function extractFinalExplanationNumber(explanation: string) {
+  const text = String(explanation || "");
+  const finalMatch = text.match(
+    /(?:final answer|answer|therefore|hence|so|=)\s*(?:is|:)?\s*(-?\d+(?:\.\d+)?(?:\s*\/\s*-?\d+(?:\.\d+)?)?)/i
+  );
+  if (finalMatch?.[1]) {
+    const finalNumbers = extractNumbers(finalMatch[1]);
+    return finalNumbers.length ? finalNumbers[finalNumbers.length - 1] : null;
+  }
+  const numbers = extractNumbers(text);
+  return numbers.length ? numbers[numbers.length - 1] : null;
+}
+
+function alignCompetitiveCorrectOption(q: TopicTestQuestion): TopicTestQuestion | null {
+  const options = q.options.map((option) => String(option || "").trim());
+  const correctIndex = q.correctIndex;
+  const correctOption = options[correctIndex] || "";
+  const explanation = String(q.explanation || "");
+  const letterMatch = explanation.match(/\b(?:correct\s*(?:option|answer)?|answer)\s*(?:is|:)?\s*([A-D])\b/i);
+  const letterIndex = letterMatch ? letterMatch[1].toUpperCase().charCodeAt(0) - 65 : -1;
+
+  if (letterIndex >= 0 && letterIndex < options.length && letterIndex !== correctIndex) {
+    q = { ...q, correctIndex: letterIndex };
+  }
+
+  const finalNumber = extractFinalExplanationNumber(explanation);
+  if (finalNumber === null) return q;
+
+  const optionNumberSets = options.map((option) => extractNumbers(option));
+  const hasNumericOption = optionNumberSets.some((numbers) => numbers.length > 0);
+  if (!hasNumericOption) return q;
+
+  const optionMatches = options
+    .map((option, index) => ({
+      index,
+      matches: optionNumberSets[index].some((num) => sameNumber(num, finalNumber)),
+    }))
+    .filter((item) => item.matches);
+
+  if (optionMatches.length !== 1) return null;
+
+  const matchedIndex = optionMatches[0].index;
+  const selectedNumbers = extractNumbers(options[q.correctIndex] || "");
+  const selectedMatches = selectedNumbers.some((num) => sameNumber(num, finalNumber));
+
+  if (!selectedMatches) {
+    return { ...q, correctIndex: matchedIndex };
+  }
+
+  const selectedText = normalizeOptionText(options[q.correctIndex] || "");
+  const matchedText = normalizeOptionText(options[matchedIndex] || "");
+  return selectedText === matchedText || q.correctIndex === matchedIndex
+    ? q
+    : { ...q, correctIndex: matchedIndex };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -152,6 +232,9 @@ Rules:
 - correctIndex is 0, 1, 2 or 3 matching the correct option.
 ${isCompetitive ? "- difficulty must be Easy, Moderate, or Hard." : ""}
 ${isCompetitive && needsNumericalApplication ? "- At least 2 questions must be numerical/application MCQs with values, formula use, and calculation logic." : ""}
+${isCompetitive ? "- Before returning JSON, verify every generated question: correctIndex must point to the exact option proven by the explanation." : ""}
+${isCompetitive ? "- If options are generated with numeric values, the explanation's calculation/final result must be numerically consistent with the correct option and must be one of the options." : ""}
+${isCompetitive ? "- If the calculated or explained answer is not present in the options, fix the options or correctIndex before returning JSON." : ""}
 - explanation should be ${isCompetitive ? "2-4 compact sentences with correct logic and trap analysis" : "1-3 short sentences"}.
 - ${isCompetitive ? "explanation should include the key concept, correct option logic, and one common trap." : "Keep explanations simple and revision friendly."}
 - No religious or political content.
@@ -213,7 +296,7 @@ Return ONLY JSON in the exact array format described.
     }
 
     // Basic validation
-    const cleaned = questions
+    const cleanedBase = questions
       .map((q, index) => ({
         id: q.id ?? index + 1,
         difficulty: ["Easy", "Moderate", "Hard"].includes(String((q as any).difficulty || ""))
@@ -233,6 +316,12 @@ Return ONLY JSON in the exact array format described.
           q.correctIndex >= 0 &&
           q.correctIndex < 4
       );
+
+    const cleaned = isCompetitive
+      ? cleanedBase
+          .map((q) => alignCompetitiveCorrectOption(q as TopicTestQuestion))
+          .filter((q): q is TopicTestQuestion => !!q)
+      : cleanedBase;
 
     if (!cleaned.length) {
       return NextResponse.json(

@@ -3363,6 +3363,46 @@ type WeakAreaDiagnosis = {
   practice: CompetitivePracticeQuestion[];
 };
 
+const COMPETITIVE_WEAK_PRACTICE_FOCUS = [
+  "concept definition",
+  "formula or rule selection",
+  "calculation setup",
+  "trap option elimination",
+  "exam-speed verification",
+];
+
+function compactQuestionSignature(value: string) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word.length > 2)
+    .slice(0, 14)
+    .join(" ");
+}
+
+function buildWeakConceptLabel(
+  question: TopicTestQuestion | null,
+  topicLabel: string,
+  fallbackFocus: string,
+  index: number
+) {
+  if (!question) {
+    return `${topicLabel}: ${fallbackFocus}`;
+  }
+
+  const text = `${question.question} ${question.explanation}`.replace(/\s+/g, " ").trim();
+  const phrase =
+    text
+      .split(/[.?!:;]/)
+      .map((part) => part.trim())
+      .find((part) => part.length >= 18 && part.length <= 90) ||
+    text.slice(0, 90).trim();
+
+  return `${topicLabel}: ${phrase || `${fallbackFocus} ${index + 1}`}`;
+}
+
 function RoutineView({
   subjects,
   routine,
@@ -4136,15 +4176,42 @@ const handleStartTopicTest = async () => {
         ? `Rework the wrong patterns, then solve these in 8-10 minutes with option elimination.`
         : `Maintain accuracy. Solve these in 6-8 minutes and check for hidden traps before marking answers.`;
 
-    const practicePool = sourceQuestions.length ? sourceQuestions : questions;
-    const practice: CompetitivePracticeQuestion[] = Array.from({ length: 5 }, (_, index) => {
-      const base = practicePool[index % practicePool.length];
-      const correctOption = base.options[base.correctIndex] || "Correct option";
-      const optionsText = base.options
-        .map((option, optionIndex) => `${String.fromCharCode(65 + optionIndex)}. ${option}`)
-        .join(" | ");
+    const uniquePool: TopicTestQuestion[] = [];
+    const seenQuestionSignatures = new Set<string>();
+    for (const q of [...sourceQuestions, ...questions]) {
+      const signature = compactQuestionSignature(q.question);
+      if (!signature || seenQuestionSignatures.has(signature)) continue;
+      seenQuestionSignatures.add(signature);
+      uniquePool.push(q);
+    }
 
-      return {
+    const usedPracticeQuestions = new Set<string>();
+    const usedConcepts = new Set<string>();
+    const practice: CompetitivePracticeQuestion[] = [];
+
+    for (let index = 0; index < COMPETITIVE_WEAK_PRACTICE_FOCUS.length; index += 1) {
+      const focus = COMPETITIVE_WEAK_PRACTICE_FOCUS[index];
+      const base = uniquePool.find((q) => {
+        const signature = compactQuestionSignature(q.question);
+        return signature && !usedPracticeQuestions.has(signature);
+      }) || null;
+      const baseSignature = base ? compactQuestionSignature(base.question) : "";
+      if (baseSignature) usedPracticeQuestions.add(baseSignature);
+
+      let concept = buildWeakConceptLabel(base, topicLabel, focus, index);
+      const conceptKey = compactQuestionSignature(concept) || `${focus}-${index}`;
+      if (usedConcepts.has(conceptKey)) {
+        concept = `${topicLabel}: ${focus}`;
+      }
+      usedConcepts.add(compactQuestionSignature(concept) || `${focus}-${index}`);
+
+      const correctOption = base?.options?.[base.correctIndex] || "derive the answer carefully";
+      const prompt =
+        base && index < uniquePool.length
+          ? `Create a new ${focus} MCQ for ${concept}. Use fresh numbers, wording, and distractors. Do not repeat: "${base.question}"`
+          : `Create a new ${focus} MCQ for ${concept}. Use a different sub-concept, fresh wording, and four plausible options.`;
+
+      practice.push({
         id: index + 1,
         difficulty:
           index < 2
@@ -4152,13 +4219,17 @@ const handleStartTopicTest = async () => {
             : index < 4
             ? "Moderate"
             : "Hard",
-        question: `Targeted practice ${index + 1} on ${topicLabel}: ${base.question} Options: ${optionsText}`,
-        answer: `${String.fromCharCode(65 + base.correctIndex)}. ${correctOption}`,
+        question: prompt,
+        answer:
+          base && index < uniquePool.length
+            ? `Target answer should match the solved result, not merely the old option (${correctOption}).`
+            : "Solve fully, then verify the correct option matches the final result.",
         explanation:
-          base.explanation ||
-          `Use the core rule from ${topicLabel}, eliminate close distractors, and verify the final option before marking.`,
-      };
-    });
+          base?.explanation
+            ? `Focus on ${focus}. Use the earlier mistake pattern only as a clue, then solve with a fresh setup: ${base.explanation}`
+            : `Focus on ${focus}. Check the concept, eliminate close traps, and verify the final option before marking.`,
+      });
+    }
 
     return { weakAreas, trigger, advice, practice };
   };
