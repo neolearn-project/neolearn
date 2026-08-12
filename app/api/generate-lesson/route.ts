@@ -97,7 +97,8 @@ When you teach the topic, follow this structure, but write it as natural speech
 (one continuous talk with line breaks, NOT headings):
 
 ${isCompetitive ? `
-For Competitive Deep Mode, ignore the regular school lesson outline below and use the exact 10 numbered competitive headings from Competitive Deep Mode. Make the lesson deep enough for ${competitiveExam} preparation.
+For Competitive Deep Mode, ignore the regular school lesson outline below and use the exact competitive chat headings from Competitive Deep Mode. Make the lesson deep enough for ${competitiveExam} preparation.
+Do not include free-form MCQs in this chat lesson. Tell the student: "Use Topic Test for validated MCQs."
 `.trim() : `1) Greeting + Topic Introduction
    - Give a neutral classroom greeting (1â€“2 sentences) with no religious wording.
    - Say which topic you will teach and why it is useful (1â€“2 sentences).
