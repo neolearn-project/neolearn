@@ -64,6 +64,8 @@ function sanitizePdfSafeText(input: string) {
   return String(input || "")
     .replace(/sqrt\s*\(\s*17\s*\)\s*"H\d*\.?/gi, "check divisibility up to 4")
     .replace(/sqrt\s*\(\s*17\s*\)\s*[\"']?\s*H\d*\.?/gi, "check divisibility up to 4")
+    .replace(/(-?\d+(?:\.\d+)?\s*\/\s*-?\d+(?:\.\d+)?)\s*\(\s*"H\s*(-?\d+(?:\.\d+)?)\s*\)/g, "$1 approx $2")
+    .replace(/(-?\d+(?:\.\d+)?\s*\/\s*-?\d+(?:\.\d+)?)\s*"H\s*(-?\d+(?:\.\d+)?)/g, "$1 approx $2")
     .replace(/sqrt\s*([0-9]+(?:\.[0-9]+)?)/gi, "sqrt($1)")
     .replace(/"H\s*(?=\d)/g, " approx ")
     .replace(/â€“|â€”/g, "-")
@@ -434,7 +436,7 @@ export function qaRepairCompetitiveText(input: string, ctx: CompetitiveQaContext
     ? stripInternalQaText(sanitizePdfSafeText(input))
     : sanitizePdfSafeText(input);
   const repaired = ctx.mode === "notes"
-    ? repairNotesMcqSections(safe, ctx)
+    ? enforceCompetitiveNotesSections(repairNotesMcqSections(safe, ctx), ctx)
     : repairMcqBlocks(safe, ctx);
 
   return ctx.mode === "notes"
@@ -481,6 +483,143 @@ function repairNotesMcqSections(input: string, ctx: CompetitiveQaContext) {
 
   flush();
   return output.join("\n").trim();
+}
+
+function getSectionBounds(input: string, titlePattern: RegExp) {
+  const headingRegex = /^##\s+(.+?)\s*$/gim;
+  let match: RegExpExecArray | null;
+  while ((match = headingRegex.exec(input))) {
+    if (!titlePattern.test(match[1])) continue;
+    const start = match.index;
+    const contentStart = headingRegex.lastIndex;
+    const next = /^##\s+.+?\s*$/gim;
+    next.lastIndex = contentStart;
+    const nextMatch = next.exec(input);
+    return {
+      start,
+      contentStart,
+      end: nextMatch ? nextMatch.index : input.length,
+    };
+  }
+  return null;
+}
+
+function removeSection(input: string, titlePattern: RegExp) {
+  const bounds = getSectionBounds(input, titlePattern);
+  if (!bounds) return input;
+  return `${input.slice(0, bounds.start).trimEnd()}\n\n${input.slice(bounds.end).trimStart()}`.trim();
+}
+
+function countParsedMcqs(sectionText: string) {
+  const blocks = sectionText.split(/(?=^\s*(?:\*\*)?(?:Q\s*)?\d+[\).]\s+)/gim);
+  return blocks.filter((block) => !!parseMcqBlock(block)).length;
+}
+
+function buildSafeExamStyleSection(ctx: CompetitiveQaContext) {
+  const topic = visibleTopic(ctx);
+  const lowerTopic = topic.toLowerCase();
+  const mcqs = Array.from({ length: 5 }, (_, index) => {
+    if (lowerTopic.includes("hcf") || lowerTopic.includes("lcm")) {
+      return replacementMcq(ctx, index + 1);
+    }
+    return buildFractionExamMcq(index + 1);
+  });
+
+  const explanations = mcqs.map((mcq, index) => {
+    const parsed = parseMcqBlock(mcq);
+    const explanation = parsed?.explanation.replace(/^[-*]\s*(?:\*\*)?Explanation(?:\*\*)?\s*:\s*/i, "") ||
+      "Solve the question and match the result with exactly one option.";
+    return `${index + 1}. ${explanation}`;
+  });
+
+  return [
+    "## Exam-style MCQs",
+    mcqs.join("\n\n"),
+    "",
+    "## Answer explanations",
+    explanations.join("\n"),
+  ].join("\n");
+}
+
+function buildFractionExamMcq(sequence: number) {
+  const variants = [
+    [
+      `**${sequence}.** Which fraction is the smallest?`,
+      "- A) 3/7",
+      "- B) 4/9",
+      "- C) 5/11",
+      "- D) 2/3",
+      "- **Answer:** A) 3/7",
+      "- **Explanation:** Compare decimal values: 3/7 approx 0.4286, 4/9 approx 0.4444, 5/11 approx 0.4545, 2/3 approx 0.6667. Therefore, 3/7 is the smallest.",
+    ],
+    [
+      `**${sequence}.** Which fraction is the largest?`,
+      "- A) 1/2",
+      "- B) 2/3",
+      "- C) 3/5",
+      "- D) 4/7",
+      "- **Answer:** B) 2/3",
+      "- **Explanation:** Compare decimal values: 1/2 approx 0.5000, 2/3 approx 0.6667, 3/5 approx 0.6000, 4/7 approx 0.5714. Therefore, 2/3 is the largest.",
+    ],
+    [
+      `**${sequence}.** Which pair of fractions is equivalent?`,
+      "- A) 1/2 and 2/4",
+      "- B) 2/3 and 3/4",
+      "- C) 3/5 and 4/5",
+      "- D) 5/6 and 6/5",
+      "- **Answer:** A) 1/2 and 2/4",
+      "- **Explanation:** 1/2 becomes 2/4 when numerator and denominator are both multiplied by 2. So the pair is equivalent.",
+    ],
+    [
+      `**${sequence}.** What is 1/4 + 1/4?`,
+      "- A) 1/8",
+      "- B) 1/4",
+      "- C) 1/2",
+      "- D) 3/4",
+      "- **Answer:** C) 1/2",
+      "- **Explanation:** Add like fractions: 1/4 + 1/4 = 2/4 = 1/2.",
+    ],
+    [
+      `**${sequence}.** Which fraction is in simplest form?`,
+      "- A) 2/4",
+      "- B) 3/6",
+      "- C) 4/8",
+      "- D) 5/7",
+      "- **Answer:** D) 5/7",
+      "- **Explanation:** 5 and 7 have no common factor other than 1. So 5/7 is already in simplest form.",
+    ],
+  ];
+  return variants[(sequence - 1) % variants.length].join("\n");
+}
+
+function enforceCompetitiveNotesSections(input: string, ctx: CompetitiveQaContext) {
+  const examBounds = getSectionBounds(input, /exam-style mcqs|exam style mcqs/i);
+  const explanationBounds = getSectionBounds(input, /answer explanations/i);
+  const examCount = examBounds ? countParsedMcqs(input.slice(examBounds.contentStart, examBounds.end)) : 0;
+
+  if (explanationBounds && (!examBounds || examCount < 5)) {
+    let next = removeSection(input, /exam-style mcqs|exam style mcqs/i);
+    next = removeSection(next, /answer explanations/i);
+    const insertBefore = getSectionBounds(next, /quick revision points|quick revision|next practice task/i);
+    const safeSection = buildSafeExamStyleSection(ctx);
+    if (insertBefore) {
+      return `${next.slice(0, insertBefore.start).trimEnd()}\n\n${safeSection}\n\n${next.slice(insertBefore.start).trimStart()}`.trim();
+    }
+    return `${next.trimEnd()}\n\n${safeSection}`.trim();
+  }
+
+  if (examBounds && !explanationBounds && examCount >= 5) {
+    const section = input.slice(examBounds.contentStart, examBounds.end);
+    const blocks = section.split(/(?=^\s*(?:\*\*)?(?:Q\s*)?\d+[\).]\s+)/gim);
+    const explanations = blocks
+      .map((block) => parseMcqBlock(block))
+      .filter((parsed): parsed is ParsedMcq => !!parsed)
+      .slice(0, 5)
+      .map((parsed, index) => `${index + 1}. ${parsed.explanation.replace(/^[-*]\s*(?:\*\*)?Explanation(?:\*\*)?\s*:\s*/i, "")}`);
+    return `${input.slice(0, examBounds.end).trimEnd()}\n\n## Answer explanations\n${explanations.join("\n")}\n\n${input.slice(examBounds.end).trimStart()}`.trim();
+  }
+
+  return input;
 }
 
 export { sanitizePdfSafeText };
