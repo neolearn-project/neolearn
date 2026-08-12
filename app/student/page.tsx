@@ -4202,13 +4202,16 @@ const handleStartTopicTest = async () => {
     const usedPracticeQuestions = new Set<string>();
     const usedConcepts = new Set<string>();
     const practice: CompetitivePracticeQuestion[] = [];
+    if (uniquePool.length === 0) {
+      return { weakAreas, trigger, advice, practice };
+    }
 
     for (let index = 0; index < COMPETITIVE_WEAK_PRACTICE_FOCUS.length; index += 1) {
       const focus = COMPETITIVE_WEAK_PRACTICE_FOCUS[index];
       const base = uniquePool.find((q) => {
         const signature = compactQuestionSignature(q.question);
         return signature && !usedPracticeQuestions.has(signature);
-      }) || null;
+      }) || uniquePool[index % uniquePool.length];
       const baseSignature = base ? compactQuestionSignature(base.question) : "";
       if (baseSignature) usedPracticeQuestions.add(baseSignature);
 
@@ -4221,9 +4224,7 @@ const handleStartTopicTest = async () => {
 
       const correctOption = base?.options?.[base.correctIndex] || "";
       const prompt =
-        base && index < uniquePool.length
-          ? `Re-solve this targeted ${focus} practice item: ${base.question}`
-          : `Create and solve one targeted ${focus} practice item for ${concept}. Use four mutually exclusive options and keep the answer key tied to the same numbers used in the question.`;
+        `Re-solve this topic-specific ${focus} practice item from ${topicLabel}: ${base.question}`;
 
       practice.push({
         id: index + 1,
@@ -4235,13 +4236,9 @@ const handleStartTopicTest = async () => {
             : "Hard",
         question: prompt,
         answer:
-          base && index < uniquePool.length
-            ? `Correct answer: ${String.fromCharCode(65 + base.correctIndex)}) ${correctOption}`
-            : "Answer key must be derived from the exact values in the created practice item.",
+          `Correct answer: ${String.fromCharCode(65 + base.correctIndex)}) ${correctOption}`,
         explanation:
-          base && index < uniquePool.length
-            ? `Focus on ${focus}. ${base.explanation}`
-            : `Focus on ${focus}. Check the concept, eliminate close traps, and verify the final option before marking.`,
+          `Focus on ${focus}. ${base.explanation}`,
       });
     }
 

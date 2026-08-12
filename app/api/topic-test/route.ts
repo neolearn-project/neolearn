@@ -158,37 +158,6 @@ function questionSignature(value: string) {
     .join(" ");
 }
 
-function buildCompetitiveFallbackQuestion(args: {
-  id: number;
-  subject: string;
-  topic: string;
-  competitiveExam: string;
-}): TopicTestQuestion {
-  const focus = [
-    "core concept",
-    "formula selection",
-    "calculation setup",
-    "trap elimination",
-    "final verification",
-  ][(args.id - 1) % 5];
-  const topic = args.topic || args.subject || "this topic";
-
-  return {
-    id: args.id,
-    difficulty: args.id <= 2 ? "Easy" : args.id <= 4 ? "Moderate" : "Hard",
-    question: `For ${args.competitiveExam}, which approach is safest for an MCQ on ${topic} that tests ${focus}?`,
-    options: [
-      "Check the concept, solve cleanly, and match the final answer with one option",
-      "Pick the option that looks longest",
-      "Use any remembered formula without checking the data",
-      "Ignore units and signs if the answer looks close",
-    ],
-    correctIndex: 0,
-    explanation:
-      "Option A is correct because competitive MCQs require concept check, clean solving, and final option verification. The other options are common traps that create answer-option mismatch.",
-  };
-}
-
 function cleanCompetitiveQuestionText(q: TopicTestQuestion): TopicTestQuestion {
   return {
     ...q,
@@ -198,43 +167,93 @@ function cleanCompetitiveQuestionText(q: TopicTestQuestion): TopicTestQuestion {
   };
 }
 
-function ensureCompetitiveQuestionCount(args: {
+function isGenericCompetitiveFallbackQuestion(q: TopicTestQuestion) {
+  const text = `${q.question}\n${q.options.join("\n")}\n${q.explanation}`.toLowerCase();
+  return (
+    /\bwhich approach is (?:safer|safest|best)\b/.test(text) ||
+    /\bcheck the concept\b/.test(text) ||
+    /\bsolve (?:cleanly|clearly)\b/.test(text) ||
+    /\bmatch the final answer\b/.test(text) ||
+    /\bpick the option that looks\b/.test(text) ||
+    /\bignore units and signs\b/.test(text) ||
+    /\bcompetitive mcqs require concept check\b/.test(text) ||
+    /\bfinal verification\b/.test(text)
+  );
+}
+
+function competitivePatternSignature(q: TopicTestQuestion) {
+  return String(q.question || "")
+    .toLowerCase()
+    .replace(/\d+(?:\.\d+)?/g, "#")
+    .replace(/[^a-z0-9#]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word.length > 2)
+    .slice(0, 12)
+    .join(" ");
+}
+
+function selectCompetitiveQuestions(args: {
   questions: TopicTestQuestion[];
   requestedCount: number;
-  subject: string;
-  topic: string;
-  competitiveExam: string;
 }) {
   const target = Math.max(1, Math.min(10, Math.floor(args.requestedCount || 5)));
   const result: TopicTestQuestion[] = [];
   const seen = new Set<string>();
+  const seenPatterns = new Set<string>();
 
   for (const q of args.questions) {
     const cleaned = cleanCompetitiveQuestionText(q);
+    if (isGenericCompetitiveFallbackQuestion(cleaned)) continue;
     const signature = questionSignature(cleaned.question);
-    if (!signature || seen.has(signature)) continue;
+    const pattern = competitivePatternSignature(cleaned);
+    if (!signature || seen.has(signature) || seenPatterns.has(pattern)) continue;
     seen.add(signature);
+    if (pattern) seenPatterns.add(pattern);
     result.push({ ...cleaned, id: result.length + 1 });
     if (result.length === target) break;
   }
 
-  while (result.length < target) {
-    const fallback = buildCompetitiveFallbackQuestion({
-      id: result.length + 1,
-      subject: args.subject,
-      topic: args.topic,
-      competitiveExam: args.competitiveExam,
-    });
-    const signature = questionSignature(fallback.question);
-    if (!seen.has(signature)) {
-      seen.add(signature);
-      result.push(fallback);
-    } else {
-      result.push({ ...fallback, id: result.length + 1 });
-    }
-  }
-
   return result;
+}
+
+function stripJsonFences(rawInput: string) {
+  let raw = String(rawInput || "").trim();
+  if (raw.startsWith("```")) {
+    const firstNewline = raw.indexOf("\n");
+    raw = raw.slice(firstNewline + 1);
+    if (raw.startsWith("json")) {
+      const secondNewline = raw.indexOf("\n");
+      raw = raw.slice(secondNewline + 1);
+    }
+    const fence = raw.lastIndexOf("```");
+    if (fence !== -1) raw = raw.slice(0, fence);
+    raw = raw.trim();
+  }
+  return raw;
+}
+
+function normalizeGeneratedQuestions(questions: TopicTestQuestion[], isCompetitive: boolean) {
+  return questions
+    .map((q, index) => ({
+      id: q.id ?? index + 1,
+      difficulty: ["Easy", "Moderate", "Hard"].includes(String((q as any).difficulty || ""))
+        ? String((q as any).difficulty)
+        : isCompetitive
+        ? "Moderate"
+        : undefined,
+      question: String(q.question || "").trim(),
+      options: Array.isArray(q.options) ? q.options.map(String) : [],
+      correctIndex: typeof q.correctIndex === "number" ? q.correctIndex : 0,
+      explanation: String(q.explanation || "").trim(),
+    }))
+    .filter(
+      (q) =>
+        q.question &&
+        q.options.length === 4 &&
+        q.correctIndex >= 0 &&
+        q.correctIndex < 4
+    );
 }
 
 export async function POST(req: NextRequest) {
@@ -372,6 +391,8 @@ ${isCompetitive && needsNumericalApplication ? "- At least 2 questions must be n
 ${isCompetitive ? "- Before returning JSON, verify every generated question: correctIndex must point to the exact option proven by the explanation." : ""}
 ${isCompetitive ? "- If options are generated with numeric values, the explanation's calculation/final result must be numerically consistent with the correct option and must be one of the options." : ""}
 ${isCompetitive ? "- If the calculated or explained answer is not present in the options, fix the options or correctIndex before returning JSON." : ""}
+${isCompetitive ? "- Every question must be topic-specific. Never ask generic strategy questions such as which approach is safest, how to check concepts, or how to verify answers." : ""}
+${isCompetitive ? "- Do not use repeated question templates with only changed numbers." : ""}
 - explanation should be ${isCompetitive ? "2-4 compact sentences with correct logic and trap analysis" : "1-3 short sentences"}.
 - ${isCompetitive ? "explanation should include the key concept, correct option logic, and one common trap." : "Keep explanations simple and revision friendly."}
 - No religious or political content.
@@ -391,74 +412,86 @@ Topic: ${topic}
 Return ONLY JSON in the exact array format described.
 `.trim();
 
-    const response = await client.responses.create({
-      model: "gpt-4.1-mini",
-      input: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-    });
+    const generateQuestions = async (strictRetry: boolean) => {
+      const retryInstruction = strictRetry
+        ? `
+STRICT RETRY:
+- The previous output failed QA.
+- Return exactly ${numQuestions} fresh, topic-specific MCQs for Topic: "${topic}".
+- Do not include any generic exam-strategy question.
+- Do not ask "which approach is safest/best" or similar.
+- Do not use options about checking concepts, solving clearly, picking long options, or ignoring units.
+- Use five distinct sub-concepts or application patterns from the selected topic.
+`.trim()
+        : "";
 
-    let raw = (response.output_text || "").trim();
+      const response = await client.responses.create({
+        model: "gpt-4.1-mini",
+        input: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `${userPrompt}${retryInstruction ? `\n\n${retryInstruction}` : ""}` },
+        ],
+      });
 
-    // Strip ``` fences if the model added them
-    if (raw.startsWith("```")) {
-      const firstNewline = raw.indexOf("\n");
-      raw = raw.slice(firstNewline + 1);
-      if (raw.startsWith("json")) {
-        const secondNewline = raw.indexOf("\n");
-        raw = raw.slice(secondNewline + 1);
+      const raw = stripJsonFences(response.output_text || "");
+      let parsed: TopicTestQuestion[];
+      try {
+        parsed = JSON.parse(raw);
+      } catch (err) {
+        console.error("topic-test JSON parse error:", err, raw);
+        return { parsed: [], raw };
       }
-      const fence = raw.lastIndexOf("```");
-      if (fence !== -1) raw = raw.slice(0, fence);
-      raw = raw.trim();
-    }
 
-    let questions: TopicTestQuestion[];
-    try {
-      questions = JSON.parse(raw);
-    } catch (err) {
-      console.error("topic-test JSON parse error:", err, raw);
-      return NextResponse.json(
-        { ok: false, error: "AI did not return valid JSON.", raw },
-        { status: 500 }
-      );
-    }
+      return { parsed: Array.isArray(parsed) ? parsed : [], raw };
+    };
+
+    const firstGeneration = await generateQuestions(false);
+    let questions = firstGeneration.parsed;
+    let didStrictRetry = false;
 
     if (!Array.isArray(questions) || questions.length === 0) {
-      return NextResponse.json(
-        { ok: false, error: "AI returned no questions." },
-        { status: 500 }
-      );
+      if (!isCompetitive) {
+        return NextResponse.json(
+          { ok: false, error: "AI returned no questions." },
+          { status: 500 }
+        );
+      }
+      const retryGeneration = await generateQuestions(true);
+      didStrictRetry = true;
+      questions = retryGeneration.parsed;
     }
 
-    // Basic validation
-    const cleanedBase = questions
-      .map((q, index) => ({
-        id: q.id ?? index + 1,
-        difficulty: ["Easy", "Moderate", "Hard"].includes(String((q as any).difficulty || ""))
-          ? String((q as any).difficulty)
-          : isCompetitive
-          ? "Moderate"
-          : undefined,
-        question: String(q.question || "").trim(),
-        options: Array.isArray(q.options) ? q.options.map(String) : [],
-        correctIndex: typeof q.correctIndex === "number" ? q.correctIndex : 0,
-        explanation: String(q.explanation || "").trim(),
-      }))
-      .filter(
-        (q) =>
-          q.question &&
-          q.options.length === 4 &&
-          q.correctIndex >= 0 &&
-          q.correctIndex < 4
-      );
+    const cleanedBase = normalizeGeneratedQuestions(questions, isCompetitive);
 
-    const cleaned = isCompetitive
+    let cleaned = isCompetitive
       ? cleanedBase
           .map((q) => alignCompetitiveCorrectOption(q as TopicTestQuestion))
           .filter((q): q is TopicTestQuestion => !!q)
       : cleanedBase;
+
+    let responseQuestions = isCompetitive
+      ? selectCompetitiveQuestions({
+          questions: cleaned,
+          requestedCount: numQuestions,
+        })
+      : cleaned;
+
+    if (
+      isCompetitive &&
+      !didStrictRetry &&
+      responseQuestions.length < Math.max(1, Math.min(10, Math.floor(numQuestions || 5)))
+    ) {
+      const retryGeneration = await generateQuestions(true);
+      didStrictRetry = true;
+      const retryBase = normalizeGeneratedQuestions(retryGeneration.parsed, isCompetitive);
+      cleaned = retryBase
+        .map((q) => alignCompetitiveCorrectOption(q as TopicTestQuestion))
+        .filter((q): q is TopicTestQuestion => !!q);
+      responseQuestions = selectCompetitiveQuestions({
+        questions: cleaned,
+        requestedCount: numQuestions,
+      });
+    }
 
     if (!cleaned.length && !isCompetitive) {
       return NextResponse.json(
@@ -467,15 +500,12 @@ Return ONLY JSON in the exact array format described.
       );
     }
 
-    const responseQuestions = isCompetitive
-      ? ensureCompetitiveQuestionCount({
-          questions: cleaned,
-          requestedCount: numQuestions,
-          subject,
-          topic,
-          competitiveExam,
-        })
-      : cleaned;
+    if (isCompetitive && responseQuestions.length < Math.max(1, Math.min(10, Math.floor(numQuestions || 5)))) {
+      return NextResponse.json(
+        { ok: false, error: "Could not generate a reliable topic test. Please try again." },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({ ok: true, questions: responseQuestions });
   } catch (err) {
