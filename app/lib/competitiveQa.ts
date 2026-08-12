@@ -169,6 +169,9 @@ function hasConflictingAnswerText(block: string) {
   return (
     lower.includes("correct answer should") ||
     lower.includes("option shown above") ||
+    lower.includes("per constructed options") ||
+    lower.includes("constructed options") ||
+    lower.includes("careful reading needed") ||
     /\bcorrect\s*:\s*[a-d]\b.*\b(correct answer|answer)\b.*\b[a-d]\b/is.test(lower)
   );
 }
@@ -186,6 +189,46 @@ function visibleTopic(ctx: CompetitiveQaContext) {
 function replacementMcq(ctx: CompetitiveQaContext, sequence: number) {
   const topic = visibleTopic(ctx);
   const lowerTopic = topic.toLowerCase();
+  const lowerSubject = String(ctx.subject || "").toLowerCase();
+
+  if (
+    lowerSubject.includes("physics") ||
+    lowerTopic.includes("force") ||
+    lowerTopic.includes("incline") ||
+    lowerTopic.includes("friction") ||
+    lowerTopic.includes("newton")
+  ) {
+    const variants = [
+      [
+        `**${sequence}.** A block is on a smooth inclined plane of angle theta. No external force is applied along the plane. What is its acceleration along the plane?`,
+        "- A) g sin(theta) down the plane",
+        "- B) g sin(theta) up the plane",
+        "- C) g cos(theta) down the plane",
+        "- D) 0",
+        "- **Answer:** A) g sin(theta) down the plane",
+        "- **Explanation:** On a smooth incline, the component of gravity along the plane is mg sin(theta) down the plane. Therefore a = mg sin(theta)/m = g sin(theta) down the plane.",
+      ],
+      [
+        `**${sequence}.** A block on a frictionless incline is pulled up the plane by a force exactly equal to mg sin(theta). What is the acceleration along the plane?`,
+        "- A) g sin(theta) up the plane",
+        "- B) g sin(theta) down the plane",
+        "- C) 0",
+        "- D) g cos(theta) up the plane",
+        "- **Answer:** C) 0",
+        "- **Explanation:** The uphill applied force mg sin(theta) balances the downhill gravity component mg sin(theta). Net force along the plane is zero, so acceleration is zero.",
+      ],
+      [
+        `**${sequence}.** For a 2 kg block on a smooth incline, the net force along the plane is 6 N down the plane. What is the acceleration?`,
+        "- A) 12 m/s^2 down the plane",
+        "- B) 6 m/s^2 down the plane",
+        "- C) 3 m/s^2 down the plane",
+        "- D) 0",
+        "- **Answer:** C) 3 m/s^2 down the plane",
+        "- **Explanation:** Use a = F_net/m. Here a = 6/2 = 3 m/s^2, directed down the plane because the net force is down the plane.",
+      ],
+    ];
+    return variants[(sequence - 1) % variants.length].join("\n");
+  }
 
   if (lowerTopic.includes("hcf") || lowerTopic.includes("lcm")) {
     const variants = [
@@ -277,14 +320,50 @@ function optionEquivalenceKey(option: string) {
   return `text:${sanitized.replace(/[^a-z0-9]+/g, "")}`;
 }
 
-function hasDuplicateOrEquivalentOptions(options: string[]) {
+function isMechanicsForceAccelerationText(value: string) {
+  return /\b(incline|inclined|frictionless|smooth|force|net force|resultant|acceleration|gravity|mg\s*sin|newton)\b/i.test(
+    value
+  );
+}
+
+function optionConceptEquivalenceKey(option: string, question: string) {
+  if (!isMechanicsForceAccelerationText(`${question}\n${option}`)) return null;
+  const lower = sanitizePdfSafeText(option).toLowerCase();
+  const saysZero = /\b(0|zero|no)\b/.test(lower);
+  const saysBalanced = /\b(balance|balanced|cancel|cancelled|net force is zero|resultant force is zero)\b/.test(lower);
+  if (
+    (saysZero || saysBalanced) &&
+    /\b(net force|resultant force|acceleration|accelerates|equilibrium|balanced)\b/.test(lower)
+  ) {
+    return "mechanics:zero-net-force-zero-acceleration";
+  }
+  return null;
+}
+
+function hasDuplicateOrEquivalentOptions(options: string[], question = "") {
   const seen = new Set<string>();
   for (const option of options) {
-    const key = optionEquivalenceKey(option);
+    const key = optionConceptEquivalenceKey(option, question) || optionEquivalenceKey(option);
     if (!key || seen.has(key)) return true;
     seen.add(key);
   }
   return false;
+}
+
+function isContradictoryInclineForceMcq(parsed: ParsedMcq) {
+  const text = `${parsed.question}\n${parsed.options.join("\n")}\n${parsed.answerLine}\n${parsed.explanation}`;
+  const lower = sanitizePdfSafeText(text).toLowerCase();
+  if (!/\b(incline|inclined plane|plane)\b/.test(lower)) return false;
+  if (!/\b(frictionless|smooth)\b/.test(lower)) return false;
+  if (!/\bmg\s*sin|mgsin|m g sin/.test(lower)) return false;
+  if (!/\b(applied|pull|force)\b/.test(lower) || !/\b(uphill|up the plane|upward)\b/.test(lower)) return false;
+  if (!/\b(acceleration|net force)\b/.test(lower)) return false;
+
+  const answerIndex = answerIndexFromLine(parsed.answerLine);
+  const answerText = answerIndex >= 0 ? parsed.options[answerIndex] || "" : "";
+  const answerContext = `${parsed.answerLine}\n${answerText}\n${parsed.explanation}`.toLowerCase();
+  const marksZero = /\b(0|zero|no acceleration|net force is zero|resultant force is zero|balanced)\b/.test(answerContext);
+  return !marksZero || hasDuplicateOrEquivalentOptions(parsed.options, parsed.question);
 }
 
 function repairMcqBlock(block: string, ctx: CompetitiveQaContext, sequence: number) {
@@ -297,13 +376,14 @@ function repairMcqBlock(block: string, ctx: CompetitiveQaContext, sequence: numb
     return repairFractionComparisonBlock(block, parsed, ctx, sequence);
   }
   if (hasConflictingAnswerText(block)) return replacementMcq(ctx, sequence);
+  if (isContradictoryInclineForceMcq(parsed)) return replacementMcq(ctx, sequence);
   if (/which step is most important when solving a competitive mcq/i.test(block)) {
     return replacementMcq({ ...ctx, mode: "notes" }, sequence);
   }
   if (isLcmFourSixTimingQuestion(parsed)) {
     return repairLcmFourSixTimingBlock(block, parsed);
   }
-  if (hasDuplicateOrEquivalentOptions(parsed.options)) return replacementMcq(ctx, sequence);
+  if (hasDuplicateOrEquivalentOptions(parsed.options, parsed.question)) return replacementMcq(ctx, sequence);
 
   let answerIndex = answerIndexFromLine(parsed.answerLine);
   if (answerIndex < 0 || answerIndex > 3) return replacementMcq(ctx, sequence);

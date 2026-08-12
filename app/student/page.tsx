@@ -4219,11 +4219,11 @@ const handleStartTopicTest = async () => {
       }
       usedConcepts.add(compactQuestionSignature(concept) || `${focus}-${index}`);
 
-      const correctOption = base?.options?.[base.correctIndex] || "derive the answer carefully";
+      const correctOption = base?.options?.[base.correctIndex] || "";
       const prompt =
         base && index < uniquePool.length
-          ? `Create a new ${focus} MCQ for ${concept}. Use fresh numbers, wording, and distractors. Do not repeat: "${base.question}"`
-          : `Create a new ${focus} MCQ for ${concept}. Use a different sub-concept, fresh wording, and four plausible options.`;
+          ? `Re-solve this targeted ${focus} practice item: ${base.question}`
+          : `Create and solve one targeted ${focus} practice item for ${concept}. Use four mutually exclusive options and keep the answer key tied to the same numbers used in the question.`;
 
       practice.push({
         id: index + 1,
@@ -4236,11 +4236,11 @@ const handleStartTopicTest = async () => {
         question: prompt,
         answer:
           base && index < uniquePool.length
-            ? `Target answer should match the solved result, not merely the old option (${correctOption}).`
-            : "Solve fully, then verify the correct option matches the final result.",
+            ? `Correct answer: ${String.fromCharCode(65 + base.correctIndex)}) ${correctOption}`
+            : "Answer key must be derived from the exact values in the created practice item.",
         explanation:
-          base?.explanation
-            ? `Focus on ${focus}. Use the earlier mistake pattern only as a clue, then solve with a fresh setup: ${base.explanation}`
+          base && index < uniquePool.length
+            ? `Focus on ${focus}. ${base.explanation}`
             : `Focus on ${focus}. Check the concept, eliminate close traps, and verify the final option before marking.`,
       });
     }
