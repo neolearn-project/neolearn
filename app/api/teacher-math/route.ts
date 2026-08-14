@@ -252,7 +252,7 @@ ${isCompetitive ? buildCompetitiveStructureInstruction(competitiveExam, {
 - If Subject is Science, explain the selected science topic only.
 - If Subject is Sanskrit or Hindi, explain the selected grammar/literature topic only.
 ${isCompetitive ? "- Use crisp exam-mentor language: compact, direct, and high-value." : "- Use simple child-friendly language."}
-${isCompetitive ? "- Use the Competitive Deep Mode headings instead of the regular short doubt format." : `- Start with: "Restating your doubt:"
+${isCompetitive ? '- Use the Competitive Deep Mode chat headings instead of the regular short doubt format. Do not include free-form MCQs; say "Use Topic Test for validated MCQs."' : `- Start with: "Restating your doubt:"
 - Then explain in 4 to 6 short steps.
 - Give 1 or 2 examples from the selected topic.
 - End with one follow-up question.`}
@@ -410,9 +410,10 @@ Chapter: ${chapter.title}
 ${languageInstruction}
 
 Your job is to:
-${isCompetitive ? `- Answer using the exact Competitive Deep Mode 10-heading structure.
+${isCompetitive ? `- Answer using the exact Competitive Deep Mode chat structure.
 - Make the response suitable for ${competitiveExam} preparation.
-- Include solved example, shortcut, traps, MCQs, explanations, revision points, and next practice task.` : `- Restate the child's doubt in one simple line.
+- Include solved example, shortcut, traps, revision points, next practice task, and the line: "Use Topic Test for validated MCQs."
+- Do not include free-form MCQs, multiple-choice options, or answer explanations inside this chat answer.` : `- Restate the child's doubt in one simple line.
 - Explain step-by-step clearly.
 - Give 1 to 2 small worked examples related only to the selected topic: ${selectedTopicName || selectedChapterName || chapter.title}.
 - Use short, simple sentences.

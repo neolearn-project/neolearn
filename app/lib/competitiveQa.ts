@@ -517,11 +517,73 @@ export function qaRepairCompetitiveText(input: string, ctx: CompetitiveQaContext
     : sanitizePdfSafeText(input);
   const repaired = ctx.mode === "notes"
     ? enforceCompetitiveNotesSections(repairNotesMcqSections(safe, ctx), ctx)
-    : repairMcqBlocks(safe, ctx);
+    : stripCompetitiveChatMcqs(safe);
 
   return ctx.mode === "notes"
     ? stripInternalQaText(sanitizePdfSafeText(repaired))
     : repaired;
+}
+
+function isCompetitiveChatStripHeading(line: string) {
+  const normalized = String(line || "")
+    .replace(/^#{1,6}\s*/, "")
+    .replace(/^\s*(?:\*\*)?\s*\d+[\).:-]\s*(?:\*\*)?\s*/, "")
+    .replace(/\*\*/g, "")
+    .trim()
+    .toLowerCase();
+
+  return (
+    /\b(mcq|mcqs|multiple[-\s]?choice|answer explanations?|answer key|weak area diagnosis)\b/.test(normalized)
+  );
+}
+
+function isAnyCompetitiveHeading(line: string) {
+  const normalized = String(line || "").trim();
+  return (
+    /^#{1,6}\s+\S/.test(normalized) ||
+    /^(?:\*\*)?\s*\d+[\).:-]\s*(?:\*\*)?\s*[A-Za-z]/.test(normalized)
+  );
+}
+
+function removeStandaloneMcqBlocks(input: string) {
+  const blocks = input.split(/(?=^\s*(?:\*\*)?(?:Q\s*)?\d+[\).]\s+)/gim);
+  return blocks
+    .filter((block) => !parseMcqBlock(block))
+    .join("")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function ensureTopicTestSuggestion(input: string) {
+  const suggestion = 'Use Topic Test for validated MCQs.';
+  if (input.toLowerCase().includes(suggestion.toLowerCase())) return input.trim();
+  return `${input.trim()}\n\n9. Suggest: "${suggestion}"`;
+}
+
+function stripCompetitiveChatMcqs(input: string) {
+  const lines = input.split("\n");
+  const kept: string[] = [];
+  let skipping = false;
+
+  for (const line of lines) {
+    if (isCompetitiveChatStripHeading(line)) {
+      skipping = true;
+      continue;
+    }
+
+    if (skipping && isAnyCompetitiveHeading(line)) {
+      skipping = false;
+    }
+
+    if (!skipping) kept.push(line);
+  }
+
+  const withoutSections = kept
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return ensureTopicTestSuggestion(removeStandaloneMcqBlocks(withoutSections));
 }
 
 function repairMcqBlocks(input: string, ctx: CompetitiveQaContext) {

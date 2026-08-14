@@ -13,10 +13,9 @@ export const COMPETITIVE_RESPONSE_STRUCTURE = [
   "Step-by-step solved example",
   "Shortcut/trick",
   "Common mistakes/traps",
-  "Exam-style MCQs",
-  "Answer explanations",
   "Quick revision points",
   "Next practice task",
+  'Suggest: "Use Topic Test for validated MCQs."',
 ];
 
 type CompetitiveResponseType = "lesson" | "doubt" | "notes";
@@ -37,12 +36,44 @@ export function buildCompetitiveStructureInstruction(
   const responseType = options.responseType || "doubt";
   const subject = String(options.subject || "").trim();
   const numericalSubject = isNumericalCompetitiveSubject(subject);
+  const isNotes = responseType === "notes";
   const responseFocus =
     responseType === "lesson"
       ? "- This is a lesson: build the concept from first principles, then move into exam application."
       : responseType === "doubt"
-      ? '- This is a doubt reply: do not repeat a full lesson; diagnose the doubt, give a fresh angle, use a new example, and include a compact "Weak Area Diagnosis" with targeted practice.'
+      ? "- This is a doubt reply: do not repeat a full lesson; diagnose the doubt, give a fresh angle, and use a new example."
       : "- This is notes content: keep it revision-first, compact, and highly scannable.";
+  const structureInstruction = isNotes
+    ? `- Use the exact numbered headings below in this order:
+1. Exam relevance
+2. Deep concept explanation
+3. Key formulas/facts/rules
+4. Step-by-step solved example
+5. Shortcut/trick
+6. Common mistakes/traps
+7. Exam-style MCQs
+8. Answer explanations
+9. Quick revision points
+10. Next practice task
+- For headings 1-6, use 2-4 high-value bullets each.
+- In section 7, include exactly 5 exam-style MCQs.
+- Each MCQ must show difficulty (Easy/Moderate/Hard), four options (A-D), correct answer, and a compact explanation.
+- Every MCQ correct answer must exactly match one option and must match the explanation/calculation.
+- In section 8, explain all 5 MCQs: why the correct option is correct and why one tempting wrong option fails.
+${numericalSubject ? "- For Physics/Math, at least 2 of the 5 MCQs must be numerical or application-based with values, formula use, and calculation logic." : "- For non-numerical subjects, at least 2 of the 5 MCQs must be application, assertion, passage, case, statement-pair, or elimination-based."}`
+    : `- Use the exact numbered headings below in this order:
+1. Exam relevance
+2. Deep concept explanation
+3. Key formulas/facts/rules
+4. Step-by-step solved example
+5. Shortcut/trick
+6. Common mistakes/traps
+7. Quick revision points
+8. Next practice task
+9. Suggest: "Use Topic Test for validated MCQs."
+- For headings 1-6, use 2-4 high-value bullets each.
+- Do not generate free-form MCQs, multiple-choice options, answer keys, or answer-explanation sections inside this chat answer.
+- If the student needs MCQ practice, only say: "Use Topic Test for validated MCQs."`;
 
   return `
 Competitive Deep Mode for ${competitiveExamLabel(exam)}:
@@ -59,30 +90,13 @@ Competitive Deep Mode for ${competitiveExamLabel(exam)}:
 - Add "Trap Alert:" bullets wherever a common exam mistake is likely.
 - Add difficulty labels to practice items: Easy, Moderate, or Hard.
 ${responseFocus}
-- Use the exact numbered headings below in this order:
-1. Exam relevance
-2. Deep concept explanation
-3. Key formulas/facts/rules
-4. Step-by-step solved example
-5. Shortcut/trick
-6. Common mistakes/traps
-7. Exam-style MCQs
-8. Answer explanations
-9. Quick revision points
-10. Next practice task
-- For headings 1-6, use 2-4 high-value bullets each.
-- In section 7, include exactly 5 exam-style MCQs.
-- Each MCQ must show difficulty (Easy/Moderate/Hard), four options (A-D), correct answer, and a compact explanation.
-- Every MCQ correct answer must exactly match one option and must match the explanation/calculation.
-- In section 8, explain all 5 MCQs: why the correct option is correct and why one tempting wrong option fails.
-${numericalSubject ? "- For Physics/Math, at least 2 of the 5 MCQs must be numerical or application-based with values, formula use, and calculation logic." : "- For non-numerical subjects, at least 2 of the 5 MCQs must be application, assertion, passage, case, statement-pair, or elimination-based."}
+${structureInstruction}
 - For numerical subjects, show formula, substitution, calculation steps, units, and final answer.
 - For theory subjects, include high-yield facts, elimination logic, and trap options.
 - Make shortcuts safe: explain when the shortcut applies and when it fails.
 - Quick revision points must be concise, memory-ready bullets only; no long paragraphs.
 - Next practice task must be one concrete task with difficulty and expected time.
-- Avoid repeating the same wording, example, or MCQ pattern across lesson and doubt replies; use a fresh angle when answering a doubt.
-${responseType === "doubt" ? '- After section 10, add "Weak Area Diagnosis" with 2-3 likely weak concepts, 5 targeted practice questions, answer key, compact explanations, and short improvement advice.' : ""}
+- Avoid repeating the same wording or example pattern across lesson and doubt replies; use a fresh angle when answering a doubt.
 `.trim();
 }
 

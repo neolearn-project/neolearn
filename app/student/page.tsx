@@ -4171,10 +4171,10 @@ const handleStartTopicTest = async () => {
             const compactQuestion = q.question.replace(/\s+/g, " ").trim();
             return `${index + 1}. ${compactQuestion.slice(0, 88)}${compactQuestion.length > 88 ? "..." : ""}`;
           })
-        : [
-            "No major weak area detected from this attempt.",
-            "Polish speed, option elimination, and trap checking for exam accuracy.",
-          ];
+        : sourceQuestions.slice(0, 3).map((q, index) => {
+            const compactQuestion = q.question.replace(/\s+/g, " ").trim();
+            return `${index + 1}. Recheck displayed question: ${compactQuestion.slice(0, 76)}${compactQuestion.length > 76 ? "..." : ""}`;
+          });
 
     const trigger =
       wrong.length > 0
@@ -4202,13 +4202,16 @@ const handleStartTopicTest = async () => {
     const usedPracticeQuestions = new Set<string>();
     const usedConcepts = new Set<string>();
     const practice: CompetitivePracticeQuestion[] = [];
+    if (uniquePool.length === 0) {
+      return { weakAreas, trigger, advice, practice };
+    }
 
     for (let index = 0; index < COMPETITIVE_WEAK_PRACTICE_FOCUS.length; index += 1) {
       const focus = COMPETITIVE_WEAK_PRACTICE_FOCUS[index];
       const base = uniquePool.find((q) => {
         const signature = compactQuestionSignature(q.question);
         return signature && !usedPracticeQuestions.has(signature);
-      }) || null;
+      }) || uniquePool[index % uniquePool.length];
       const baseSignature = base ? compactQuestionSignature(base.question) : "";
       if (baseSignature) usedPracticeQuestions.add(baseSignature);
 
@@ -4221,27 +4224,24 @@ const handleStartTopicTest = async () => {
 
       const correctOption = base?.options?.[base.correctIndex] || "";
       const prompt =
-        base && index < uniquePool.length
-          ? `Re-solve this targeted ${focus} practice item: ${base.question}`
-          : `Create and solve one targeted ${focus} practice item for ${concept}. Use four mutually exclusive options and keep the answer key tied to the same numbers used in the question.`;
+        `Re-solve this topic-specific ${focus} practice item from ${topicLabel}: ${base.question}`;
 
       practice.push({
         id: index + 1,
+        focus,
         difficulty:
-          index < 2
-            ? "Easy"
-            : index < 4
-            ? "Moderate"
-            : "Hard",
+          base?.difficulty === "Easy" || base?.difficulty === "Moderate" || base?.difficulty === "Hard"
+            ? base.difficulty
+            : index < 2
+              ? "Easy"
+              : index < 4
+                ? "Moderate"
+                : "Hard",
         question: prompt,
         answer:
-          base && index < uniquePool.length
-            ? `Correct answer: ${String.fromCharCode(65 + base.correctIndex)}) ${correctOption}`
-            : "Answer key must be derived from the exact values in the created practice item.",
+          `Correct answer: ${String.fromCharCode(65 + base.correctIndex)}) ${correctOption}`,
         explanation:
-          base && index < uniquePool.length
-            ? `Focus on ${focus}. ${base.explanation}`
-            : `Focus on ${focus}. Check the concept, eliminate close traps, and verify the final option before marking.`,
+          `Focus on ${focus}. ${base.explanation}`,
       });
     }
 
@@ -5327,6 +5327,7 @@ const handleStartTopicTest = async () => {
     </>
   );
 }
+
 
 
 
