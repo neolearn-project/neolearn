@@ -4171,10 +4171,10 @@ const handleStartTopicTest = async () => {
             const compactQuestion = q.question.replace(/\s+/g, " ").trim();
             return `${index + 1}. ${compactQuestion.slice(0, 88)}${compactQuestion.length > 88 ? "..." : ""}`;
           })
-        : [
-            "No major weak area detected from this attempt.",
-            "Polish speed, option elimination, and trap checking for exam accuracy.",
-          ];
+        : sourceQuestions.slice(0, 3).map((q, index) => {
+            const compactQuestion = q.question.replace(/\s+/g, " ").trim();
+            return `${index + 1}. Recheck displayed question: ${compactQuestion.slice(0, 76)}${compactQuestion.length > 76 ? "..." : ""}`;
+          });
 
     const trigger =
       wrong.length > 0
