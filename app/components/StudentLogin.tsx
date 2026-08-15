@@ -460,10 +460,13 @@ export default function StudentLogin() {
                 </div>
 
                 {/* Optional parent info */}
+                <div className="rounded-xl bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
+                  Parent/guardian can be linked later.
+                </div>
                 <input
                   type="text"
                   className="w-full rounded-xl border border-gray-300 px-3 py-2"
-                  placeholder="Parent name (optional)"
+                  placeholder="Parent/guardian name (optional)"
                   value={parentName}
                   onChange={(e) => setParentName(e.target.value)}
                 />

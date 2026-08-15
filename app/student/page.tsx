@@ -979,6 +979,11 @@ const [plans, setPlans] = useState<
 >([]);
 const [plansLoading, setPlansLoading] = useState(false);
 const [plansError, setPlansError] = useState<string | null>(null);
+const [parentLinkOpen, setParentLinkOpen] = useState(false);
+const [parentLinkName, setParentLinkName] = useState("");
+const [parentLinkMobile, setParentLinkMobile] = useState("");
+const [parentLinkStatus, setParentLinkStatus] = useState<string | null>(null);
+const [parentLinkLoading, setParentLinkLoading] = useState(false);
 
 const [language, setLanguage] = useState<"English" | "Hindi" | "Bengali">(
   "English"
@@ -1135,6 +1140,56 @@ const handleBuyPlan = async (planCode: string) => {
     console.error("handleBuyPlan error:", err);
     alert(err?.message || "Payment failed.");
     setPayingPlanCode(null);
+  }
+};
+
+const handleLinkParent = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setParentLinkStatus(null);
+
+  if (!student?.mobile) {
+    setParentLinkStatus("Student mobile not found. Please login again.");
+    return;
+  }
+
+  if (!/^\d{10}$/.test(parentLinkMobile.trim())) {
+    setParentLinkStatus("Enter valid parent/guardian mobile (10 digits).");
+    return;
+  }
+
+  setParentLinkLoading(true);
+  try {
+    const res = await fetch("/api/student/link-parent", {
+      method: "POST",
+      headers: studentAuthHeaders(true),
+      body: JSON.stringify({
+        studentMobile: student.mobile,
+        parentName: parentLinkName.trim(),
+        parentMobile: parentLinkMobile.trim(),
+      }),
+    });
+
+    const { data, errorText } = await readJsonResponse<any>(res);
+
+    if (!res.ok || !data?.ok) {
+      throw new Error(
+        loginAgainMessage(
+          res.status,
+          data?.error || errorText || "Failed to link parent/guardian."
+        )
+      );
+    }
+
+    setParentLinkStatus(
+      "Parent/guardian linked. Parent dashboard access works after parent login verification."
+    );
+    setParentLinkOpen(false);
+    setParentLinkName("");
+    setParentLinkMobile("");
+  } catch (err: any) {
+    setParentLinkStatus(err?.message || "Failed to link parent/guardian.");
+  } finally {
+    setParentLinkLoading(false);
   }
 };
 
@@ -1957,6 +2012,16 @@ const handleStartLesson = useCallback(async () => {
           </a>
           <button
             type="button"
+            onClick={() => {
+              setParentLinkOpen((open) => !open);
+              setParentLinkStatus(null);
+            }}
+            className="rounded-full border border-slate-300 px-3 py-1 text-[11px] font-semibold hover:bg-slate-100"
+          >
+            Link Parent
+          </button>
+          <button
+            type="button"
             onClick={handleLogout}
             className="rounded-full border border-slate-300 px-3 py-1 text-[11px] font-semibold hover:bg-slate-100"
           >
@@ -1964,6 +2029,42 @@ const handleStartLesson = useCallback(async () => {
           </button>
         </div>
       </div>
+      {parentLinkOpen && (
+        <form
+          onSubmit={handleLinkParent}
+          className="mt-3 grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs sm:grid-cols-[1fr_1fr_auto]"
+        >
+          <input
+            className="rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Parent/guardian name"
+            value={parentLinkName}
+            onChange={(e) => setParentLinkName(e.target.value)}
+          />
+          <input
+            inputMode="numeric"
+            maxLength={10}
+            className="rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Parent/guardian mobile"
+            value={parentLinkMobile}
+            onChange={(e) => setParentLinkMobile(e.target.value.replace(/\D/g, ""))}
+          />
+          <button
+            type="submit"
+            disabled={parentLinkLoading}
+            className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+          >
+            {parentLinkLoading ? "Linking..." : "Link"}
+          </button>
+          <p className="sm:col-span-3 text-[11px] text-slate-500">
+            Parent/guardian can be linked later. Parent progress access starts only after parent login verification.
+          </p>
+        </form>
+      )}
+      {parentLinkStatus && (
+        <div className="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700">
+          {parentLinkStatus}
+        </div>
+      )}
     </header>
 
     {/* Fullscreen app shell */}

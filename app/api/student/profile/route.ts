@@ -54,22 +54,67 @@ export async function GET(req: NextRequest) {
     const children = Array.isArray(rows) ? rows : [];
     const child = children[0] || null;
 
+    let studentRow: any = null;
+    let profileRow: any = null;
+
+    if (!child) {
+      const { data: studentData, error: studentError } = await supabase
+        .from("students")
+        .select("id, user_id, username, name, full_name, phone, class_label, class, guardian_phone")
+        .eq("phone", mobile)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (studentError) {
+        console.warn("student profile students fallback skipped:", studentError.message);
+      } else {
+        studentRow = studentData;
+      }
+
+      const { data: profileData, error: profileError } = await supabase
+        .from("student_profile")
+        .select("*")
+        .eq("mobile", mobile)
+        .limit(1)
+        .maybeSingle();
+
+      if (profileError) {
+        console.warn("student profile profile fallback skipped:", profileError.message);
+      } else {
+        profileRow = profileData;
+      }
+    }
+
+    const fallbackClass = String(
+      profileRow?.class_id ||
+        profileRow?.classId ||
+        String(studentRow?.class_label || studentRow?.class || "").replace(/\D/g, "") ||
+        "6"
+    );
+    const fallbackTrack = profileRow?.track || profileRow?.subject_type || "regular";
+    const fallbackBoard = profileRow?.board || "CBSE";
+
     return noStoreJson({
       ok: true,
       student: {
-        userId: null,
-        username: null,
-        name: child?.child_name || "Student",
+        userId: studentRow?.user_id || studentRow?.id || null,
+        username: studentRow?.username || profileRow?.username || null,
+        name: child?.child_name || studentRow?.full_name || studentRow?.name || profileRow?.full_name || profileRow?.name || "Student",
         mobile,
-        classId: child?.class_number != null ? String(child.class_number) : "6",
-        board: child?.board || "CBSE",
-        track: child?.subject_type || "regular",
-        subjectType: child?.subject_type || "regular",
+        classId: child?.class_number != null ? String(child.class_number) : fallbackClass,
+        board: child?.board || fallbackBoard,
+        track: child?.subject_type || fallbackTrack,
+        subjectType: child?.subject_type || fallbackTrack,
         competitiveExam:
-          child?.subject_type === "competitive" ? child?.board || null : null,
+          (child?.subject_type || fallbackTrack) === "competitive"
+            ? child?.board || fallbackBoard || null
+            : null,
       },
       sources: {
         childFound: !!child,
+        studentFound: !!studentRow,
+        profileFound: !!profileRow,
         childrenCount: children.length,
         selectedChildId: child?.id || null,
         selectedParentMobile: child?.parent_mobile || null,

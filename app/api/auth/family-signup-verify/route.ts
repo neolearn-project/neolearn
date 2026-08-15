@@ -60,6 +60,7 @@ function tableError(table: string, err: any) {
 
 export async function POST(req: Request) {
   let createdParentAuthId: string | null = null;
+  let createdParentDuringSignup = false;
   let createdStudentAuthId: string | null = null;
 
   try {
@@ -91,9 +92,6 @@ export async function POST(req: Request) {
       !studentMobile ||
       !studentUserId ||
       !studentPassword ||
-      !parentName ||
-      !parentMobile ||
-      !parentPassword ||
       !track ||
       !country ||
       !preferredLanguage
@@ -101,7 +99,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
     }
 
-    if (!isValidIndianMobile(parentMobile)) {
+    if (parentMobile && !isValidIndianMobile(parentMobile)) {
       return NextResponse.json({ error: "Enter valid parent mobile (10 digits)." }, { status: 400 });
     }
 
@@ -117,7 +115,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Student password must be at least 6 characters." }, { status: 400 });
     }
 
-    if (parentPassword.length < 6) {
+    if (parentPassword && parentPassword.length < 6) {
       return NextResponse.json({ error: "Parent password must be at least 6 characters." }, { status: 400 });
     }
 
@@ -143,7 +141,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const expectedPhone = toE164India(parentMobile);
+    const expectedPhone = toE164India(studentMobile);
     if (otpToken !== expectedPhone) {
       return NextResponse.json({ error: "OTP session mismatch. Please start signup again." }, { status: 400 });
     }
@@ -168,8 +166,8 @@ export async function POST(req: Request) {
 
     const admin = supabaseAdmin();
 
-    const parentEmail = parentMobileToEmail(parentMobile);
     const studentEmail = userIdToEmail(studentUserId);
+    const parentEmail = parentMobile ? parentMobileToEmail(parentMobile) : "";
 
     const existingAuthUsers = await admin.auth.admin.listUsers({
       page: 1,
@@ -184,15 +182,10 @@ export async function POST(req: Request) {
     }
 
     const users = existingAuthUsers.data?.users || [];
-    const duplicateParent = users.find((u) => u.email?.toLowerCase() === parentEmail.toLowerCase());
+    const duplicateParent = parentEmail
+      ? users.find((u) => u.email?.toLowerCase() === parentEmail.toLowerCase())
+      : null;
     const duplicateStudent = users.find((u) => u.email?.toLowerCase() === studentEmail.toLowerCase());
-
-    if (duplicateParent) {
-      return NextResponse.json(
-        { error: "Parent mobile is already registered. Please login or use forgot password." },
-        { status: 409 }
-      );
-    }
 
     if (duplicateStudent) {
       return NextResponse.json(
@@ -221,47 +214,6 @@ export async function POST(req: Request) {
       );
     }
 
-    const existingChildRow = await admin
-      .from("children")
-      .select("id")
-      .eq("parent_mobile", parentMobile)
-      .eq("child_mobile", studentMobile)
-      .limit(1);
-
-    if (existingChildRow.error) {
-      return NextResponse.json(
-        { error: `Failed to validate children table. (${existingChildRow.error.message})` },
-        { status: 500 }
-      );
-    }
-
-    if ((existingChildRow.data || []).length > 0) {
-      return NextResponse.json(
-        { error: "This parent and child mobile combination already exists." },
-        { status: 409 }
-      );
-    }
-
-    const parentCreate = await admin.auth.admin.createUser({
-      email: parentEmail,
-      password: parentPassword,
-      email_confirm: true,
-      user_metadata: {
-        role: "parent",
-        name: parentName,
-        mobile: parentMobile,
-      },
-    });
-
-    if (parentCreate.error || !parentCreate.data?.user) {
-      return NextResponse.json(
-        { error: parentCreate.error?.message || "Failed to create parent account." },
-        { status: 400 }
-      );
-    }
-
-    createdParentAuthId = parentCreate.data.user.id;
-
     const studentCreate = await admin.auth.admin.createUser({
       email: studentEmail,
       password: studentPassword,
@@ -275,9 +227,6 @@ export async function POST(req: Request) {
     });
 
     if (studentCreate.error || !studentCreate.data?.user) {
-      await admin.auth.admin.deleteUser(createdParentAuthId);
-      createdParentAuthId = null;
-
       return NextResponse.json(
         { error: studentCreate.error?.message || "Failed to create student account." },
         { status: 400 }
@@ -286,22 +235,53 @@ export async function POST(req: Request) {
 
     createdStudentAuthId = studentCreate.data.user.id;
 
-    const parentUser = parentCreate.data.user;
     const studentUser = studentCreate.data.user;
+    let parentUser: { id: string } | null = null;
 
-    const parentProfile = await admin.from("parent_profile").upsert(
-      {
-        user_id: parentUser.id,
-        full_name: parentName,
-        mobile: parentMobile,
-        country,
-        preferred_language: preferredLanguage,
-      },
-      { onConflict: "user_id" }
-    );
+    if (parentMobile) {
+      if (duplicateParent) {
+        parentUser = duplicateParent;
+      } else {
+        const parentCreate = await admin.auth.admin.createUser({
+          email: parentEmail,
+          password: parentPassword || crypto.randomUUID(),
+          email_confirm: true,
+          user_metadata: {
+            role: "parent",
+            name: parentName || "Parent",
+            mobile: parentMobile,
+          },
+        });
 
-    if (parentProfile.error) {
-      throw new Error(tableError("parent_profile", parentProfile.error));
+        if (parentCreate.error || !parentCreate.data?.user) {
+          await admin.auth.admin.deleteUser(createdStudentAuthId);
+          createdStudentAuthId = null;
+
+          return NextResponse.json(
+            { error: parentCreate.error?.message || "Failed to create parent account." },
+            { status: 400 }
+          );
+        }
+
+        createdParentAuthId = parentCreate.data.user.id;
+        createdParentDuringSignup = true;
+        parentUser = parentCreate.data.user;
+      }
+
+      const parentProfile = await admin.from("parent_profile").upsert(
+        {
+          user_id: parentUser.id,
+          full_name: parentName || "Parent",
+          mobile: parentMobile,
+          country,
+          preferred_language: preferredLanguage,
+        },
+        { onConflict: "user_id" }
+      );
+
+      if (parentProfile.error) {
+        throw new Error(tableError("parent_profile", parentProfile.error));
+      }
     }
 
     const studentsInsert = await admin.from("students").insert({
@@ -312,11 +292,11 @@ export async function POST(req: Request) {
       class: track === "regular" ? `Class ${classNumber}` : competitiveExam,
       phone: studentMobile,
       source: "family_signup",
-      guardian_name: parentName,
-      guardian_phone: parentMobile,
+      guardian_name: parentName || null,
+      guardian_phone: parentMobile || null,
       user_id: studentUser.id,
       username: studentUserId,
-      phone_verified: false,
+      phone_verified: true,
     });
 
     if (studentsInsert.error) {
@@ -337,19 +317,42 @@ export async function POST(req: Request) {
       throw new Error(tableError("student_profile", studentProfile.error));
     }
 
-    const childRow = await admin.from("children").insert({
-      parent_mobile: parentMobile,
-      child_name: studentName,
-      child_mobile: studentMobile,
-      board: track === "regular" ? board : competitiveExam,
-      class_number: track === "regular" ? Number(classNumber) : null,
-      country,
-      language: preferredLanguage,
-      subject_type: track === "regular" ? "regular" : "competitive",
-    });
+    if (parentMobile) {
+      const { data: existingChildRow, error: existingChildError } = await admin
+        .from("children")
+        .select("id")
+        .eq("parent_mobile", parentMobile)
+        .eq("child_mobile", studentMobile)
+        .limit(1)
+        .maybeSingle();
 
-    if (childRow.error) {
-      throw new Error(tableError("children", childRow.error));
+      if (existingChildError) {
+        return NextResponse.json(
+          { error: `Failed to validate children table. (${existingChildError.message})` },
+          { status: 500 }
+        );
+      }
+
+      const childPayload = {
+        child_name: studentName,
+        board: track === "regular" ? board : competitiveExam,
+        class_number: track === "regular" ? Number(classNumber) : null,
+        country,
+        language: preferredLanguage,
+        subject_type: track === "regular" ? "regular" : "competitive",
+      };
+
+      const childRow = existingChildRow
+        ? await admin.from("children").update(childPayload).eq("id", existingChildRow.id)
+        : await admin.from("children").insert({
+            parent_mobile: parentMobile,
+            child_mobile: studentMobile,
+            ...childPayload,
+          });
+
+      if (childRow.error) {
+        throw new Error(tableError("children", childRow.error));
+      }
     }
 
     
@@ -412,20 +415,22 @@ export async function POST(req: Request) {
         },
       ];
 
-      try {
-        await sendWhatsAppTemplate({
-          to: parentMobile,
-          templateName: "neolearn_signup_welcome_parent",
-          languageCode: "en",
-          components: parentSignupTemplateComponents,
-        });
-      } catch (waErr) {
-        console.error("WA parent template welcome send error in family-signup-verify:", waErr);
-
+      if (parentMobile) {
         try {
-          await sendWhatsAppText(parentMobile, parentWelcomeMessage);
-        } catch (fallbackErr) {
-          console.error("WA parent fallback text send error in family-signup-verify:", fallbackErr);
+          await sendWhatsAppTemplate({
+            to: parentMobile,
+            templateName: "neolearn_signup_welcome_parent",
+            languageCode: "en",
+            components: parentSignupTemplateComponents,
+          });
+        } catch (waErr) {
+          console.error("WA parent template welcome send error in family-signup-verify:", waErr);
+
+          try {
+            await sendWhatsAppText(parentMobile, parentWelcomeMessage);
+          } catch (fallbackErr) {
+            console.error("WA parent fallback text send error in family-signup-verify:", fallbackErr);
+          }
         }
       }
 
@@ -449,7 +454,7 @@ export async function POST(req: Request) {
 return NextResponse.json(
       {
         ok: true,
-        parent: { userId: parentUser.id, mobile: parentMobile },
+        parent: parentUser ? { userId: parentUser.id, mobile: parentMobile } : null,
         student: { userId: studentUser.id, userIdLabel: studentUserId, mobile: studentMobile },
       },
       { status: 200 }
@@ -463,7 +468,7 @@ return NextResponse.json(
       if (createdStudentAuthId) {
         await admin.auth.admin.deleteUser(createdStudentAuthId);
       }
-      if (createdParentAuthId) {
+      if (createdParentAuthId && createdParentDuringSignup) {
         await admin.auth.admin.deleteUser(createdParentAuthId);
       }
     } catch (cleanupErr) {

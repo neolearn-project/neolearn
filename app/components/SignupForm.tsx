@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 
 type Step = "details" | "otp" | "success";
 type Track = "regular" | "competitive";
@@ -83,7 +82,6 @@ export default function SignupForm({
   onDone: () => void;
   onSwitchToLogin?: () => void;
 }) {
-  const router = useRouter();
   const formTopRef = useRef<HTMLDivElement | null>(null);
 
   const [step, setStep] = useState<Step>("details");
@@ -147,11 +145,10 @@ export default function SignupForm({
       return "Student password and confirm password must match.";
     }
 
-    if (!form.parentName.trim()) return "Enter parent name.";
-    if (!/^\d{10}$/.test(form.parentMobile.trim())) {
+    if (form.parentMobile.trim() && !/^\d{10}$/.test(form.parentMobile.trim())) {
       return "Enter valid parent mobile (10 digits).";
     }
-    if (!form.parentPassword || form.parentPassword.length < 6) {
+    if (form.parentPassword && form.parentPassword.length < 6) {
       return "Parent password must be at least 6 characters.";
     }
     if (form.parentPassword !== form.confirmParentPassword) {
@@ -220,7 +217,7 @@ export default function SignupForm({
       setOtpToken(String(data.otpToken));
       setOtp("");
       setStep("otp");
-      setMsg("OTP sent to parent mobile.");
+      setMsg("OTP sent to student mobile.");
       formTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (err: any) {
       showError(err?.message || "Failed to start family signup.");
@@ -289,27 +286,16 @@ export default function SignupForm({
     return (
       <div ref={formTopRef} className="space-y-4 rounded-2xl border border-green-200 bg-green-50 p-4">
         <div>
-          <div className="text-base font-semibold text-green-800">Family signup successful</div>
+          <div className="text-base font-semibold text-green-800">Student signup successful</div>
           <p className="mt-1 text-sm text-green-700">
-            Parent and student accounts have been created successfully.
+            Student account has been created successfully.
           </p>
         </div>
 
         <ul className="list-disc pl-5 text-sm text-green-700">
-          <li>Parent account ready</li>
           <li>Student account ready</li>
+          <li>Parent/guardian can be linked later from the student dashboard.</li>
         </ul>
-
-        <button
-          type="button"
-          className="w-full rounded-xl border border-slate-300 py-2.5 text-sm font-medium hover:bg-slate-100"
-          onClick={() => {
-            onDone();
-            router.push("/parent/login");
-          }}
-        >
-          Go to Parent Login
-        </button>
 
         <button
           type="button"
@@ -391,16 +377,16 @@ export default function SignupForm({
             </div>
 
             <div className="border-t border-slate-200 pt-2">
-              <h3 className="text-sm font-semibold text-slate-900">Parent Details</h3>
+              <h3 className="text-sm font-semibold text-slate-900">Parent/Guardian Details Optional</h3>
               <p className="mt-1 text-xs text-slate-500">
-                Parent mobile will be verified once with OTP during signup.
+                Parent/guardian can be linked later.
               </p>
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <input
                 className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 sm:col-span-2"
-                placeholder="Parent name"
+                placeholder="Parent/guardian name (optional)"
                 value={form.parentName}
                 onChange={(e) => updateField("parentName", e.target.value)}
               />
@@ -409,14 +395,14 @@ export default function SignupForm({
                 inputMode="numeric"
                 maxLength={10}
                 className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Parent mobile"
+                placeholder="Parent/guardian mobile (optional)"
                 value={form.parentMobile}
                 onChange={(e) => updateField("parentMobile", e.target.value.replace(/\D/g, ""))}
               />
 
               <div className="sm:col-span-1">
                 <PasswordField
-                  placeholder="Parent password"
+                  placeholder="Parent password (optional)"
                   value={form.parentPassword}
                   onChange={(value) => updateField("parentPassword", value)}
                 />
@@ -424,7 +410,7 @@ export default function SignupForm({
 
               <div className="sm:col-span-2">
                 <PasswordField
-                  placeholder="Confirm parent password"
+                  placeholder="Confirm parent password (optional)"
                   value={form.confirmParentPassword}
                   onChange={(value) => updateField("confirmParentPassword", value)}
                 />
@@ -553,9 +539,9 @@ export default function SignupForm({
         {step === "otp" && (
           <form className="space-y-4" onSubmit={handleOtpSubmit}>
             <div>
-              <h3 className="text-sm font-semibold text-slate-900">Verify Parent Mobile</h3>
+              <h3 className="text-sm font-semibold text-slate-900">Verify Student Mobile</h3>
               <p className="mt-1 text-xs text-slate-500">
-                Enter the OTP sent to <span className="font-medium">{form.parentMobile}</span>.
+                Enter the OTP sent to <span className="font-medium">{form.studentMobile}</span>.
               </p>
             </div>
 
@@ -569,7 +555,7 @@ export default function SignupForm({
             />
 
             <button type="submit" disabled={loading} className="btn btn-primary w-full">
-              {loading ? "Verifying..." : "Verify & Create Accounts"}
+              {loading ? "Verifying..." : "Verify & Create Student Account"}
             </button>
 
             <button
