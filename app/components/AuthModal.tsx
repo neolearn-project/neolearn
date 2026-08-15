@@ -90,11 +90,7 @@ export default function AuthModal({
           )}
 
           {mode === "reset" && (
-  <ResetPasswordForm
-    role="student"
-    onSuccess={() => setMode("login")}
-    onCancel={() => setMode("login")}
-  />
+  <ResetPasswordForm role="student" />
 )}
         </div>
       </div>

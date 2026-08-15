@@ -18,7 +18,9 @@ export default function ResetPasswordForm({
   onSuccess,
   onCancel,
 }: ResetPasswordFormProps) {
-  const [mobile, setMobile] = useState(String(defaultMobile || ""));
+  const safeDefaultMobile =
+    typeof defaultMobile === "string" ? defaultMobile : "";
+  const [mobile, setMobile] = useState(String(safeDefaultMobile || ""));
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -136,6 +138,7 @@ export default function ResetPasswordForm({
       )}
 
       {stage !== "success" && (
+        <>
         <input
           inputMode="numeric"
           maxLength={10}
@@ -144,9 +147,7 @@ export default function ResetPasswordForm({
           value={mobile}
           onChange={(e) => setMobile(e.target.value)}
         />
-      )}
 
-      {stage === "details" ? (
         <button
           type="button"
           disabled={loading}
@@ -155,8 +156,7 @@ export default function ResetPasswordForm({
         >
           {loading ? "Sending OTP..." : "Send OTP"}
         </button>
-      ) : stage === "otp" ? (
-        <>
+
           <input
             inputMode="numeric"
             maxLength={10}
@@ -197,7 +197,9 @@ export default function ResetPasswordForm({
             {loading ? "Updating..." : "Verify OTP & Reset Password"}
           </button>
         </>
-      ) : (
+      )}
+
+      {stage === "success" && (
         <button type="button" className="btn btn-primary w-full" onClick={onSuccess}>
           Go to Login
         </button>
