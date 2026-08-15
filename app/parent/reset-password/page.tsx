@@ -6,6 +6,10 @@ import ResetPasswordForm from "@/app/components/ResetPasswordForm";
 export default function ParentResetPasswordPage() {
   const router = useRouter();
 
+  const goToParentLogin = () => {
+    router.push("/parent/login");
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-sm rounded-2xl bg-white shadow-sm border border-slate-200 p-5 text-sm">
@@ -18,9 +22,9 @@ export default function ParentResetPasswordPage() {
         </div>
 
         <ResetPasswordForm
-          mode="parent"
-          onDone={() => router.replace("/parent/login")}
-          onBack={() => router.replace("/parent/login")}
+          role="parent"
+          onSuccess={goToParentLogin}
+          onCancel={goToParentLogin}
         />
       </div>
     </div>

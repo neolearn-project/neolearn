@@ -36,7 +36,6 @@ export async function POST(req: Request) {
     const studentMobile = String(body?.studentMobile || "").trim();
     const studentUserId = String(body?.studentUserId || "").trim().toLowerCase();
     const studentPassword = String(body?.studentPassword || "");
-    const parentName = String(body?.parentName || "").trim();
     const parentMobile = String(body?.parentMobile || "").trim();
     const parentPassword = String(body?.parentPassword || "");
     const track = normalizeTrack(body?.track);
@@ -51,9 +50,6 @@ export async function POST(req: Request) {
       !studentMobile ||
       !studentUserId ||
       !studentPassword ||
-      !parentName ||
-      !parentMobile ||
-      !parentPassword ||
       !track ||
       !country ||
       !preferredLanguage
@@ -61,7 +57,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
     }
 
-    if (!isValidIndianMobile(parentMobile)) {
+    if (parentMobile && !isValidIndianMobile(parentMobile)) {
       return NextResponse.json({ error: "Enter valid parent mobile (10 digits)." }, { status: 400 });
     }
 
@@ -77,7 +73,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Student password must be at least 6 characters." }, { status: 400 });
     }
 
-    if (parentPassword.length < 6) {
+    if (parentPassword && parentPassword.length < 6) {
       return NextResponse.json({ error: "Parent password must be at least 6 characters." }, { status: 400 });
     }
 
@@ -108,14 +104,14 @@ export async function POST(req: Request) {
     }
 
     const client = twilio(accountSid, authToken);
-    const phone = toE164India(parentMobile);
+    const phone = toE164India(studentMobile);
 
     await client.verify.v2.services(verifySid).verifications.create({
       to: phone,
       channel: "sms",
     });
 
-    return NextResponse.json({ ok: true, otpToken: phone }, { status: 200 });
+    return NextResponse.json({ ok: true, otpToken: phone, otpMobile: studentMobile }, { status: 200 });
   } catch (err: any) {
     console.error("family-signup-start error:", err);
     return NextResponse.json({ error: err?.message || "Failed to send OTP." }, { status: 500 });

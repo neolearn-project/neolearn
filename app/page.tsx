@@ -40,7 +40,7 @@ export default function Page() {
                 href="/parent/login"
                 className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
               >
-                Parent Login
+                Parent Login / Signup
               </Link>
 
               <Link
@@ -113,7 +113,7 @@ export default function Page() {
                 href="/parent/login"
                 className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
               >
-                Parent Login
+                Parent Login / Signup
               </Link>
 
               <Link
@@ -171,14 +171,14 @@ export default function Page() {
                 onClick={() => { window.location.href = "/?login=student"; }}
                 className="mt-5 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 active:bg-blue-700"
               >
-                Student Login
+                Student Login / Signup
               </button>
 
               <Link
                 href="/parent/login"
                 className="mt-3 flex w-full items-center justify-center rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-gray-900 hover:bg-gray-50"
               >
-                Parent Login
+                Parent Login / Signup
               </Link>
 
               <div className="mt-4 text-center text-sm text-gray-600">
@@ -204,7 +204,7 @@ export default function Page() {
                   onClick={() => { window.location.href = "/?login=student"; }}
                   className="underline decoration-gray-300 underline-offset-2 hover:text-gray-700"
                 >
-                  Student Login
+                  Student Login / Signup
                 </button>
 
                 <span>•</span>
@@ -213,7 +213,7 @@ export default function Page() {
                   href="/parent/login"
                   className="underline decoration-gray-300 underline-offset-2 hover:text-gray-700"
                 >
-                  Parent Login
+                  Parent Login / Signup
                 </Link>
 
                 <span>•</span>

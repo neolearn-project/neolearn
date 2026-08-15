@@ -42,7 +42,7 @@ export default function AuthModal({
               {mode === "login"
                 ? "Access your NeoLearn account"
                 : mode === "signup"
-                ? "Create parent and student accounts in one signup"
+                ? "Create a student account. Parent/guardian can be linked later."
                 : "Verify mobile OTP and set a new password"}
             </div>
           </div>
@@ -90,14 +90,11 @@ export default function AuthModal({
           )}
 
           {mode === "reset" && (
-  <ResetPasswordForm
-    mode="student"
-    onDone={() => setMode("login")}
-    onBack={() => setMode("login")}
-  />
+  <ResetPasswordForm role="student" onSuccess={() => setMode("login")} onCancel={() => setMode("login")} />
 )}
         </div>
       </div>
     </div>
   );
 }
+

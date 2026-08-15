@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 
 type ClassId = "5" | "6" | "7" | "8" | "9";
 type BoardId = "cbse" | "icse" | "tbse";
@@ -57,6 +58,7 @@ export default function StudentLogin() {
   // Auth fields
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   // OTP
   const [otp, setOtp] = useState("");
@@ -383,13 +385,23 @@ export default function StudentLogin() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                 />
-                <input
-                  type="password"
-                  className="w-full rounded-xl border border-gray-300 px-3 py-2"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    className="w-full rounded-xl border border-gray-300 px-3 py-2 pr-12"
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                    onClick={() => setShowPassword((s) => !s)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
 
                 <button
                   type="submit"
@@ -425,13 +437,23 @@ export default function StudentLogin() {
                   onChange={(e) => setUsername(e.target.value)}
                 />
 
-                <input
-                  type="password"
-                  className="w-full rounded-xl border border-gray-300 px-3 py-2"
-                  placeholder="Create password (min 6 chars)"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    className="w-full rounded-xl border border-gray-300 px-3 py-2 pr-12"
+                    placeholder="Create password (min 6 chars)"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                    onClick={() => setShowPassword((s) => !s)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <select
@@ -460,10 +482,13 @@ export default function StudentLogin() {
                 </div>
 
                 {/* Optional parent info */}
+                <div className="rounded-xl bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
+                  Parent/guardian can be linked later.
+                </div>
                 <input
                   type="text"
                   className="w-full rounded-xl border border-gray-300 px-3 py-2"
-                  placeholder="Parent name (optional)"
+                  placeholder="Parent/guardian name (optional)"
                   value={parentName}
                   onChange={(e) => setParentName(e.target.value)}
                 />
