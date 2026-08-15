@@ -18,9 +18,9 @@ export default function ParentResetPasswordPage() {
         </div>
 
         <ResetPasswordForm
-          mode="parent"
-          onDone={() => router.replace("/parent/login")}
-          onBack={() => router.replace("/parent/login")}
+          role="parent"
+          onSuccess={() => router.replace("/parent/login")}
+          onCancel={() => router.replace("/parent/login")}
         />
       </div>
     </div>

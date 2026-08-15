@@ -19,7 +19,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    const mode = normalizeMode(body?.mode);
+    const mode = normalizeMode(body?.role || body?.mode);
     const mobile = String(body?.mobile || "").replace(/\D/g, "").trim();
     const otp = String(body?.otp || "").replace(/\D/g, "").trim();
     const newPassword = String(body?.newPassword || "").trim();

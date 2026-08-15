@@ -3,18 +3,22 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
-type ResetMode = "student" | "parent";
+type ResetRole = "student" | "parent";
+
+type ResetPasswordFormProps = {
+  role?: ResetRole;
+  defaultMobile?: string;
+  onSuccess?: () => void;
+  onCancel?: () => void;
+};
 
 export default function ResetPasswordForm({
-  onDone,
-  onBack,
-  mode = "student",
-}: {
-  onDone: () => void;
-  onBack: () => void;
-  mode?: ResetMode;
-}) {
-  const [mobile, setMobile] = useState("");
+  role = "student",
+  defaultMobile = "",
+  onSuccess,
+  onCancel,
+}: ResetPasswordFormProps) {
+  const [mobile, setMobile] = useState(String(defaultMobile || ""));
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -24,7 +28,7 @@ export default function ResetPasswordForm({
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const isStudent = mode === "student";
+  const isStudent = role === "student";
 
   async function sendOtp() {
     setMsg(null);
@@ -88,7 +92,7 @@ export default function ResetPasswordForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          mode,
+          role,
           mobile: m,
           otp: cleanOtp,
           newPassword: password,
@@ -138,7 +142,7 @@ export default function ResetPasswordForm({
           className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
           placeholder={isStudent ? "Student mobile (10 digits)" : "Parent mobile (10 digits)"}
           value={mobile}
-          onChange={(e) => setMobile(String(e.target.value || "").replace(/\D/g, ""))}
+          onChange={(e) => setMobile(e.target.value)}
         />
       )}
 
@@ -194,12 +198,12 @@ export default function ResetPasswordForm({
           </button>
         </>
       ) : (
-        <button type="button" className="btn btn-primary w-full" onClick={onDone}>
+        <button type="button" className="btn btn-primary w-full" onClick={onSuccess}>
           Go to Login
         </button>
       )}
 
-      <button type="button" className="btn btn-ghost w-full" onClick={onBack}>
+      <button type="button" className="btn btn-ghost w-full" onClick={onCancel}>
         Back
       </button>
     </div>
