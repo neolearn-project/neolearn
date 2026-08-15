@@ -3,13 +3,6 @@ import { supabaseAdmin } from "@/app/lib/supabaseAdmin";
 
 type ResetMode = "student" | "parent";
 
-function toSafeUserId(raw: string) {
-  return String(raw || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]/g, "");
-}
-
 function studentEmailFromUserId(userId: string) {
   return `${userId}@neolearn.in`;
 }
@@ -27,14 +20,9 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     const mode = normalizeMode(body?.mode);
-    const userId = toSafeUserId(body?.userId);
     const mobile = String(body?.mobile || "").replace(/\D/g, "").trim();
     const otp = String(body?.otp || "").replace(/\D/g, "").trim();
     const newPassword = String(body?.newPassword || "").trim();
-
-    if (mode === "student" && (!userId || userId.length < 3)) {
-      return NextResponse.json({ error: "Invalid Student User ID." }, { status: 400 });
-    }
 
     if (!/^\d{10}$/.test(mobile)) {
       return NextResponse.json({ error: "Invalid mobile number." }, { status: 400 });
@@ -70,14 +58,18 @@ export async function POST(req: Request) {
     }
 
     const admin = supabaseAdmin();
+    let email = "";
+    let studentRecord: any = null;
+    let shouldUpsertParentProfile = false;
 
     if (mode === "student") {
       const studentCheck = await admin
         .from("students")
-        .select("id, phone, username")
-        .eq("username", userId)
+        .select("id, user_id, phone, username, name, full_name")
         .eq("phone", mobile)
-        .limit(1);
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (studentCheck.error) {
         return NextResponse.json(
@@ -86,12 +78,15 @@ export async function POST(req: Request) {
         );
       }
 
-      if (!studentCheck.data || studentCheck.data.length === 0) {
+      if (!studentCheck.data?.username) {
         return NextResponse.json(
-          { error: "Student User ID and mobile do not match our records." },
+          { error: "Student mobile not found in our records." },
           { status: 404 }
         );
       }
+
+      email = studentEmailFromUserId(String(studentCheck.data.username).trim().toLowerCase());
+      studentRecord = studentCheck.data;
     }
 
     if (mode === "parent") {
@@ -108,18 +103,9 @@ export async function POST(req: Request) {
         );
       }
 
-      if (!parentCheck.data || parentCheck.data.length === 0) {
-        return NextResponse.json(
-          { error: "Parent mobile not found in our records." },
-          { status: 404 }
-        );
-      }
+      email = parentEmailFromMobile(mobile);
+      shouldUpsertParentProfile = !parentCheck.data || parentCheck.data.length === 0;
     }
-
-    const email =
-      mode === "parent"
-        ? parentEmailFromMobile(mobile)
-        : studentEmailFromUserId(userId);
 
     const { data: usersPage, error: listErr } = await admin.auth.admin.listUsers({
       page: 1,
@@ -135,7 +121,71 @@ export async function POST(req: Request) {
     );
 
     if (!authUser) {
-      return NextResponse.json({ error: "Auth user not found." }, { status: 404 });
+      if (mode === "student") {
+        const created = await admin.auth.admin.createUser({
+          email,
+          password: newPassword,
+          email_confirm: true,
+          user_metadata: {
+            role: "student",
+            username: studentRecord?.username,
+            name: studentRecord?.full_name || studentRecord?.name || "Student",
+            mobile,
+          },
+        });
+
+        if (created.error || !created.data?.user) {
+          return NextResponse.json(
+            { error: created.error?.message || "Failed to recreate student account." },
+            { status: 400 }
+          );
+        }
+
+        await admin
+          .from("students")
+          .update({ user_id: created.data.user.id })
+          .eq("phone", mobile);
+
+        return NextResponse.json({ ok: true });
+      }
+
+      const created = await admin.auth.admin.createUser({
+        email,
+        password: newPassword,
+        email_confirm: true,
+        user_metadata: {
+          role: "parent",
+          name: "Parent",
+          mobile,
+        },
+      });
+
+      if (created.error || !created.data?.user) {
+        return NextResponse.json(
+          { error: created.error?.message || "Failed to recreate parent account." },
+          { status: 400 }
+        );
+      }
+
+      const profile = await admin.from("parent_profile").upsert(
+        {
+          user_id: created.data.user.id,
+          full_name: "Parent",
+          mobile,
+          country: "India",
+          preferred_language: "English",
+        },
+        { onConflict: "user_id" }
+      );
+
+      if (profile.error) {
+        return NextResponse.json(
+          { error: `Failed to update parent profile. (${profile.error.message})` },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ ok: true });
     }
 
     const { error: updErr } = await admin.auth.admin.updateUserById(authUser.id, {
@@ -144,6 +194,26 @@ export async function POST(req: Request) {
 
     if (updErr) {
       return NextResponse.json({ error: updErr.message }, { status: 400 });
+    }
+
+    if (mode === "parent" && shouldUpsertParentProfile) {
+      const profile = await admin.from("parent_profile").upsert(
+        {
+          user_id: authUser.id,
+          full_name: "Parent",
+          mobile,
+          country: "India",
+          preferred_language: "English",
+        },
+        { onConflict: "user_id" }
+      );
+
+      if (profile.error) {
+        return NextResponse.json(
+          { error: `Failed to update parent profile. (${profile.error.message})` },
+          { status: 500 }
+        );
+      }
     }
 
     return NextResponse.json({ ok: true });

@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useRef, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
 type Step = "details" | "otp" | "success";
 type Track = "regular" | "competitive";
@@ -59,17 +60,18 @@ function PasswordField({
     <div className="relative">
       <input
         type={show ? "text" : "password"}
-        className="w-full rounded-xl border border-slate-300 px-3 py-2 pr-16 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full rounded-xl border border-slate-300 px-3 py-2 pr-12 text-sm outline-none focus:ring-2 focus:ring-blue-500"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
       <button
         type="button"
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-blue-600 hover:text-blue-700"
+        className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-700"
         onClick={() => setShow((s) => !s)}
+        aria-label={show ? "Hide password" : "Show password"}
       >
-        {show ? "Hide" : "Show"}
+        {show ? <EyeOff size={18} /> : <Eye size={18} />}
       </button>
     </div>
   );
