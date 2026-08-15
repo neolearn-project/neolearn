@@ -426,7 +426,9 @@ export default function ParentDashboardPage() {
           )}
 
           {!loading && children.length === 0 && (
-            <p className="text-xs text-gray-500">No children added yet. Add a child profile to see analytics.</p>
+            <p className="text-xs text-gray-500">
+              No child linked yet. Ask your child to link this parent mobile from student dashboard.
+            </p>
           )}
 
           <div className="neo-parent-mobile-accordions space-y-2 md:hidden">
