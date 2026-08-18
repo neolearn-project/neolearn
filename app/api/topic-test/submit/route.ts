@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { OwnershipError, ownershipErrorResponse, requireStudentMobile } from "@/lib/auth/ownership";
+import { completeDailyMissionTask } from "@/lib/dailyMission";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,6 +39,10 @@ export async function POST(req: NextRequest) {
     const chapterId = Number(body.chapterId);
     const topicId = Number(body.topicId);
     const score = Number(body.score);
+    const weakArea = String(body.weakArea || "").trim() || null;
+    const subjectName = String(body.subjectName || "").trim() || null;
+    const chapterName = String(body.chapterName || "").trim() || null;
+    const topicName = String(body.topicName || "").trim() || null;
 
     if (!studentMobile || !Number.isFinite(topicId) || !Number.isFinite(score)) {
       return NextResponse.json(
@@ -88,6 +93,23 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      try {
+        await completeDailyMissionTask(supabase, studentMobile, {
+          taskType: "topic_test",
+          score,
+          weakArea,
+          subjectId,
+          chapterId,
+          topicId,
+          subjectName,
+          chapterName,
+          topicName,
+          eventType: "topic_test_submitted",
+        });
+      } catch (missionErr) {
+        console.error("submit-test mission update error:", missionErr);
+      }
+
       return NextResponse.json({
         ok: true,
         status: nextStatus,
@@ -134,6 +156,23 @@ export async function POST(req: NextRequest) {
         { ok: false, error: "DB error while inserting topic_progress" },
         { status: 500 }
       );
+    }
+
+    try {
+      await completeDailyMissionTask(supabase, studentMobile, {
+        taskType: "topic_test",
+        score,
+        weakArea,
+        subjectId,
+        chapterId,
+        topicId,
+        subjectName,
+        chapterName,
+        topicName,
+        eventType: "topic_test_submitted",
+      });
+    } catch (missionErr) {
+      console.error("submit-test mission update error:", missionErr);
     }
 
     return NextResponse.json({

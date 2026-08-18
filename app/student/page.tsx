@@ -71,6 +71,30 @@ interface WeeklyProgressRow {
   avgScore: number | null;
 }
 
+type DailyMissionTaskType = "learn_topic" | "topic_test" | "review_weak_area";
+
+interface DailyMissionTask {
+  id: string;
+  task_type: DailyMissionTaskType;
+  title: string;
+  status: "pending" | "completed";
+  sort_order: number;
+}
+
+interface DailyMission {
+  id: string;
+  mission_date: string;
+  status: "pending" | "in_progress" | "completed";
+  topic_id: number | null;
+  subject_id: number | null;
+  chapter_id: number | null;
+  subject_name: string | null;
+  chapter_name: string | null;
+  topic_name: string;
+  weak_area: string | null;
+  latest_score: number | null;
+}
+
 interface SyllabusResponse {
   ok: boolean;
   data?: {
@@ -788,6 +812,10 @@ const [daily, setDaily] = useState<{
 
 const [dailyLoading, setDailyLoading] = useState(false);
 const [dailyError, setDailyError] = useState<string | null>(null);
+const [dailyMission, setDailyMission] = useState<DailyMission | null>(null);
+const [dailyMissionTasks, setDailyMissionTasks] = useState<DailyMissionTask[]>([]);
+const [dailyMissionLoading, setDailyMissionLoading] = useState(false);
+const [dailyMissionError, setDailyMissionError] = useState<string | null>(null);
 
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(
     null
@@ -796,6 +824,11 @@ const [dailyError, setDailyError] = useState<string | null>(null);
     null
   );
   const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
+const pendingMissionSelectionRef = useRef<{
+  subjectId: number | null;
+  chapterId: number | null;
+  topicId: number | null;
+} | null>(null);
 
 // ---------------- Notes Engine: Generate ----------------
 const effectiveStudentClassId = student?.classId ? String(student.classId) : "";
@@ -1466,11 +1499,24 @@ useEffect(() => {
 
   // Reset dependent selections when parent changes
   useEffect(() => {
+    const pending = pendingMissionSelectionRef.current;
+    if (pending && pending.subjectId === selectedSubjectId) {
+      setSelectedChapterId(pending.chapterId);
+      return;
+    }
+
     setSelectedChapterId(null);
     setSelectedTopicId(null);
   }, [selectedSubjectId]);
 
   useEffect(() => {
+    const pending = pendingMissionSelectionRef.current;
+    if (pending && pending.chapterId === selectedChapterId) {
+      setSelectedTopicId(pending.topicId);
+      pendingMissionSelectionRef.current = null;
+      return;
+    }
+
     setSelectedTopicId(null);
   }, [selectedChapterId]);
 
@@ -1488,6 +1534,130 @@ useEffect(() => {
     () => filteredTopics.find((t) => t.id === selectedTopicId) || null,
     [filteredTopics, selectedTopicId]
   );
+
+const loadDailyMission = useCallback(async () => {
+  if (!student?.mobile) return;
+
+  setDailyMissionLoading(true);
+  setDailyMissionError(null);
+
+  try {
+    const params = new URLSearchParams({
+      mobile: student.mobile,
+      board: effectiveStudentTrack === "competitive" ? effectiveCompetitiveExam : student.board || "CBSE",
+      classNumber: String(Number(student.classId || 6)),
+      track: effectiveStudentTrack,
+    });
+
+    if (currentSubject) {
+      params.set("subjectId", String(currentSubject.id));
+      params.set("subjectName", currentSubject.subject_name);
+    }
+    if (currentChapter) {
+      params.set("chapterId", String(currentChapter.id));
+      params.set("chapterName", currentChapter.chapter_name);
+    }
+    if (currentTopic) {
+      params.set("topicId", String(currentTopic.id));
+      params.set("topicName", currentTopic.topic_name);
+    }
+
+    const res = await fetch(`/api/student/daily-mission?${params.toString()}`, {
+      headers: studentAuthHeaders(),
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data?.ok) {
+      setDailyMissionError(loginAgainMessage(res.status, data?.error || "Failed to load today's mission."));
+      setDailyMission(null);
+      setDailyMissionTasks([]);
+      return;
+    }
+
+    setDailyMission(data.mission || null);
+    setDailyMissionTasks(Array.isArray(data.tasks) ? data.tasks : []);
+  } catch (err: any) {
+    console.error("daily mission load error:", err);
+    setDailyMissionError(err?.message || "Failed to load today's mission.");
+    setDailyMission(null);
+    setDailyMissionTasks([]);
+  } finally {
+    setDailyMissionLoading(false);
+  }
+}, [
+  student?.mobile,
+  student?.board,
+  student?.classId,
+  effectiveStudentTrack,
+  effectiveCompetitiveExam,
+  currentSubject,
+  currentChapter,
+  currentTopic,
+]);
+
+const completeDailyMissionTask = useCallback(async (
+  taskType: DailyMissionTaskType,
+  extra: Record<string, unknown> = {}
+) => {
+  if (!student?.mobile) return;
+
+  try {
+    const res = await fetch("/api/student/daily-mission/task-complete", {
+      method: "POST",
+      headers: studentAuthHeaders(true),
+      body: JSON.stringify({
+        studentMobile: student.mobile,
+        taskType,
+        subjectId: currentSubject?.id,
+        chapterId: currentChapter?.id,
+        topicId: currentTopic?.id,
+        subjectName: currentSubject?.subject_name,
+        chapterName: currentChapter?.chapter_name,
+        topicName: currentTopic?.topic_name,
+        ...extra,
+      }),
+    });
+    const data = await res.json();
+
+    if (res.ok && data?.ok) {
+      setDailyMission(data.mission || null);
+      setDailyMissionTasks(Array.isArray(data.tasks) ? data.tasks : []);
+    }
+  } catch (err) {
+    console.error("daily mission task update skipped:", err);
+  }
+}, [student?.mobile, currentSubject, currentChapter, currentTopic]);
+
+const handleMissionContinue = useCallback(() => {
+  pendingMissionSelectionRef.current = {
+    subjectId: dailyMission?.subject_id ?? null,
+    chapterId: dailyMission?.chapter_id ?? null,
+    topicId: dailyMission?.topic_id ?? null,
+  };
+
+  if (dailyMission?.subject_id) {
+    setSelectedSubjectId(dailyMission.subject_id);
+  }
+  if (dailyMission?.chapter_id) {
+    setSelectedChapterId(dailyMission.chapter_id);
+  }
+  if (dailyMission?.topic_id) {
+    setSelectedTopicId(dailyMission.topic_id);
+  }
+  setActiveTab("classroom");
+}, [dailyMission]);
+
+const handleMissionReviewDone = useCallback(() => {
+  void completeDailyMissionTask("review_weak_area", {
+    eventType: "weak_area_reviewed",
+    weakArea: dailyMission?.weak_area || null,
+  });
+}, [completeDailyMissionTask, dailyMission?.weak_area]);
+
+useEffect(() => {
+  if (!student?.mobile) return;
+  loadDailyMission();
+}, [student?.mobile, loadDailyMission]);
 
 // Change teacher avatar when subject changes
   useEffect(() => {
@@ -1739,6 +1909,10 @@ const handleStartLesson = useCallback(async () => {
       console.error("Failed to save topic progress:", err);
     }
 
+    void completeDailyMissionTask("learn_topic", {
+      eventType: "lesson_started",
+    });
+
     try {
       const audioRes = await fetch("/api/lesson-audio", {
         method: "POST",
@@ -1795,6 +1969,7 @@ const handleStartLesson = useCallback(async () => {
   speed,
   pushMessage,
   loadEntitlements,
+  completeDailyMissionTask,
 ]);
 
   // Student asks a doubt -> /api/teacher-math (or your Q&A route)
@@ -2166,6 +2341,15 @@ const handleStartLesson = useCallback(async () => {
           </div>
         </section>
 
+        <TodayMissionCard
+          mission={dailyMission}
+          tasks={dailyMissionTasks}
+          loading={dailyMissionLoading}
+          error={dailyMissionError}
+          onContinue={handleMissionContinue}
+          onReviewDone={handleMissionReviewDone}
+        />
+
         {/* Top horizontal navigation */}
         <div className="neo-student-tabs shrink-0 overflow-x-auto rounded-[24px] border border-slate-200 bg-white p-2 shadow-sm">
           <nav className="flex min-w-max gap-2 text-sm">
@@ -2267,6 +2451,7 @@ const handleStartLesson = useCallback(async () => {
               autoStartToken={autoStartToken}
               autoStartPayload={autoStartPayload}
               onNavigateTab={(tab) => setActiveTab(tab)}
+              onMissionRefresh={loadDailyMission}
             />
           )}
 
@@ -2393,6 +2578,143 @@ function TabButton({
     >
       {children}
     </button>
+  );
+}
+
+function TodayMissionCard({
+  mission,
+  tasks,
+  loading,
+  error,
+  onContinue,
+  onReviewDone,
+}: {
+  mission: DailyMission | null;
+  tasks: DailyMissionTask[];
+  loading: boolean;
+  error: string | null;
+  onContinue: () => void;
+  onReviewDone: () => void;
+}) {
+  const sortedTasks = [...tasks].sort((a, b) => a.sort_order - b.sort_order);
+  const completedCount = sortedTasks.filter((task) => task.status === "completed").length;
+  const reviewTask = sortedTasks.find((task) => task.task_type === "review_weak_area");
+
+  const fallbackTasks: DailyMissionTask[] = [
+    {
+      id: "fallback-learn",
+      task_type: "learn_topic",
+      title: `Learn ${mission?.topic_name || "Continue current topic"}`,
+      status: "pending",
+      sort_order: 1,
+    },
+    {
+      id: "fallback-test",
+      task_type: "topic_test",
+      title: "Take 5-question Topic Test",
+      status: "pending",
+      sort_order: 2,
+    },
+    {
+      id: "fallback-review",
+      task_type: "review_weak_area",
+      title: "Review weak area after test",
+      status: "pending",
+      sort_order: 3,
+    },
+  ];
+
+  const displayTasks = sortedTasks.length > 0 ? sortedTasks : fallbackTasks;
+  const displayCompleted = sortedTasks.length > 0 ? completedCount : 0;
+
+  return (
+    <section className="shrink-0 rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-sm font-semibold text-slate-900">
+              Today&apos;s Mission
+            </h2>
+            <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600">
+              Progress {displayCompleted}/3
+            </span>
+            {mission?.status && (
+              <span className="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-semibold capitalize text-blue-700">
+                {mission.status.replace("_", " ")}
+              </span>
+            )}
+          </div>
+          <div className="mt-1 truncate text-xs text-slate-500">
+            {loading
+              ? "Loading mission..."
+              : error
+              ? error
+              : mission?.topic_name || "Continue current topic"}
+          </div>
+          {(mission?.latest_score !== null && mission?.latest_score !== undefined) ||
+          mission?.weak_area ? (
+            <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+              {mission?.latest_score !== null && mission?.latest_score !== undefined && (
+                <span className="rounded-full bg-emerald-50 px-2 py-1 font-semibold text-emerald-700">
+                  Score {mission.latest_score}%
+                </span>
+              )}
+              {mission?.weak_area && (
+                <span className="max-w-full truncate rounded-full bg-amber-50 px-2 py-1 font-semibold text-amber-800">
+                  {mission.weak_area}
+                </span>
+              )}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="flex shrink-0 gap-2">
+          {reviewTask?.status !== "completed" && (
+            <button
+              type="button"
+              onClick={onReviewDone}
+              disabled={!mission}
+              className="rounded-2xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 disabled:opacity-50"
+            >
+              Review done
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onContinue}
+            className="rounded-2xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
+          >
+            Continue
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-3 grid gap-2 md:grid-cols-3">
+        {displayTasks.map((task) => (
+          <div
+            key={task.id}
+            className={`rounded-2xl border px-3 py-2 text-xs ${
+              task.status === "completed"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : "border-slate-200 bg-slate-50 text-slate-700"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <span
+                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                  task.status === "completed"
+                    ? "bg-emerald-600 text-white"
+                    : "bg-white text-slate-500"
+                }`}
+              >
+                {task.status === "completed" ? "✓" : task.sort_order}
+              </span>
+              <span className="min-w-0 truncate">{task.title}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -3685,6 +4007,7 @@ function ClassroomView(props: {
     minutesPerSubject: number;
   } | null;
   onNavigateTab: (tab: ActiveTab) => void;
+  onMissionRefresh: () => void | Promise<void>;
 }) {
   const {
     onOpenPayments,
@@ -3721,6 +4044,7 @@ function ClassroomView(props: {
     onAppendTranscript,
     onEndClass,
     onNavigateTab,
+    onMissionRefresh,
   } = props;
 
   const [drawerOpen, setDrawerOpen] = useState(true);
@@ -4376,6 +4700,11 @@ const handleStartTopicTest = async () => {
         topicTestAnswers,
         percent
       );
+      const weakAreaText = weakDiagnosis?.weakAreas?.length
+        ? weakDiagnosis.weakAreas.join("; ")
+        : percent < 80
+        ? `Review mistakes in ${currentTopic?.topic_name || "this topic"}`
+        : null;
 
       setTopicTestResult({ correct, total, percent, weakDiagnosis });
 
@@ -4392,7 +4721,11 @@ const handleStartTopicTest = async () => {
           subjectId: currentSubject?.id,
           chapterId: currentChapter?.id,
           topicId: currentTopic.id,
+          subjectName: currentSubject?.subject_name,
+          chapterName: currentChapter?.chapter_name,
+          topicName: currentTopic.topic_name,
           score: percent,
+          weakArea: weakAreaText,
         }),
       });
 
@@ -4410,6 +4743,7 @@ const handleStartTopicTest = async () => {
       }
 
       setRealtimeStatus(`Test saved: ${correct}/${total} (${percent}%).`);
+      onMissionRefresh();
     } catch (err: any) {
       console.error(err);
       setRealtimeStatus(err?.message || "Submit crashed.");

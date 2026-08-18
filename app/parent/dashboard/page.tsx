@@ -61,6 +61,23 @@ type MasteryResponse = {
   error?: string;
 };
 
+type DailyMissionTask = {
+  id: string;
+  task_type: "learn_topic" | "topic_test" | "review_weak_area";
+  title: string;
+  status: "pending" | "completed";
+  sort_order: number;
+};
+
+type DailyMission = {
+  id: string;
+  mission_date: string;
+  status: "pending" | "in_progress" | "completed";
+  topic_name: string;
+  weak_area: string | null;
+  latest_score: number | null;
+};
+
 export default function ParentDashboardPage() {
   const router = useRouter();
   const [parentMobile, setParentMobile] = useState<string | null>(null);
@@ -75,6 +92,10 @@ export default function ParentDashboardPage() {
   const [weakTopics, setWeakTopics] = useState<string[]>([]);
   const [weeklyRows, setWeeklyRows] = useState<DailyItem[]>([]);
   const [dailyRow, setDailyRow] = useState<DailyItem | null>(null);
+  const [missionLoading, setMissionLoading] = useState(false);
+  const [missionError, setMissionError] = useState<string | null>(null);
+  const [dailyMission, setDailyMission] = useState<DailyMission | null>(null);
+  const [dailyMissionTasks, setDailyMissionTasks] = useState<DailyMissionTask[]>([]);
   const [mobileUpgradeOpen, setMobileUpgradeOpen] = useState(false);
   const [mobileChildFormOpen, setMobileChildFormOpen] = useState(false);
 
@@ -181,6 +202,41 @@ export default function ParentDashboardPage() {
     };
 
     loadMastery();
+  }, [activeChildMobile]);
+
+  useEffect(() => {
+    if (!activeChildMobile) return;
+
+    const loadMission = async () => {
+      setMissionLoading(true);
+      setMissionError(null);
+      try {
+        const res = await fetch(
+          `/api/parent/daily-mission?studentId=${encodeURIComponent(activeChildMobile)}`,
+          { headers: await parentAuthHeaders() }
+        );
+        const data = await res.json();
+
+        if (!res.ok || !data?.ok) {
+          setMissionError(loginAgainMessage(res.status, data?.error || "Failed to load today's mission."));
+          setDailyMission(null);
+          setDailyMissionTasks([]);
+          return;
+        }
+
+        setDailyMission(data.mission || null);
+        setDailyMissionTasks(Array.isArray(data.tasks) ? data.tasks : []);
+      } catch (err: any) {
+        console.error("mission load error:", err);
+        setMissionError(err?.message || "Failed to load today's mission.");
+        setDailyMission(null);
+        setDailyMissionTasks([]);
+      } finally {
+        setMissionLoading(false);
+      }
+    };
+
+    loadMission();
   }, [activeChildMobile]);
 
   const handleLogout = async () => {
@@ -557,6 +613,69 @@ export default function ParentDashboardPage() {
                     {topic}
                   </span>
                 ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-slate-900">
+                  Mission Today
+                </div>
+                <div className="mt-1 text-xs text-slate-500">
+                  {missionLoading
+                    ? "Loading mission..."
+                    : missionError
+                    ? missionError
+                    : dailyMission?.topic_name || "No mission found yet."}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                  <span className="rounded-full bg-white px-2 py-1 font-semibold capitalize text-slate-700">
+                    {dailyMission?.status?.replace("_", " ") || "pending"}
+                  </span>
+                  <span className="rounded-full bg-white px-2 py-1 font-semibold text-slate-700">
+                    {
+                      dailyMissionTasks.filter((task) => task.status === "completed")
+                        .length
+                    }
+                    /3 completed
+                  </span>
+                  {dailyMission?.latest_score !== null &&
+                    dailyMission?.latest_score !== undefined && (
+                      <span className="rounded-full bg-emerald-50 px-2 py-1 font-semibold text-emerald-700">
+                        Score {dailyMission.latest_score}%
+                      </span>
+                    )}
+                </div>
+                {dailyMission?.weak_area && (
+                  <div className="mt-2 truncate text-xs font-medium text-amber-800">
+                    Weak area: {dailyMission.weak_area}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-1 text-xs md:min-w-56">
+                {dailyMissionTasks
+                  .slice()
+                  .sort((a, b) => a.sort_order - b.sort_order)
+                  .map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex items-center justify-between gap-3 rounded-lg bg-white px-2 py-1"
+                    >
+                      <span className="truncate">{task.title}</span>
+                      <span
+                        className={`shrink-0 text-[11px] font-semibold ${
+                          task.status === "completed"
+                            ? "text-emerald-700"
+                            : "text-slate-500"
+                        }`}
+                      >
+                        {task.status}
+                      </span>
+                    </div>
+                  ))}
               </div>
             </div>
           </div>
