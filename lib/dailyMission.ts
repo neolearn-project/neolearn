@@ -46,6 +46,28 @@ function safeText(value: unknown, fallback = "") {
   return text || fallback;
 }
 
+function isRawTopicLabel(value: unknown) {
+  const text = String(value ?? "").trim();
+  return /^topic\s*\d+$/i.test(text) || /^\d+$/.test(text);
+}
+
+function friendlyTopicName(value: unknown, fallback = "current topic") {
+  const text = safeText(value, "");
+  if (!text || isRawTopicLabel(text)) return fallback;
+  return text;
+}
+
+function friendlyWeakArea(value: unknown, topicName: string | null) {
+  const text = safeText(value, "");
+  if (!text || /\btopic\s*\d+\b/i.test(text)) {
+    const topicLabel = friendlyTopicName(topicName, "today's topic");
+    return topicLabel === "today's topic"
+      ? "Mistakes from today's test"
+      : `Mistakes from ${topicLabel}`;
+  }
+  return text;
+}
+
 function numberOrNull(value: unknown) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
@@ -53,6 +75,10 @@ function numberOrNull(value: unknown) {
 
 function idOrNull(value: number | null | undefined) {
   return Number.isFinite(value) ? Number(value) : null;
+}
+
+function isDuplicateKeyError(error: any) {
+  return String(error?.code || "") === "23505";
 }
 
 function missionStatusFromTasks(tasks: Array<{ status?: string | null }>): MissionStatus {
@@ -65,10 +91,10 @@ function missionStatusFromTasks(tasks: Array<{ status?: string | null }>): Missi
 function buildWeakArea(row: any) {
   const score = numberOrNull(row?.last_score);
   if (typeof score === "number" && score < 80) {
-    return `Review mistakes from topic ${row.topic_id}`;
+    return "Mistakes from today's test";
   }
   if (String(row?.status || "") === "needs_revision") {
-    return `Revise topic ${row.topic_id}`;
+    return "Mistakes from today's test";
   }
   return null;
 }
@@ -156,7 +182,7 @@ async function getTopicLabels(
 }
 
 function missionPayload(context: MissionContext, weakArea: string | null, latestScore: number | null) {
-  const topicName = safeText(context.topicName, "Continue current topic");
+  const topicName = friendlyTopicName(context.topicName, "current topic");
 
   return {
     student_mobile: context.studentMobile,
@@ -171,7 +197,7 @@ function missionPayload(context: MissionContext, weakArea: string | null, latest
     subject_name: context.subjectName || null,
     chapter_name: context.chapterName || null,
     topic_name: topicName,
-    weak_area: weakArea || "Review weak area after test",
+    weak_area: friendlyWeakArea(weakArea, topicName),
     latest_score: latestScore,
     metadata: {
       source: context.topicId ? "context_or_history" : "safe_default",
@@ -180,31 +206,47 @@ function missionPayload(context: MissionContext, weakArea: string | null, latest
   };
 }
 
-function taskPayloads(missionId: string, topicName: string, weakArea: string | null) {
+function taskPayloads(missionId: string, topicName: string) {
   return [
     {
       mission_id: missionId,
       task_type: "learn_topic",
-      title: `Learn ${topicName}`,
+      title: `Learn: ${friendlyTopicName(topicName, "Continue current topic")}`,
       sort_order: 1,
     },
     {
       mission_id: missionId,
       task_type: "topic_test",
-      title: "Take 5-question Topic Test",
+      title: "Practice: Take 5-question Topic Test",
       sort_order: 2,
     },
     {
       mission_id: missionId,
       task_type: "review_weak_area",
-      title: weakArea ? `Review: ${weakArea}` : "Review weak area after test",
+      title: "Review: Fix mistakes from today's test",
       sort_order: 3,
     },
   ];
 }
 
+async function readMissionByStudentDate(
+  supabase: SupabaseClient,
+  studentMobile: string,
+  missionDate: string
+) {
+  const { data, error } = await supabase
+    .from("daily_missions")
+    .select("*")
+    .eq("student_mobile", studentMobile)
+    .eq("mission_date", missionDate)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data || null;
+}
+
 async function readMissionWithTasks(supabase: SupabaseClient, missionId: string) {
-  const [{ data: mission, error: missionError }, { data: tasks, error: tasksError }] =
+  const [{ data: mission, error: missionError }, { data: existingTasks, error: tasksError }] =
     await Promise.all([
       supabase.from("daily_missions").select("*").eq("id", missionId).single(),
       supabase
@@ -217,7 +259,64 @@ async function readMissionWithTasks(supabase: SupabaseClient, missionId: string)
   if (missionError) throw missionError;
   if (tasksError) throw tasksError;
 
-  return { mission, tasks: tasks || [] };
+  let tasks = existingTasks || [];
+  const existingTypes = new Set(tasks.map((task: any) => task.task_type));
+  const missingTasks = taskPayloads(
+    missionId,
+    friendlyTopicName((mission as any)?.topic_name, "current topic")
+  ).filter((task) => !existingTypes.has(task.task_type));
+
+  if (missingTasks.length > 0) {
+    const { error: upsertError } = await supabase
+      .from("daily_mission_tasks")
+      .upsert(missingTasks, {
+        onConflict: "mission_id,task_type",
+        ignoreDuplicates: true,
+      });
+
+    if (upsertError && !isDuplicateKeyError(upsertError)) throw upsertError;
+
+    const { data: refreshedTasks, error: refreshError } = await supabase
+      .from("daily_mission_tasks")
+      .select("*")
+      .eq("mission_id", missionId)
+      .order("sort_order", { ascending: true });
+
+    if (refreshError) throw refreshError;
+    tasks = refreshedTasks || [];
+  }
+
+  const labels = await getTopicLabels(
+    supabase,
+    idOrNull((mission as any)?.subject_id),
+    idOrNull((mission as any)?.chapter_id),
+    idOrNull((mission as any)?.topic_id)
+  );
+  const topicName = friendlyTopicName(
+    (mission as any)?.topic_name || labels.topicName,
+    "current topic"
+  );
+  const sanitizedMission = {
+    ...(mission as any),
+    subject_name: friendlyTopicName((mission as any)?.subject_name || labels.subjectName, "") || null,
+    chapter_name: friendlyTopicName((mission as any)?.chapter_name || labels.chapterName, "") || null,
+    topic_name: topicName,
+    weak_area: friendlyWeakArea((mission as any)?.weak_area, topicName),
+  };
+  const sanitizedTasks = (tasks || []).map((task: any) => {
+    if (task.task_type === "learn_topic") {
+      return { ...task, title: `Learn: ${friendlyTopicName(topicName, "Continue current topic")}` };
+    }
+    if (task.task_type === "topic_test") {
+      return { ...task, title: "Practice: Take 5-question Topic Test" };
+    }
+    if (task.task_type === "review_weak_area") {
+      return { ...task, title: "Review: Fix mistakes from today's test" };
+    }
+    return task;
+  });
+
+  return { mission: sanitizedMission, tasks: sanitizedTasks };
 }
 
 export async function getOrCreateDailyMission(
@@ -225,14 +324,11 @@ export async function getOrCreateDailyMission(
   context: MissionContext
 ) {
   const missionDate = todayMissionDate();
-  const { data: existing, error: existingError } = await supabase
-    .from("daily_missions")
-    .select("*")
-    .eq("student_mobile", context.studentMobile)
-    .eq("mission_date", missionDate)
-    .maybeSingle();
-
-  if (existingError) throw existingError;
+  const existing = await readMissionByStudentDate(
+    supabase,
+    context.studentMobile,
+    missionDate
+  );
   if (existing?.id) return readMissionWithTasks(supabase, existing.id);
 
   const [child, weakProgress, latestProgress] = await Promise.all([
@@ -257,9 +353,9 @@ export async function getOrCreateDailyMission(
     subjectId,
     chapterId,
     topicId,
-    subjectName: context.subjectName || labels.subjectName,
-    chapterName: context.chapterName || labels.chapterName,
-    topicName: context.topicName || labels.topicName,
+    subjectName: friendlyTopicName(context.subjectName, "") || labels.subjectName,
+    chapterName: friendlyTopicName(context.chapterName, "") || labels.chapterName,
+    topicName: friendlyTopicName(context.topicName, "") || labels.topicName,
   };
 
   const { data: mission, error: insertError } = await supabase
@@ -268,13 +364,17 @@ export async function getOrCreateDailyMission(
     .select("*")
     .single();
 
-  if (insertError) throw insertError;
-
-  const { error: taskError } = await supabase
-    .from("daily_mission_tasks")
-    .insert(taskPayloads(mission.id, mission.topic_name, mission.weak_area));
-
-  if (taskError) throw taskError;
+  if (insertError) {
+    if (isDuplicateKeyError(insertError)) {
+      const racedMission = await readMissionByStudentDate(
+        supabase,
+        context.studentMobile,
+        missionDate
+      );
+      if (racedMission?.id) return readMissionWithTasks(supabase, racedMission.id);
+    }
+    throw insertError;
+  }
 
   return readMissionWithTasks(supabase, mission.id);
 }
@@ -324,13 +424,13 @@ export async function completeDailyMissionTask(
   };
 
   if (typeof update.score === "number") missionPatch.latest_score = update.score;
-  if (update.weakArea) missionPatch.weak_area = update.weakArea;
+  if (update.weakArea) missionPatch.weak_area = friendlyWeakArea(update.weakArea, update.topicName || mission.topic_name);
   if (idOrNull(update.subjectId)) missionPatch.subject_id = idOrNull(update.subjectId);
   if (idOrNull(update.chapterId)) missionPatch.chapter_id = idOrNull(update.chapterId);
   if (idOrNull(update.topicId)) missionPatch.topic_id = idOrNull(update.topicId);
-  if (update.subjectName) missionPatch.subject_name = update.subjectName;
-  if (update.chapterName) missionPatch.chapter_name = update.chapterName;
-  if (update.topicName) missionPatch.topic_name = update.topicName;
+  if (update.subjectName) missionPatch.subject_name = friendlyTopicName(update.subjectName, "");
+  if (update.chapterName) missionPatch.chapter_name = friendlyTopicName(update.chapterName, "");
+  if (update.topicName) missionPatch.topic_name = friendlyTopicName(update.topicName, "current topic");
 
   const { error: missionError } = await supabase
     .from("daily_missions")

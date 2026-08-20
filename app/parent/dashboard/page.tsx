@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loginAgainMessage, parentAuthHeaders } from "@/app/lib/clientAuth";
 import { supabaseBrowser } from "@/app/lib/supabaseBrowser";
@@ -78,6 +78,32 @@ type DailyMission = {
   latest_score: number | null;
 };
 
+function isRawMissionLabel(value: unknown) {
+  const text = String(value ?? "").trim();
+  return /^topic\s*\d+$/i.test(text) || /^\d+$/.test(text);
+}
+
+function missionLabel(value: unknown, fallback = "current topic") {
+  const text = String(value ?? "").trim();
+  if (!text || isRawMissionLabel(text)) return fallback;
+  return text;
+}
+
+function missionWeakAreaLabel(value: unknown, topicName: unknown) {
+  const text = String(value ?? "").trim();
+  if (!text || /\btopic\s*\d+\b/i.test(text)) {
+    const topic = missionLabel(topicName, "today's topic");
+    return topic === "today's topic" ? "Mistakes from today's test" : `Mistakes from ${topic}`;
+  }
+  return text;
+}
+
+function missionTaskTitle(task: DailyMissionTask, topicName: unknown) {
+  if (task.task_type === "learn_topic") return `Learn: ${missionLabel(topicName, "Continue current topic")}`;
+  if (task.task_type === "topic_test") return "Practice: Take 5-question Topic Test";
+  return "Review: Fix mistakes from today's test";
+}
+
 export default function ParentDashboardPage() {
   const router = useRouter();
   const [parentMobile, setParentMobile] = useState<string | null>(null);
@@ -96,6 +122,8 @@ export default function ParentDashboardPage() {
   const [missionError, setMissionError] = useState<string | null>(null);
   const [dailyMission, setDailyMission] = useState<DailyMission | null>(null);
   const [dailyMissionTasks, setDailyMissionTasks] = useState<DailyMissionTask[]>([]);
+  const hasMissionDataRef = useRef(false);
+  const [missionDetailsOpen, setMissionDetailsOpen] = useState(false);
   const [mobileUpgradeOpen, setMobileUpgradeOpen] = useState(false);
   const [mobileChildFormOpen, setMobileChildFormOpen] = useState(false);
 
@@ -206,6 +234,7 @@ export default function ParentDashboardPage() {
 
   useEffect(() => {
     if (!activeChildMobile) return;
+    hasMissionDataRef.current = false;
 
     const loadMission = async () => {
       setMissionLoading(true);
@@ -218,19 +247,25 @@ export default function ParentDashboardPage() {
         const data = await res.json();
 
         if (!res.ok || !data?.ok) {
-          setMissionError(loginAgainMessage(res.status, data?.error || "Failed to load today's mission."));
-          setDailyMission(null);
-          setDailyMissionTasks([]);
+          if (!hasMissionDataRef.current) {
+            setMissionError(loginAgainMessage(res.status, data?.error || "Failed to load today's mission."));
+            setDailyMission(null);
+            setDailyMissionTasks([]);
+          }
           return;
         }
 
         setDailyMission(data.mission || null);
         setDailyMissionTasks(Array.isArray(data.tasks) ? data.tasks : []);
+        hasMissionDataRef.current = Boolean(data.mission || (Array.isArray(data.tasks) && data.tasks.length > 0));
+        setMissionError(null);
       } catch (err: any) {
         console.error("mission load error:", err);
-        setMissionError(err?.message || "Failed to load today's mission.");
-        setDailyMission(null);
-        setDailyMissionTasks([]);
+        if (!hasMissionDataRef.current) {
+          setMissionError(err?.message || "Failed to load today's mission.");
+          setDailyMission(null);
+          setDailyMissionTasks([]);
+        }
       } finally {
         setMissionLoading(false);
       }
@@ -378,6 +413,16 @@ export default function ParentDashboardPage() {
       </div>
     );
   }
+
+  const missionTopicLabel = missionLabel(dailyMission?.topic_name, "current topic");
+  const missionCompleted = dailyMissionTasks.filter((task) => task.status === "completed").length;
+  const missionIsCompleted = missionCompleted >= 3 || dailyMission?.status === "completed";
+  const visibleMissionError = missionError && !dailyMission && dailyMissionTasks.length === 0 ? missionError : null;
+  const missionWeakArea = missionWeakAreaLabel(dailyMission?.weak_area, missionTopicLabel);
+  const compactMissionTasks = dailyMissionTasks
+    .slice()
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .slice(0, 3);
 
   return (
     <div className="neo-parent-dashboard min-h-screen bg-slate-50">
@@ -617,67 +662,99 @@ export default function ParentDashboardPage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-slate-900">
-                  Mission Today
-                </div>
-                <div className="mt-1 text-xs text-slate-500">
-                  {missionLoading
-                    ? "Loading mission..."
-                    : missionError
-                    ? missionError
-                    : dailyMission?.topic_name || "No mission found yet."}
-                </div>
-                <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-                  <span className="rounded-full bg-white px-2 py-1 font-semibold capitalize text-slate-700">
-                    {dailyMission?.status?.replace("_", " ") || "pending"}
-                  </span>
-                  <span className="rounded-full bg-white px-2 py-1 font-semibold text-slate-700">
-                    {
-                      dailyMissionTasks.filter((task) => task.status === "completed")
-                        .length
-                    }
-                    /3 completed
+          <div className={`rounded-xl border p-3 ${
+            missionIsCompleted
+              ? "border-emerald-200 bg-gradient-to-r from-white via-emerald-50 to-amber-50"
+              : "border-blue-100 bg-gradient-to-r from-white via-blue-50 to-amber-50"
+          }`}>
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setMissionDetailsOpen((value) => !value)}
+                className="min-w-0 flex-1 text-left"
+                aria-expanded={missionDetailsOpen}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="text-sm font-bold text-slate-900">
+                    Today&apos;s Mission{missionIsCompleted ? " • Completed" : ""}
+                  </div>
+                  <span className={`rounded-full bg-white/80 px-2 py-1 text-[11px] font-bold ${
+                    missionIsCompleted ? "text-emerald-700" : "text-blue-700"
+                  }`}>
+                    {missionIsCompleted ? "Completed" : `${missionCompleted}/3 completed`}
                   </span>
                   {dailyMission?.latest_score !== null &&
                     dailyMission?.latest_score !== undefined && (
-                      <span className="rounded-full bg-emerald-50 px-2 py-1 font-semibold text-emerald-700">
+                      <span className="rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-bold text-emerald-700">
                         Score {dailyMission.latest_score}%
                       </span>
                     )}
                 </div>
-                {dailyMission?.weak_area && (
-                  <div className="mt-2 truncate text-xs font-medium text-amber-800">
-                    Weak area: {dailyMission.weak_area}
-                  </div>
-                )}
+                <div className="mt-1 truncate text-xs font-medium text-slate-600">
+                  {missionLoading
+                    ? "Loading mission..."
+                    : visibleMissionError
+                    ? visibleMissionError
+                    : missionIsCompleted
+                    ? "✅ Great! Today's mission completed."
+                    : missionTopicLabel}
+                </div>
+              </button>
+
+              <div className="hidden min-w-0 flex-wrap gap-1.5 text-xs md:flex md:max-w-[260px] md:justify-end">
+                {compactMissionTasks.map((task) => (
+                  <span
+                    key={task.id}
+                    title={missionTaskTitle(task, missionTopicLabel)}
+                    className={`flex h-7 w-7 items-center justify-center rounded-full border text-[11px] font-bold ${
+                      task.status === "completed"
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                        : "border-blue-200 bg-white/80 text-blue-800"
+                    }`}
+                  >
+                    {task.status === "completed" ? "✓" : task.sort_order}
+                  </span>
+                ))}
               </div>
 
-              <div className="grid gap-1 text-xs md:min-w-56">
-                {dailyMissionTasks
-                  .slice()
-                  .sort((a, b) => a.sort_order - b.sort_order)
-                  .map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex items-center justify-between gap-3 rounded-lg bg-white px-2 py-1"
-                    >
-                      <span className="truncate">{task.title}</span>
-                      <span
-                        className={`shrink-0 text-[11px] font-semibold ${
-                          task.status === "completed"
-                            ? "text-emerald-700"
-                            : "text-slate-500"
-                        }`}
-                      >
-                        {task.status}
-                      </span>
-                    </div>
-                  ))}
-              </div>
+              <button
+                type="button"
+                onClick={() => setMissionDetailsOpen((value) => !value)}
+                className="shrink-0 rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-xs font-bold text-slate-700"
+                aria-expanded={missionDetailsOpen}
+              >
+                View
+              </button>
             </div>
+            {missionDetailsOpen && (
+              <div className="mt-2 rounded-xl border border-slate-200 bg-white/90 p-2">
+                {missionIsCompleted && (
+                  <div className="mb-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
+                    ✅ Great! Today&apos;s mission completed.
+                  </div>
+                )}
+                {dailyMission?.weak_area && (
+                  <div className="mb-2 truncate text-xs font-semibold text-amber-800">
+                    Weak area: {missionWeakArea}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-1.5">
+                  {compactMissionTasks.map((task) => (
+                    <span
+                      key={task.id}
+                      className={`max-w-full truncate rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                        task.status === "completed"
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                          : "border-blue-200 bg-blue-50 text-blue-800"
+                      }`}
+                    >
+                      {task.status === "completed" ? "✓ " : ""}
+                      {missionTaskTitle(task, missionTopicLabel)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="hidden gap-3 md:grid lg:grid-cols-2">
