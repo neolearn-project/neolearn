@@ -13,6 +13,33 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RealtimeTeacherClient } from "./realtimeTeacherClient";
 import jsPDF from "jspdf";
+import {
+  BookOpen,
+  Camera,
+  ChevronRight,
+  ClipboardCheck,
+  FileText,
+  HelpCircle,
+  History,
+  Images,
+  Lightbulb,
+  ListChecks,
+  Loader2,
+  Maximize2,
+  Mic,
+  Minimize2,
+  Monitor,
+  MoreVertical,
+  Pencil,
+  Play,
+  RotateCcw,
+  Save,
+  SlidersHorizontal,
+  Target,
+  Upload,
+  UserPlus,
+  X,
+} from "lucide-react";
 import { ClientAuthError, loginAgainMessage, studentAuthHeaders } from "@/app/lib/clientAuth";
 import { readJsonResponse } from "@/app/lib/safeResponse";
 
@@ -132,6 +159,7 @@ interface SyllabusResponse {
 }
 
 type ActiveTab =
+  | "dashboard"
   | "classroom"
   | "subjects"
   | "chapters"
@@ -320,6 +348,7 @@ const TOPIC_STATUS_UI: Record<string, string> = {
 };
 
 const SESSION_HISTORY_KEY = "neolearnSessionHistory";
+const LESSON_LOADING_MESSAGE = "Generating your lesson. Please wait a moment...";
 
 const STORAGE_KEY = "neolearnStudent";
 const HELPDESK_URL = "https://neo-voicedesk.vercel.app/help/neolearn";
@@ -556,7 +585,40 @@ const [teacherAvatar, setTeacherAvatar] = useState<string>(
   const [student, setStudent] = useState<StudentInfo | null>(null);
   const [loadingStudent, setLoadingStudent] = useState(true);
 const [payingPlanCode, setPayingPlanCode] = useState<string | null>(null);
-const [activeTab, setActiveTab] = useState<ActiveTab>("classroom");
+const [activeTab, setActiveTab] = useState<ActiveTab>("dashboard");
+const [focusFullscreenActive, setFocusFullscreenActive] = useState(false);
+const [studentProfileOpen, setStudentProfileOpen] = useState(false);
+const [studentMenuOpen, setStudentMenuOpen] = useState(false);
+const [settingsNoticeOpen, setSettingsNoticeOpen] = useState(false);
+const studentHeaderActionsRef = useRef<HTMLDivElement | null>(null);
+const [startFlowOpen, setStartFlowOpen] = useState(false);
+const [guidedStartPendingTopicId, setGuidedStartPendingTopicId] = useState<number | null>(null);
+const [guidedStartStatus, setGuidedStartStatus] = useState<string | null>(null);
+const [trialLimitNotice, setTrialLimitNotice] = useState<{
+  topicId: number | null;
+  message: string;
+} | null>(null);
+
+useEffect(() => {
+  if (activeTab !== "classroom") setFocusFullscreenActive(false);
+}, [activeTab]);
+
+useEffect(() => {
+  if (!studentProfileOpen && !studentMenuOpen && !settingsNoticeOpen) return;
+
+  const closeStudentMenus = (event: PointerEvent) => {
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (studentHeaderActionsRef.current?.contains(target)) return;
+
+    setStudentProfileOpen(false);
+    setStudentMenuOpen(false);
+    setSettingsNoticeOpen(false);
+  };
+
+  document.addEventListener("pointerdown", closeStudentMenus);
+  return () => document.removeEventListener("pointerdown", closeStudentMenus);
+}, [studentProfileOpen, studentMenuOpen, settingsNoticeOpen]);
 
   // ---------------- Notes Engine (v1) ----------------
 const [noteType, setNoteType] = useState<NoteType>("full_exam_notes");
@@ -1773,6 +1835,12 @@ useEffect(() => {
     []
   );
 
+  const removeLessonLoadingMessage = useCallback(() => {
+    setMessages((prev) =>
+      prev.filter((message) => message.text !== LESSON_LOADING_MESSAGE)
+    );
+  }, []);
+
 // Countdown timer for live class
 useEffect(() => {
   if (!classSession?.isLive) return;
@@ -1849,7 +1917,7 @@ const handleStartLesson = useCallback(async () => {
 
   const mobile = student?.mobile;
   if (!mobile) {
-    pushMessage("Teacher", "Student info missing. Please login again.", true);
+    setAudioError("Student session is missing. Please login again.");
     lessonRequestInFlightRef.current = false;
     setIsStartingLesson(false);
     return;
@@ -1858,30 +1926,31 @@ const handleStartLesson = useCallback(async () => {
   const ent = await loadEntitlements();
 
   if (!ent?.ok) {
-    pushMessage(
-      "Teacher",
-      ent?.authRequired ? "Please login again." : ent?.error || "Unable to verify your plan right now. Please try again.",
-      true
+    setAudioError(
+      ent?.authRequired
+        ? "Session expired. Please login again."
+        : ent?.error || "Unable to verify your plan right now. Please try again."
     );
     lessonRequestInFlightRef.current = false;
     setIsStartingLesson(false);
     return;
   }
+
+  setMessages([]);
 
   if (!ent.features?.lessonGeneration) {
-    pushMessage(
-      "Teacher",
-      `Free access exhausted (${ent.usage?.used}/${ent.usage?.effectiveLimit}). Please subscribe to continue full lessons.`,
-      true
-    );
+    setTrialLimitNotice({
+      topicId: currentTopic.id,
+      message: "Free lesson limit reached. Subscribe to continue this topic.",
+    });
     lessonRequestInFlightRef.current = false;
     setIsStartingLesson(false);
     return;
   }
 
+  setTrialLimitNotice(null);
   const now = Date.now();
   resetSessionTranscript();
-  setMessages([]);
   setClassSession({
     id: crypto.randomUUID(),
     startTime: now,
@@ -1891,7 +1960,7 @@ const handleStartLesson = useCallback(async () => {
   });
   setRemainingSeconds(40 * 60);
 
-  pushMessage("Teacher", "Generating your lesson. Please wait a moment...");
+  pushMessage("Teacher", LESSON_LOADING_MESSAGE);
 
   try {
     const langCode = getLangCode(language);
@@ -1918,6 +1987,11 @@ const handleStartLesson = useCallback(async () => {
       });
 
       if (!lessonRes.ok) {
+        if (lessonRes.status === 401) {
+          removeLessonLoadingMessage();
+          setAudioError(loginAgainMessage(lessonRes.status));
+          return;
+        }
         console.error(
           "generate-lesson failed:",
           lessonRes.status,
@@ -1940,6 +2014,7 @@ const handleStartLesson = useCallback(async () => {
       ).trim();
     }
 
+    removeLessonLoadingMessage();
     pushMessage("Teacher", scriptText);
 
     try {
@@ -2001,6 +2076,7 @@ const handleStartLesson = useCallback(async () => {
     }
   } catch (err) {
     console.error("handleStartLesson error:", err);
+    removeLessonLoadingMessage();
     setAudioError("Unexpected error while generating the lesson.");
   } finally {
     lessonRequestInFlightRef.current = false;
@@ -2021,9 +2097,44 @@ const handleStartLesson = useCallback(async () => {
   language,
   speed,
   pushMessage,
+  removeLessonLoadingMessage,
   loadEntitlements,
   completeDailyMissionTask,
 ]);
+
+const openStartLearningFlow = useCallback((resetSelection = true) => {
+  if (resetSelection) {
+    setSelectedSubjectId(null);
+    setSelectedChapterId(null);
+    setSelectedTopicId(null);
+  }
+  setGuidedStartStatus(null);
+  setStartFlowOpen(true);
+}, []);
+
+const handleGuidedTopicSelect = useCallback((topicId: number) => {
+  setSelectedTopicId(topicId);
+  setGuidedStartPendingTopicId(topicId);
+  setGuidedStartStatus("Starting your AI class...");
+  setTrialLimitNotice(null);
+  setStartFlowOpen(false);
+  setActiveTab("classroom");
+}, []);
+
+useEffect(() => {
+  if (!guidedStartPendingTopicId || !currentTopic) return;
+  if (currentTopic.id !== guidedStartPendingTopicId) return;
+  if (isStartingLesson || lessonRequestInFlightRef.current) return;
+
+  const timeout = window.setTimeout(() => {
+    void handleStartLesson().finally(() => {
+      setGuidedStartPendingTopicId(null);
+      setGuidedStartStatus(null);
+    });
+  }, 120);
+
+  return () => window.clearTimeout(timeout);
+}, [guidedStartPendingTopicId, currentTopic, isStartingLesson, handleStartLesson]);
 
   // Student asks a doubt -> /api/teacher-math (or your Q&A route)
     // Student asks a doubt -> text + audio answer
@@ -2046,10 +2157,10 @@ const handleStartLesson = useCallback(async () => {
   const ent = await loadEntitlements();
 
   if (!ent?.ok) {
-    pushMessage(
-      "Teacher",
-      ent?.authRequired ? "Please login again." : ent?.error || "Unable to verify your plan right now. Please try again.",
-      true
+    setAudioError(
+      ent?.authRequired
+        ? "Session expired. Please login again."
+        : ent?.error || "Unable to verify your plan right now. Please try again."
     );
     return;
   }
@@ -2210,51 +2321,154 @@ const handleStartLesson = useCallback(async () => {
 
   if (!student) return null;
 
+  const studentInitials = (student.name || "Learner")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("") || "N";
+  const studentPhoto =
+    (student as any).photoUrl ||
+    (student as any).avatarUrl ||
+    (student as any).profilePhotoUrl ||
+    "";
+
   return (
-  <div className="neo-student-shell fixed inset-0 flex flex-col bg-slate-100">
+  <div className={`neo-student-shell fixed inset-0 flex flex-col bg-slate-100 ${
+    activeTab === "classroom" ? "is-live-class-active" : ""
+  } ${focusFullscreenActive ? "is-focus-fullscreen" : ""}`}>
     {/* Top bar */}
     <header className="neo-student-header shrink-0 border-b border-slate-200 bg-white px-4 py-3 shadow-sm md:px-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-blue-600">
+          <div className="neo-top-logo flex items-center justify-center">
             <img
-              src="/logo/neolearn-logo.png"
+              src="/logo.svg"
               alt="NeoLearn logo"
-              className="h-full w-full object-contain"
+              className="neo-top-logo-image"
             />
           </div>
-          <div className="text-lg font-semibold">NeoLearn</div>
         </div>
 
-        <div className="neo-student-header-actions flex items-center gap-3 text-xs text-gray-600">
-          <span>
-            {student.name}  {String(student.track || student.subjectType || "regular").toLowerCase() === "competitive" ? `${student.competitiveExam || student.board || "Competitive"} Exam` : `Class ${student.classId}`} {student.mobile}
-          </span>
-          <a
-            href={HELPDESK_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-full border border-slate-300 px-3 py-1 text-[11px] font-semibold hover:bg-slate-100"
-          >
-            Support / HelpDesk
-          </a>
+        <div
+          ref={studentHeaderActionsRef}
+          className="neo-student-header-actions relative flex items-center gap-3 text-xs text-gray-600"
+        >
           <button
             type="button"
+            className="neo-student-profile-capsule"
             onClick={() => {
-              setParentLinkOpen((open) => !open);
-              setParentLinkStatus(null);
+              setStudentProfileOpen((open) => !open);
+              setStudentMenuOpen(false);
+              setSettingsNoticeOpen(false);
             }}
-            className="rounded-full border border-slate-300 px-3 py-1 text-[11px] font-semibold hover:bg-slate-100"
+            aria-expanded={studentProfileOpen}
+            aria-label="Open student profile"
           >
-            Link Parent
+            <span className="neo-student-avatar">
+              {studentPhoto ? (
+                <img src={studentPhoto} alt={student.name || "Student"} />
+              ) : (
+                studentInitials
+              )}
+            </span>
+            <span className="neo-student-profile-copy">
+              <span>{student.name || "Learner"}</span>
+              <small>
+                {String(student.track || student.subjectType || "regular").toLowerCase() === "competitive"
+                  ? `${student.competitiveExam || student.board || "Competitive"}`
+                  : `Class ${student.classId}`}
+              </small>
+            </span>
           </button>
+
           <button
             type="button"
-            onClick={handleLogout}
-            className="rounded-full border border-slate-300 px-3 py-1 text-[11px] font-semibold hover:bg-slate-100"
+            className="neo-student-menu-button"
+            onClick={() => {
+              setStudentMenuOpen((open) => !open);
+              setStudentProfileOpen(false);
+              setSettingsNoticeOpen(false);
+            }}
+            aria-expanded={studentMenuOpen}
+            aria-label="Open app menu"
           >
-            Logout
+            <MoreVertical className="h-4 w-4" />
           </button>
+
+          {studentProfileOpen && (
+            <div className="neo-student-menu neo-student-profile-popover">
+              <div className="neo-student-profile-popover-head">
+                <span className="neo-student-avatar">
+                  {studentPhoto ? (
+                    <img src={studentPhoto} alt={student.name || "Student"} />
+                  ) : (
+                    studentInitials
+                  )}
+                </span>
+                <div>
+                  <strong>{student.name || "Learner"}</strong>
+                  <small>
+                    {String(student.track || student.subjectType || "regular").toLowerCase() === "competitive"
+                      ? `${student.competitiveExam || student.board || "Competitive"}`
+                      : `Class ${student.classId}`}
+                  </small>
+                </div>
+              </div>
+              <p>{student.mobile}</p>
+            </div>
+          )}
+
+          {studentMenuOpen && (
+            <div className="neo-student-menu">
+              <a
+                href={HELPDESK_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setStudentMenuOpen(false)}
+              >
+                Help / HelpDesk
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  setStudentMenuOpen(false);
+                  setParentLinkOpen((open) => !open);
+                  setParentLinkStatus(null);
+                }}
+              >
+                Link Parent
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setStudentMenuOpen(false);
+                  setSettingsNoticeOpen(true);
+                }}
+              >
+                Settings
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setStudentMenuOpen(false);
+                  handleLogout();
+                }}
+              >
+                Logout
+              </button>
+            </div>
+          )}
+
+          {settingsNoticeOpen && (
+            <div className="neo-student-menu neo-settings-notice">
+              <strong>Settings</strong>
+              <p>Settings coming soon.</p>
+              <button type="button" onClick={() => setSettingsNoticeOpen(false)}>
+                Close
+              </button>
+            </div>
+          )}
         </div>
       </div>
       {parentLinkOpen && (
@@ -2394,20 +2608,16 @@ const handleStartLesson = useCallback(async () => {
           </div>
         </section>
 
-        <TodayMissionCard
-          mission={dailyMission}
-          tasks={dailyMissionTasks}
-          loading={dailyMissionLoading}
-          error={dailyMissionError}
-          reviewFocusToken={missionReviewFocusToken}
-          onContinue={handleMissionContinue}
-          onReviewDone={handleMissionReviewDone}
-          onPracticeMore={handleMissionPracticeMore}
-        />
-
         {/* Top horizontal navigation */}
         <div className="neo-student-tabs shrink-0 overflow-x-auto rounded-[24px] border border-slate-200 bg-white p-2 shadow-sm">
           <nav className="flex min-w-max gap-2 text-sm">
+            <TabButton
+              active={activeTab === "dashboard"}
+              onClick={() => setActiveTab("dashboard")}
+            >
+              Dashboard
+            </TabButton>
+
             <TabButton
               active={activeTab === "classroom"}
               onClick={() => setActiveTab("classroom")}
@@ -2468,9 +2678,44 @@ const handleStartLesson = useCallback(async () => {
 
         {/* Main content fills remaining screen */}
         <main className="min-h-0 flex-1 overflow-hidden rounded-[28px] bg-transparent p-0 shadow-none">
+          {activeTab === "dashboard" && (
+            <StudentDashboardView
+              student={student}
+              currentSubject={currentSubject}
+              currentChapter={currentChapter}
+              currentTopic={currentTopic}
+              daily={daily}
+              dailyLoading={dailyLoading}
+              dailyMission={dailyMission}
+              dailyMissionTasks={dailyMissionTasks}
+              dailyMissionLoading={dailyMissionLoading}
+              dailyMissionError={dailyMissionError}
+              savedSessionsCount={savedSessions.length}
+              notesLoading={notesLoading}
+              guidedStartStatus={guidedStartStatus}
+              onStartLearning={openStartLearningFlow}
+              onContinueMission={handleMissionContinue}
+              onOpenClassroom={() => setActiveTab("classroom")}
+              onOpenTopicTest={() => {
+                setActiveTab("classroom");
+                window.setTimeout(() => setMissionTopicTestHintToken((token) => token + 1), 150);
+              }}
+              onOpenNotes={() => setActiveTab("gallery")}
+              onOpenGallery={() => setActiveTab("gallery")}
+              onOpenHelp={() => {
+                window.open(HELPDESK_URL, "_blank", "noopener,noreferrer");
+              }}
+            />
+          )}
+
           {activeTab === "classroom" && (
             <ClassroomView
-      onOpenPayments={() => setActiveTab("payments")}
+              onOpenPayments={() => setActiveTab("payments")}
+              onOpenStartFlow={() => openStartLearningFlow(false)}
+              onOpenParentLink={() => {
+                setParentLinkOpen(true);
+                setParentLinkStatus(null);
+              }}
               syllabusLoading={syllabusLoading}
               syllabusError={syllabusError}
               currentSubject={currentSubject}
@@ -2486,6 +2731,7 @@ const handleStartLesson = useCallback(async () => {
               onStartLesson={handleStartLesson}
               onAskQuestion={handleAskQuestion}
               isStartingLesson={isStartingLesson}
+              trialLimitNotice={trialLimitNotice}
               isAsking={isAsking}
               audioUrl={audioUrl}
               lessonAudioRef={lessonAudioRef}
@@ -2509,6 +2755,7 @@ const handleStartLesson = useCallback(async () => {
               onMissionRefresh={loadDailyMission}
               missionLessonHintToken={missionLessonHintToken}
               missionTopicTestHintToken={missionTopicTestHintToken}
+              onFocusFullscreenChange={setFocusFullscreenActive}
             />
           )}
 
@@ -2605,14 +2852,501 @@ const handleStartLesson = useCallback(async () => {
               />
             </div>
           )}
-</main>
+        </main>
+
+        {!focusFullscreenActive && (
+          <MobileStudentNav
+            activeTab={activeTab}
+            onHome={() => setActiveTab("dashboard")}
+            onClass={() => setActiveTab("classroom")}
+            onTest={() => {
+              setActiveTab("classroom");
+              window.setTimeout(() => setMissionTopicTestHintToken((token) => token + 1), 150);
+            }}
+            onNotes={() => setActiveTab("gallery")}
+            onProfile={() => setActiveTab("payments")}
+          />
+        )}
       </div>
     </div>
+
+    <StartLearningModal
+      open={startFlowOpen}
+      loading={syllabusLoading}
+      error={syllabusError}
+      subjects={subjects}
+      chapters={filteredChapters}
+      topics={filteredTopics}
+      currentSubject={currentSubject}
+      currentChapter={currentChapter}
+      selectedSubjectId={selectedSubjectId}
+      selectedChapterId={selectedChapterId}
+      selectedTopicId={selectedTopicId}
+      isStartingLesson={isStartingLesson || !!guidedStartPendingTopicId}
+      onClose={() => setStartFlowOpen(false)}
+      onSelectSubject={(id) => setSelectedSubjectId(id)}
+      onSelectChapter={(id) => setSelectedChapterId(id)}
+      onSelectTopic={handleGuidedTopicSelect}
+    />
   </div>
 );
 }
                
 /* ---------- Small components ---------- */
+
+function MobileStudentNav({
+  activeTab,
+  onHome,
+  onClass,
+  onTest,
+  onNotes,
+  onProfile,
+}: {
+  activeTab: ActiveTab;
+  onHome: () => void;
+  onClass: () => void;
+  onTest: () => void;
+  onNotes: () => void;
+  onProfile: () => void;
+}) {
+  const items = [
+    { key: "dashboard", label: "Home", icon: BookOpen, action: onHome, active: activeTab === "dashboard" },
+    { key: "gallery", label: "Library", icon: Images, action: onNotes, active: activeTab === "gallery" },
+    { key: "classroom", label: "Classroom", icon: Play, action: onClass, active: activeTab === "classroom" },
+    { key: "test", label: "Test", icon: ClipboardCheck, action: onTest, active: false },
+    { key: "profile", label: "Plan", icon: Target, action: onProfile, active: activeTab === "payments" },
+  ];
+
+  return (
+    <nav className="neo-mobile-bottom-nav hidden" aria-label="Student mobile navigation">
+      {items.map((item) => {
+        const Icon = item.icon;
+        return (
+          <button
+            key={item.key}
+            type="button"
+            onClick={item.action}
+            className={item.active ? "is-active" : ""}
+          >
+            <Icon className="h-4 w-4" />
+            <span>{item.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function StudentDashboardView({
+  student,
+  currentSubject,
+  currentChapter,
+  currentTopic,
+  daily,
+  dailyLoading,
+  dailyMission,
+  dailyMissionTasks,
+  dailyMissionLoading,
+  dailyMissionError,
+  savedSessionsCount,
+  notesLoading,
+  guidedStartStatus,
+  onStartLearning,
+  onContinueMission,
+  onOpenClassroom,
+  onOpenTopicTest,
+  onOpenNotes,
+  onOpenGallery,
+  onOpenHelp,
+}: {
+  student: StudentInfo;
+  currentSubject: SubjectRow | null;
+  currentChapter: ChapterRow | null;
+  currentTopic: TopicRow | null;
+  daily: { topicsCompleted: number; testsTaken: number; avgScore: number | null } | null;
+  dailyLoading: boolean;
+  dailyMission: DailyMission | null;
+  dailyMissionTasks: DailyMissionTask[];
+  dailyMissionLoading: boolean;
+  dailyMissionError: string | null;
+  savedSessionsCount: number;
+  notesLoading: boolean;
+  guidedStartStatus: string | null;
+  onStartLearning: () => void;
+  onContinueMission: () => void;
+  onOpenClassroom: () => void;
+  onOpenTopicTest: () => void;
+  onOpenNotes: () => void;
+  onOpenGallery: () => void;
+  onOpenHelp: () => void;
+}) {
+  const firstName = student.name?.trim().split(/\s+/)[0] || "Learner";
+  const classLabel =
+    String(student.track || student.subjectType || "regular").toLowerCase() === "competitive"
+      ? `${student.competitiveExam || student.board || "Competitive"}`
+      : `Class ${student.classId}`;
+  const missionCompleted = dailyMissionTasks.filter((task) => task.status === "completed").length;
+  const currentPath = [currentSubject?.subject_name, currentChapter?.chapter_name, currentTopic?.topic_name]
+    .filter(Boolean)
+    .join(" > ");
+
+  const cards = [
+    {
+      title: "Daily Mission",
+      body: dailyMissionLoading
+        ? "Loading today's mission..."
+        : dailyMissionError
+        ? "Mission is unavailable right now."
+        : `${missionCompleted}/3 tasks completed`,
+      icon: Target,
+      action: onContinueMission,
+      actionText: "Continue",
+    },
+    {
+      title: "Continue Last Class",
+      body: currentPath || "Pick a topic and begin your AI class.",
+      icon: BookOpen,
+      action: currentTopic ? onOpenClassroom : onStartLearning,
+      actionText: currentTopic ? "Open" : "Choose",
+    },
+    {
+      title: "Topic Test",
+      body: currentTopic ? `Practice ${currentTopic.topic_name}` : "Select a topic first.",
+      icon: ClipboardCheck,
+      action: currentTopic ? onOpenTopicTest : onStartLearning,
+      actionText: "Practice",
+    },
+    {
+      title: "Generate Notes",
+      body: notesLoading ? "Generating notes..." : "Create printable chapter notes.",
+      icon: FileText,
+      action: onOpenNotes,
+      actionText: "Notes",
+    },
+    {
+      title: "Class History",
+      body: savedSessionsCount ? `${savedSessionsCount} saved classes` : "Saved classes appear here.",
+      icon: History,
+      action: onOpenGallery,
+      actionText: "View",
+    },
+    {
+      title: "Gallery",
+      body: "Review transcripts, print notes, and export PDFs.",
+      icon: Images,
+      action: onOpenGallery,
+      actionText: "Open",
+    },
+    {
+      title: "Help",
+      body: "Get account, privacy, and learning support.",
+      icon: HelpCircle,
+      action: onOpenHelp,
+      actionText: "Help",
+    },
+  ];
+
+  return (
+    <div className="neo-dashboard h-full overflow-auto rounded-[28px] border border-blue-100 bg-white p-4 shadow-sm md:p-6">
+      <section className="neo-dashboard-hero rounded-[26px] border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-cyan-50 p-5 shadow-sm md:p-7">
+        <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <div className="neo-mobile-hero-brand hidden">NeoLearn</div>
+            <div className="mb-2 inline-flex rounded-full bg-white px-3 py-1 text-xs font-bold text-blue-700 shadow-sm">
+              {classLabel}
+            </div>
+            <h1 className="text-2xl font-bold tracking-normal text-slate-950 md:text-4xl">
+              Hi {firstName}, start a focused AI class.
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 md:text-base">
+              Choose a subject, chapter, and topic. NeoLearn will open the classroom and start teaching.
+            </p>
+            {currentPath && (
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-700">
+                {currentSubject?.subject_name}
+                <ChevronRight className="h-4 w-4 text-blue-500" />
+                {currentChapter?.chapter_name}
+                <ChevronRight className="h-4 w-4 text-blue-500" />
+                <span className="text-blue-700">{currentTopic?.topic_name}</span>
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={onStartLearning}
+            className="neo-primary-start-button inline-flex min-h-[64px] w-full items-center justify-center gap-3 rounded-[20px] bg-blue-600 px-6 py-4 text-lg font-bold text-white shadow-lg shadow-blue-200 hover:bg-blue-700 md:w-auto md:min-w-[260px]"
+          >
+            <Play className="h-6 w-6 fill-white" />
+            Start Learning
+          </button>
+        </div>
+
+        <div className="neo-mobile-teacher-stage hidden">
+          <div className="neo-mobile-teacher-orb">
+            <img src="/avatars/niya-math.png" alt="NeoLearn AI teacher" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-slate-900">Neo Riddhika is ready</div>
+            <div className="mt-0.5 text-xs font-semibold text-slate-500">
+              Pick a topic and start a focused class.
+            </div>
+          </div>
+        </div>
+
+        {guidedStartStatus && (
+          <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {guidedStartStatus}
+          </div>
+        )}
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+            <div className="text-xs font-semibold text-slate-500">Today</div>
+            <div className="mt-1 text-2xl font-bold text-slate-900">
+              {dailyLoading ? "..." : daily?.topicsCompleted ?? 0}
+            </div>
+            <div className="text-xs text-slate-500">topics completed</div>
+          </div>
+          <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+            <div className="text-xs font-semibold text-slate-500">Practice</div>
+            <div className="mt-1 text-2xl font-bold text-slate-900">
+              {dailyLoading ? "..." : daily?.testsTaken ?? 0}
+            </div>
+            <div className="text-xs text-slate-500">tests taken</div>
+          </div>
+          <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+            <div className="text-xs font-semibold text-slate-500">Average</div>
+            <div className="mt-1 text-2xl font-bold text-slate-900">
+              {dailyLoading ? "..." : daily?.avgScore !== null && daily?.avgScore !== undefined ? `${Math.round(daily.avgScore)}%` : "-"}
+            </div>
+            <div className="text-xs text-slate-500">test score</div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-bold text-slate-900">Today&apos;s Learning</h2>
+          <span className="text-xs font-semibold text-slate-500">Recommended</span>
+        </div>
+        <div className="neo-today-learning-card mb-4 hidden">
+          <div>
+            <div className="text-xs font-bold uppercase tracking-wide text-blue-600">Next step</div>
+            <div className="mt-1 text-sm font-bold text-slate-950">
+              {currentTopic?.topic_name || missionLabel(dailyMission?.topic_name, "Start your next topic")}
+            </div>
+            <div className="mt-1 text-xs font-semibold text-slate-500">
+              Daily Mission: {missionCompleted}/3 completed
+            </div>
+          </div>
+          <button type="button" onClick={currentTopic ? onOpenClassroom : onStartLearning}>
+            Continue
+          </button>
+        </div>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-bold text-slate-900">Quick actions</h2>
+          <span className="text-xs font-semibold text-slate-500">Tools</span>
+        </div>
+        <div className="neo-card-rail flex gap-3 overflow-x-auto pb-2">
+          {cards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <button
+                key={card.title}
+                type="button"
+                onClick={card.action}
+                className="neo-action-card min-h-[150px] min-w-[230px] rounded-[22px] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
+              >
+                <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <span className="block text-sm font-bold text-slate-900">{card.title}</span>
+                <span className="mt-1 line-clamp-2 block text-xs leading-5 text-slate-500">{card.body}</span>
+                <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-blue-700">
+                  {card.actionText}
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function StartLearningModal({
+  open,
+  loading,
+  error,
+  subjects,
+  chapters,
+  topics,
+  currentSubject,
+  currentChapter,
+  selectedSubjectId,
+  selectedChapterId,
+  selectedTopicId,
+  isStartingLesson,
+  onClose,
+  onSelectSubject,
+  onSelectChapter,
+  onSelectTopic,
+}: {
+  open: boolean;
+  loading: boolean;
+  error: string | null;
+  subjects: SubjectRow[];
+  chapters: ChapterRow[];
+  topics: TopicRow[];
+  currentSubject: SubjectRow | null;
+  currentChapter: ChapterRow | null;
+  selectedSubjectId: number | null;
+  selectedChapterId: number | null;
+  selectedTopicId: number | null;
+  isStartingLesson: boolean;
+  onClose: () => void;
+  onSelectSubject: (id: number) => void;
+  onSelectChapter: (id: number) => void;
+  onSelectTopic: (id: number) => void;
+}) {
+  if (!open) return null;
+
+  const step = !selectedSubjectId ? "subject" : !selectedChapterId ? "chapter" : "topic";
+  const title =
+    step === "subject"
+      ? "Select Subject"
+      : step === "chapter"
+      ? "Select Chapter"
+      : "Select Topic";
+  const options =
+    step === "subject"
+      ? subjects
+      : step === "chapter"
+      ? chapters
+      : topics;
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 p-3 backdrop-blur-sm">
+      <div className="neo-start-modal flex max-h-[92dvh] w-full max-w-3xl flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl">
+        <div className="sticky top-0 z-10 shrink-0 border-b border-slate-100 bg-white px-4 py-4 md:px-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wide text-blue-600">
+                Start Learning
+              </div>
+              <h2 className="mt-1 text-xl font-bold text-slate-950">{title}</h2>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50"
+              aria-label="Close start learning popup"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-600">
+            <span className={selectedSubjectId ? "text-blue-700" : "text-slate-900"}>{currentSubject?.subject_name || "Subject"}</span>
+            <ChevronRight className="h-4 w-4 text-slate-300" />
+            <span className={selectedChapterId ? "text-blue-700" : "text-slate-400"}>{currentChapter?.chapter_name || "Chapter"}</span>
+            <ChevronRight className="h-4 w-4 text-slate-300" />
+            <span className={selectedTopicId ? "text-blue-700" : "text-slate-400"}>Topic</span>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+          {loading && (
+            <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-blue-200 bg-blue-50 text-blue-700">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="text-sm font-semibold">
+                {step === "subject" ? "Loading subjects..." : step === "chapter" ? "Loading chapters..." : "Loading topics..."}
+              </span>
+            </div>
+          )}
+
+          {!loading && error && (
+            <div className="rounded-3xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+              {error}
+            </div>
+          )}
+
+          {!loading && !error && options.length === 0 && (
+            <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+              <div className="text-base font-bold text-slate-800">
+                {step === "subject" ? "No subjects available" : step === "chapter" ? "No chapters available" : "No topics available"}
+              </div>
+              <p className="mt-2 text-sm text-slate-500">
+                Please try another selection or contact support if this looks wrong.
+              </p>
+            </div>
+          )}
+
+          {!loading && !error && options.length > 0 && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {step === "subject" &&
+                subjects.map((subject) => (
+                  <button
+                    key={subject.id}
+                    type="button"
+                    onClick={() => onSelectSubject(subject.id)}
+                    className="rounded-2xl border border-blue-100 bg-white p-4 text-left shadow-sm hover:border-blue-300 hover:bg-blue-50"
+                  >
+                    <span className="block text-base font-bold text-slate-900">{subject.subject_name}</span>
+                    <span className="mt-1 block text-sm text-slate-500">
+                      {subject.class_number > 0 ? `Class ${subject.class_number}` : "Competitive"}
+                    </span>
+                  </button>
+                ))}
+
+              {step === "chapter" &&
+                chapters.map((chapter) => (
+                  <button
+                    key={chapter.id}
+                    type="button"
+                    onClick={() => onSelectChapter(chapter.id)}
+                    className="rounded-2xl border border-blue-100 bg-white p-4 text-left shadow-sm hover:border-blue-300 hover:bg-blue-50"
+                  >
+                    <span className="block text-sm font-bold text-blue-700">Chapter {chapter.chapter_number}</span>
+                    <span className="mt-1 block text-base font-bold text-slate-900">{chapter.chapter_name}</span>
+                  </button>
+                ))}
+
+              {step === "topic" &&
+                topics.map((topic) => (
+                  <button
+                    key={topic.id}
+                    type="button"
+                    onClick={() => onSelectTopic(topic.id)}
+                    className="rounded-2xl border border-blue-100 bg-white p-4 text-left shadow-sm hover:border-blue-300 hover:bg-blue-50"
+                  >
+                    <span className="block text-sm font-bold text-cyan-700">Topic {topic.topic_number}</span>
+                    <span className="mt-1 block text-base font-bold text-slate-900">{topic.topic_name}</span>
+                    <span className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-blue-700">
+                      Start AI class
+                      <Play className="h-4 w-4 fill-blue-700" />
+                    </span>
+                  </button>
+                ))}
+            </div>
+          )}
+        </div>
+
+        {isStartingLesson && (
+          <div className="shrink-0 border-t border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700 md:px-6">
+            <span className="inline-flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Starting your AI class...
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function TabButton({
   active,
@@ -4102,6 +4836,8 @@ function RoutineView({
 
 function ClassroomView(props: {
   onOpenPayments: () => void;
+  onOpenStartFlow: () => void;
+  onOpenParentLink: () => void;
   syllabusLoading: boolean;
   syllabusError: string | null;
   currentSubject: SubjectRow | null;
@@ -4117,6 +4853,7 @@ function ClassroomView(props: {
   onStartLesson: () => Promise<void> | void;
   onAskQuestion: () => Promise<void> | void;
   isStartingLesson: boolean;
+  trialLimitNotice: { topicId: number | null; message: string } | null;
   isAsking: boolean;
   audioUrl: string | null;
   lessonAudioRef: React.RefObject<HTMLAudioElement | null>;
@@ -4144,9 +4881,12 @@ function ClassroomView(props: {
   onMissionRefresh: () => void | Promise<void>;
   missionLessonHintToken: number;
   missionTopicTestHintToken: number;
+  onFocusFullscreenChange?: (active: boolean) => void;
 }) {
   const {
     onOpenPayments,
+    onOpenStartFlow,
+    onOpenParentLink,
     syllabusLoading,
     syllabusError,
     currentSubject,
@@ -4162,6 +4902,7 @@ function ClassroomView(props: {
     onStartLesson,
     onAskQuestion,
     isStartingLesson,
+    trialLimitNotice,
     isAsking,
     audioUrl,
     lessonAudioRef,
@@ -4183,12 +4924,19 @@ function ClassroomView(props: {
     onMissionRefresh,
     missionLessonHintToken,
     missionTopicTestHintToken,
+    onFocusFullscreenChange,
   } = props;
 
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [boardOpen, setBoardOpen] = useState(false);
+  const [boardMode, setBoardMode] = useState<"ready" | "visual" | "steps" | "summary">("ready");
+  const [classroomFullscreen, setClassroomFullscreen] = useState(false);
+  const [boardFullscreen, setBoardFullscreen] = useState(false);
+  const [liveActionDrawerOpen, setLiveActionDrawerOpen] = useState(false);
+  const [liveToolsPosition, setLiveToolsPosition] = useState<{ x: number; y: number } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const composerMenuRef = useRef<HTMLDivElement | null>(null);
 
   const [realtimeClient, setRealtimeClient] =
     useState<RealtimeTeacherClient | null>(null);
@@ -4197,6 +4945,30 @@ function ClassroomView(props: {
   const [realtimeStatus, setRealtimeStatus] = useState<string>("Ready");
   const [realtimeTranscript, setRealtimeTranscript] = useState("");
   const lastRealtimeTranscriptRef = useRef("");
+  const lastChatScrollTopRef = useRef(0);
+  const liveToolsDragRef = useRef({
+    active: false,
+    moved: false,
+    startX: 0,
+    startY: 0,
+    startLeft: 0,
+    startTop: 0,
+  });
+  const suppressLiveToolsClickRef = useRef(false);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const closeComposerMenu = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (composerMenuRef.current?.contains(target)) return;
+      setMenuOpen(false);
+    };
+
+    document.addEventListener("pointerdown", closeComposerMenu);
+    return () => document.removeEventListener("pointerdown", closeComposerMenu);
+  }, [menuOpen]);
 
   const [topicTest, setTopicTest] = useState<TopicTestQuestion[] | null>(null);
   const [topicTestAnswers, setTopicTestAnswers] = useState<
@@ -4222,6 +4994,7 @@ function ClassroomView(props: {
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
 
   const goTab = (tab: ActiveTab) => {
     onNavigateTab(tab);
@@ -4251,6 +5024,11 @@ function ClassroomView(props: {
       } catch {}
     };
   }, [realtimeClient]);
+
+  useEffect(() => {
+    onFocusFullscreenChange?.(classroomFullscreen || boardFullscreen);
+    return () => onFocusFullscreenChange?.(false);
+  }, [classroomFullscreen, boardFullscreen, onFocusFullscreenChange]);
 
 useEffect(() => {
   if (!realtimeClient) return;
@@ -4769,6 +5547,11 @@ useEffect(() => {
   return () => window.clearTimeout(timeout);
 }, [missionTopicTestHintToken]);
 
+useEffect(() => {
+  setBoardMode("ready");
+  setBoardFullscreen(false);
+}, [currentTopic?.id]);
+
   const buildCompetitiveWeakDiagnosis = (
     questions: TopicTestQuestion[],
     answers: Record<number, number | null>,
@@ -4962,17 +5745,102 @@ useEffect(() => {
   const renderBoardVisual = () => {
     const boardTopic = (currentTopic?.topic_name || "").toLowerCase();
     const boardSubject = (currentSubject?.subject_name || "").toLowerCase();
+    const topicName = currentTopic?.topic_name || "this topic";
+    const chapterName = currentChapter?.chapter_name || "current chapter";
+    const isMath =
+      boardSubject.includes("math") ||
+      boardTopic.includes("fraction") ||
+      boardTopic.includes("decimal") ||
+      boardTopic.includes("angle") ||
+      boardTopic.includes("triangle");
+    const isScience =
+      boardSubject.includes("science") ||
+      boardTopic.includes("sieving") ||
+      boardTopic.includes("winnowing");
 
     if (!currentTopic) {
       return (
-        <div className="flex h-full items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-slate-50 text-center">
+        <div className="neo-smart-board-canvas flex h-full items-center justify-center rounded-3xl border border-dashed border-blue-200 bg-blue-50 text-center">
           <div>
-            <div className="text-xl font-semibold text-slate-700">
-              Teacher Smart Board
-            </div>
-            <p className="mt-2 max-w-md text-sm text-slate-500">
-              Open the board only when the topic needs a diagram, animation, or visual explanation.
+            <div className="text-xl font-bold text-slate-800">Teacher Smart Board</div>
+            <p className="mt-2 max-w-md text-sm text-slate-600">
+              Select a topic to visualize formulas, diagrams, and step-by-step ideas here.
             </p>
+          </div>
+        </div>
+      );
+    }
+
+    if (boardMode === "ready") {
+      return (
+        <div className="neo-smart-board-canvas flex h-full items-center justify-center rounded-3xl bg-gradient-to-br from-white via-blue-50 to-cyan-50 p-5 text-center">
+          <div className="max-w-md">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-blue-600 text-2xl font-black text-white shadow-lg shadow-blue-200">
+              AI
+            </div>
+            <div className="text-2xl font-bold text-slate-900">{topicName}</div>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              Smart Board is ready. Tap Explain on Board to visualize this topic.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    if (boardMode === "steps") {
+      return (
+        <div className="neo-smart-board-canvas neo-smart-board-steps h-full overflow-y-auto rounded-3xl bg-slate-950 p-5 text-white">
+          <div className="neo-smart-board-steps-title mb-4 text-sm font-bold uppercase tracking-wide text-cyan-200">
+            Step-by-step
+          </div>
+          <div className="space-y-3">
+            {[
+              `Identify the key idea in ${topicName}.`,
+              `Connect it with ${chapterName}.`,
+              isMath ? "Write the formula or rule before solving." : "Observe the process or cause-and-effect clearly.",
+              "Solve one example slowly and check each step.",
+              "Try a similar question on your own.",
+            ].map((step, index) => (
+              <div key={step} className="neo-smart-board-step-row flex gap-3 rounded-2xl bg-white/10 p-3">
+                <span className="neo-smart-board-step-index flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-300 text-sm font-black text-slate-950">
+                  {index + 1}
+                </span>
+                <span className="neo-smart-board-step-text text-sm leading-6 text-white/90">{step}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (boardMode === "summary") {
+      return (
+        <div className="neo-smart-board-canvas h-full overflow-y-auto rounded-3xl bg-white p-5">
+          <div className="mb-4 rounded-3xl bg-gradient-to-r from-blue-600 to-cyan-500 p-4 text-white">
+            <div className="text-xs font-bold uppercase tracking-wide text-white/75">
+              Topic summary
+            </div>
+            <div className="mt-1 text-xl font-bold">{topicName}</div>
+          </div>
+          <div className="grid gap-3">
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+              <div className="text-sm font-bold text-blue-900">Main idea</div>
+              <p className="mt-1 text-sm leading-6 text-slate-700">
+                Understand the core concept first, then connect it to examples and practice.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-cyan-100 bg-cyan-50 p-4">
+              <div className="text-sm font-bold text-cyan-900">Remember</div>
+              <p className="mt-1 text-sm leading-6 text-slate-700">
+                Keep definitions, formulas, diagrams, and common mistakes together while revising.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4">
+              <div className="text-sm font-bold text-violet-900">Practice next</div>
+              <p className="mt-1 text-sm leading-6 text-slate-700">
+                Solve a topic test and review weak areas immediately after the lesson.
+              </p>
+            </div>
           </div>
         </div>
       );
@@ -4980,8 +5848,8 @@ useEffect(() => {
 
     if (boardTopic.includes("fraction") || boardTopic.includes("decimal")) {
       return (
-        <div className="flex h-full flex-col justify-center rounded-3xl bg-slate-50 p-5">
-          <div className="mb-4 text-3xl font-bold text-slate-800">
+        <div className="neo-smart-board-canvas flex h-full flex-col justify-center rounded-3xl bg-white p-5">
+          <div className="mb-4 rounded-2xl bg-slate-950 px-4 py-3 text-3xl font-bold text-white">
             1/2 + 1/4 = 3/4
           </div>
           <div className="space-y-4">
@@ -5004,6 +5872,9 @@ useEffect(() => {
               <div className="h-12 rounded-xl bg-slate-200" />
             </div>
           </div>
+          <p className="mt-4 text-sm font-semibold text-slate-600">
+            Fractions become easy when each bar has the same number of equal parts.
+          </p>
         </div>
       );
     }
@@ -5014,7 +5885,7 @@ useEffect(() => {
       boardTopic.includes("symmetry")
     ) {
       return (
-        <div className="flex h-full items-center justify-center rounded-3xl bg-slate-50 p-5">
+        <div className="neo-smart-board-canvas flex h-full items-center justify-center rounded-3xl bg-white p-5">
           <svg viewBox="0 0 700 360" className="h-full w-full max-w-3xl">
             <line x1="150" y1="280" x2="550" y2="280" stroke="#16a34a" strokeWidth="6" />
             <line x1="150" y1="280" x2="350" y2="80" stroke="#2563eb" strokeWidth="6" />
@@ -5038,7 +5909,7 @@ useEffect(() => {
       boardSubject.includes("science")
     ) {
       return (
-        <div className="grid h-full grid-cols-1 gap-4 rounded-3xl bg-slate-50 p-5 md:grid-cols-2">
+        <div className="neo-smart-board-canvas grid h-full grid-cols-1 gap-4 overflow-y-auto rounded-3xl bg-white p-5 md:grid-cols-2">
           <div className="rounded-2xl bg-white p-4 shadow-sm">
             <div className="mb-3 text-sm font-semibold text-slate-700">
               Separation flow
@@ -5073,20 +5944,252 @@ useEffect(() => {
     }
 
     return (
-      <div className="flex h-full items-center justify-center rounded-3xl bg-slate-50 p-5">
-        <div className="max-w-xl rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-          <div className="text-2xl font-semibold text-slate-800">
-            {currentTopic.topic_name}
+      <div className="neo-smart-board-canvas flex h-full items-center justify-center rounded-3xl bg-gradient-to-br from-white via-blue-50 to-violet-50 p-5">
+        <div className="max-w-xl rounded-3xl border border-blue-100 bg-white/90 p-6 text-center shadow-sm">
+          <div className="text-xs font-bold uppercase tracking-wide text-blue-600">
+            Explain on Board
           </div>
+          <div className="mt-2 text-2xl font-bold text-slate-900">{topicName}</div>
           <p className="mt-3 text-sm leading-7 text-slate-600">
-            This teacher board displays diagrams, examples, highlighted steps,
-            and explanations for the current topic. The student watches the board
-            while the AI teacher explains the lesson smoothly.
+            Visualize the important idea, then switch to Step-by-step or Summary for revision.
           </p>
         </div>
       </div>
     );
   };
+
+  const boardActionBar = (
+    <div className="neo-smart-board-actions">
+      <button type="button" title="Explain" aria-label="Explain" onClick={() => setBoardMode("visual")}>
+        <Lightbulb className="h-4 w-4" />
+      </button>
+      <button type="button" title="Draw" aria-label="Draw" onClick={() => setBoardMode("visual")}>
+        <Pencil className="h-4 w-4" />
+      </button>
+      <button type="button" title="Steps" aria-label="Steps" onClick={() => setBoardMode("steps")}>
+        <ListChecks className="h-4 w-4" />
+      </button>
+      <button type="button" title="Reset" aria-label="Reset" onClick={() => setBoardMode("ready")}>
+        <RotateCcw className="h-4 w-4" />
+      </button>
+      <button type="button" title={boardFullscreen ? "Exit Fullscreen" : "Fullscreen"} aria-label={boardFullscreen ? "Exit Fullscreen" : "Fullscreen"} onClick={() => setBoardFullscreen((value) => !value)}>
+        {boardFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+      </button>
+      <button
+        type="button"
+        title="Close"
+        aria-label="Close"
+        onClick={() => {
+          setBoardFullscreen(false);
+          setBoardOpen(false);
+        }}
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  );
+
+  const handleChatScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const nextTop = event.currentTarget.scrollTop;
+    const previousTop = lastChatScrollTopRef.current;
+    if (Math.abs(nextTop - previousTop) > 12) {
+      lastChatScrollTopRef.current = nextTop;
+    }
+  };
+
+  const clampLiveToolsPosition = useCallback((position: { x: number; y: number }) => {
+    if (typeof window === "undefined") return position;
+    const size = 48;
+    const margin = 10;
+    const topLimit = margin;
+    const bottomLimit = Math.max(topLimit, window.innerHeight - size - margin);
+    const rightLimit = Math.max(margin, window.innerWidth - size - margin);
+    return {
+      x: Math.min(Math.max(position.x, margin), rightLimit),
+      y: Math.min(Math.max(position.y, topLimit), bottomLimit),
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem("neolearnLiveToolsPosition");
+    let parsed: { x: number; y: number } | null = null;
+    try {
+      parsed = saved ? JSON.parse(saved) : null;
+    } catch {}
+    const initial =
+      parsed && Number.isFinite(parsed.x) && Number.isFinite(parsed.y)
+        ? parsed
+        : { x: window.innerWidth - 58, y: window.innerHeight * 0.58 };
+    setLiveToolsPosition(clampLiveToolsPosition(initial));
+  }, [clampLiveToolsPosition]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => {
+      setLiveToolsPosition((value) => {
+        const next = clampLiveToolsPosition(
+          value ?? { x: window.innerWidth - 58, y: window.innerHeight * 0.58 }
+        );
+        window.localStorage.setItem("neolearnLiveToolsPosition", JSON.stringify(next));
+        return next;
+      });
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [clampLiveToolsPosition]);
+
+  const handleLiveToolsPointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const position = liveToolsPosition ?? { x: rect.left, y: rect.top };
+    liveToolsDragRef.current = {
+      active: true,
+      moved: false,
+      startX: event.clientX,
+      startY: event.clientY,
+      startLeft: position.x,
+      startTop: position.y,
+    };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  const handleLiveToolsPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = liveToolsDragRef.current;
+    if (!drag.active) return;
+    const deltaX = event.clientX - drag.startX;
+    const deltaY = event.clientY - drag.startY;
+    if (Math.abs(deltaY) > 5 || Math.abs(deltaX) > 5) {
+      drag.moved = true;
+    }
+    setLiveToolsPosition(
+      clampLiveToolsPosition({
+        x: drag.startLeft + deltaX,
+        y: drag.startTop + deltaY,
+      })
+    );
+  };
+
+  const handleLiveToolsPointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = liveToolsDragRef.current;
+    liveToolsDragRef.current = { ...drag, active: false };
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    if (drag.moved) {
+      suppressLiveToolsClickRef.current = true;
+      const next = clampLiveToolsPosition({
+        x: drag.startLeft + event.clientX - drag.startX,
+        y: drag.startTop + event.clientY - drag.startY,
+      });
+      setLiveToolsPosition(next);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("neolearnLiveToolsPosition", JSON.stringify(next));
+        window.setTimeout(() => {
+          suppressLiveToolsClickRef.current = false;
+        }, 180);
+      }
+    }
+  };
+
+  const livePaletteStyle = (() => {
+    if (!liveToolsPosition || typeof window === "undefined") return undefined;
+    const paletteWidth = 190;
+    const paletteHeight = 190;
+    const margin = 10;
+    const left = liveToolsPosition.x > window.innerWidth / 2
+      ? liveToolsPosition.x - paletteWidth - 12
+      : liveToolsPosition.x + 60;
+    return {
+      left: Math.min(Math.max(left, margin), window.innerWidth - paletteWidth - margin),
+      top: Math.min(
+        Math.max(liveToolsPosition.y - paletteHeight / 2 + 24, margin),
+        window.innerHeight - paletteHeight - margin
+      ),
+    };
+  })();
+
+  const livePaletteSide =
+    liveToolsPosition && typeof window !== "undefined" && liveToolsPosition.x > window.innerWidth / 2
+      ? "is-left-of-trigger"
+      : "is-right-of-trigger";
+
+  const liveActionDrawer = (
+    <>
+      {liveActionDrawerOpen && (
+        <button
+          type="button"
+          aria-label="Close class actions"
+          className="neo-live-action-backdrop hidden lg:hidden"
+          onClick={() => setLiveActionDrawerOpen(false)}
+        />
+      )}
+
+      <button
+        type="button"
+        aria-label={liveActionDrawerOpen ? "Close class actions" : "Open class actions"}
+        className={`neo-live-action-trigger hidden lg:hidden ${liveActionDrawerOpen ? "is-open" : ""}`}
+        style={
+          liveToolsPosition
+            ? { left: liveToolsPosition.x, top: liveToolsPosition.y, right: "auto", bottom: "auto" }
+            : undefined
+        }
+        onPointerDown={handleLiveToolsPointerDown}
+        onPointerMove={handleLiveToolsPointerMove}
+        onPointerUp={handleLiveToolsPointerUp}
+        onPointerCancel={handleLiveToolsPointerUp}
+        onClick={() => {
+          if (suppressLiveToolsClickRef.current) return;
+          setLiveActionDrawerOpen((value) => !value);
+        }}
+      >
+        {liveActionDrawerOpen ? <X className="h-5 w-5" /> : <SlidersHorizontal className="h-5 w-5" />}
+      </button>
+
+      <aside
+        className={`neo-live-icon-palette hidden lg:hidden ${livePaletteSide} ${liveActionDrawerOpen ? "is-open" : ""}`}
+        style={livePaletteStyle}
+        aria-label="Live class tools"
+      >
+        <button ref={startLessonButtonRef} type="button" title="Start" aria-label="Start" data-mission-action="start-lesson" onClick={() => { setLiveActionDrawerOpen(false); if (!isStartingLesson) void handleStartLessonClick(); }} disabled={isStartingLesson} className={highlightStartLessonButton ? "is-highlighted" : ""}>
+          <Play className="h-4 w-4" />
+        </button>
+        <button ref={topicTestButtonRef} type="button" title="Test" aria-label="Test" data-mission-action="topic-test" onClick={() => { setLiveActionDrawerOpen(false); handleStartTopicTest(); }} disabled={isLoadingTest || !currentTopic} className={highlightTopicTestButton ? "is-highlighted" : ""}>
+          <ClipboardCheck className="h-4 w-4" />
+        </button>
+        <button type="button" title="Save" aria-label="Save" onClick={() => { setLiveActionDrawerOpen(false); handleEndClassClick(); }}>
+          <Save className="h-4 w-4" />
+        </button>
+        <button type="button" title="Topic" aria-label="Topic" onClick={() => { setLiveActionDrawerOpen(false); onOpenStartFlow(); }}>
+          <RotateCcw className="h-4 w-4" />
+        </button>
+        <button type="button" title="Notes" aria-label="Notes" onClick={() => { setLiveActionDrawerOpen(false); goTab("gallery"); }}>
+          <FileText className="h-4 w-4" />
+        </button>
+        <button type="button" title="Upload" aria-label="Upload" onClick={() => { setLiveActionDrawerOpen(false); uploadInputRef.current?.click(); }}>
+          <Upload className="h-4 w-4" />
+        </button>
+        <button type="button" title="Camera" aria-label="Camera" onClick={() => { setLiveActionDrawerOpen(false); void openCamera(); }}>
+          <Camera className="h-4 w-4" />
+        </button>
+        <button type="button" title="Board" aria-label="Board" onClick={() => { setLiveActionDrawerOpen(false); setBoardFullscreen(false); setBoardOpen(true); }}>
+          <Monitor className="h-4 w-4" />
+        </button>
+        <button type="button" title="Progress" aria-label="Progress" onClick={() => { setLiveActionDrawerOpen(false); goTab("progress"); }}>
+          <Target className="h-4 w-4" />
+        </button>
+        <button type="button" title="Gallery" aria-label="Gallery" onClick={() => { setLiveActionDrawerOpen(false); goTab("gallery"); }}>
+          <History className="h-4 w-4" />
+        </button>
+        <button type="button" title="Link Parent" aria-label="Link Parent" onClick={() => { setLiveActionDrawerOpen(false); onOpenParentLink(); }}>
+          <UserPlus className="h-4 w-4" />
+        </button>
+        <button type="button" title="Fullscreen Chat" aria-label="Fullscreen Chat" onClick={() => setClassroomFullscreen((value) => !value)}>
+          {classroomFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        </button>
+        <button type="button" title="Fullscreen Board" aria-label="Fullscreen Board" onClick={() => { setBoardOpen(true); setBoardFullscreen(true); }}>
+          <Monitor className="h-4 w-4" />
+        </button>
+      </aside>
+    </>
+  );
 
   const drawerPanel = (
     <div className="flex h-full flex-col gap-3 overflow-y-auto p-3">
@@ -5142,6 +6245,17 @@ useEffect(() => {
             {currentTopic?.topic_name || "-"}
           </div>
         </div>
+        <button
+          type="button"
+          onClick={() => {
+            onOpenStartFlow();
+            setMobileDrawerOpen(false);
+          }}
+          className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700 hover:bg-blue-100"
+        >
+          <RotateCcw className="h-4 w-4" />
+          Change Topic
+        </button>
       </div>
 
       <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -5275,9 +6389,17 @@ useEffect(() => {
     </div>
   );
 
+  const breadcrumbItems = [
+    currentSubject?.subject_name || "Subject",
+    currentChapter?.chapter_name || "Chapter",
+    currentTopic?.topic_name || "Topic",
+  ];
+
   return (
     <>
-      <div className="neo-classroom relative flex h-full min-h-0 w-full overflow-hidden rounded-[28px] border border-slate-200 bg-slate-50">
+      <div className={`neo-classroom relative flex h-full min-h-0 w-full overflow-hidden rounded-[28px] border border-slate-200 bg-slate-50 ${
+        classroomFullscreen ? "is-classroom-fullscreen" : ""
+      } ${isClassLive ? "is-live-minimal" : ""}`}>
         {mobileDrawerOpen && (
           <div
             className="fixed inset-0 z-40 bg-black/30 lg:hidden"
@@ -5294,14 +6416,14 @@ useEffect(() => {
 
         <aside
           className={`hidden border-r border-slate-200 bg-slate-50 transition-[width] duration-300 lg:block ${
-            drawerOpen ? "w-[280px]" : "w-[64px]"
+            drawerOpen ? "w-[260px]" : "w-[64px]"
           }`}
         >
           {drawerOpen ? drawerPanel : rail}
         </aside>
 
         <aside
-          className={`fixed inset-y-0 left-0 z-50 w-[280px] border-r border-slate-200 bg-slate-50 shadow-xl transition-transform duration-300 lg:hidden ${
+          className={`neo-mobile-class-drawer fixed inset-y-0 left-0 z-50 w-[88vw] max-w-[360px] border-r border-slate-200 bg-slate-50 shadow-xl transition-transform duration-300 lg:hidden ${
             mobileDrawerOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
@@ -5311,7 +6433,7 @@ useEffect(() => {
         <section className="relative min-w-0 flex-1">
           <div
             className={`neo-classroom-content flex h-full min-h-0 flex-col p-3 transition-all duration-300 ${
-              boardOpen ? "lg:pr-[30%]" : ""
+              boardOpen ? "lg:pr-[38%]" : ""
             }`}
           >
             <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -5361,27 +6483,34 @@ useEffect(() => {
                       type="button"
                       onClick={() => setMobileDrawerOpen(true)}
                       aria-label="Open classroom menu"
-                      className="rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 lg:hidden"
+                      className="neo-classroom-menu-button rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 lg:hidden"
                     >
-                      ☰
+                      <MoreVertical className="h-4 w-4" />
                     </button>
 
                     {!drawerOpen && (
                       <button
                         type="button"
                         onClick={() => setDrawerOpen(true)}
-                        className="hidden rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 lg:block"
+                        className="neo-classroom-menu-button hidden rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 lg:block"
                       >
-                        |||
+                        <MoreVertical className="h-4 w-4" />
                       </button>
                     )}
 
                     <div className="neo-conversation-copy">
                       <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                        Conversation
+                        AI Classroom
                       </div>
-                      <div className="mt-1 text-sm text-slate-500">
-                        Lesson flow, doubts, AI replies, and live captions.
+                      <div className="mt-1 flex flex-wrap items-center gap-1 text-sm font-semibold text-slate-700">
+                        {breadcrumbItems.map((item, index) => (
+                          <span key={`${item}-${index}`} className="inline-flex items-center gap-1">
+                            <span className={index === 2 ? "text-blue-700" : ""}>{item}</span>
+                            {index < breadcrumbItems.length - 1 && (
+                              <ChevronRight className="h-4 w-4 text-slate-300" />
+                            )}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -5411,36 +6540,57 @@ useEffect(() => {
     <option value="Fast">Fast</option>
   </select>
 
-  <div
-    className={`rounded-2xl px-3 py-2 text-sm font-semibold ${
-      isClassLive
-        ? "bg-emerald-50 text-emerald-700"
-        : "bg-slate-100 text-slate-600"
-    }`}
+  <button
+    type="button"
+    onClick={onOpenStartFlow}
+    className="neo-secondary-control-chip inline-flex items-center gap-1 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100"
   >
-    {isClassLive
-      ? `Live ${Math.floor(remainingSeconds / 60)}m ${remainingSeconds % 60}s`
-      : "Not started"}
-  </div>
-
-  <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-    {messages.length} messages
-  </div>
-
+    <RotateCcw className="h-3.5 w-3.5" />
+    Change Topic
+  </button>
   <button
     type="button"
     onClick={() => setBoardOpen((v) => !v)}
-    className="rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+    className="neo-secondary-control-chip rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
   >
-    {boardOpen ? "Hide board" : "Open board"}
+    {boardOpen ? "Hide Board" : "Open Board"}
   </button>
 </div>
 </div>
 </div>
 
               <div className="neo-chat-panel min-h-0 flex-1 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-                <div className="h-full overflow-y-auto overscroll-contain px-4 py-4">
+                <div
+                  className="h-full overflow-y-auto overscroll-contain px-4 py-4"
+                  onScroll={handleChatScroll}
+                >
                   <div className="space-y-3">
+                    {trialLimitNotice && (
+                      <div className="rounded-3xl border border-blue-200 bg-blue-50 px-4 py-4 text-sm text-slate-800 shadow-sm">
+                        <div className="font-bold text-blue-800">
+                          {trialLimitNotice.message}
+                        </div>
+                        <div className="mt-1 text-xs leading-5 text-slate-600">
+                          {currentTopic?.topic_name
+                            ? `Topic: ${currentTopic.topic_name}`
+                            : "Your selected topic is ready."}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={onOpenPayments}
+                          className="mt-3 inline-flex min-h-10 items-center justify-center rounded-2xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
+                        >
+                          Subscribe / Pricing
+                        </button>
+                      </div>
+                    )}
+
+                    {audioError && (
+                      <div className="neo-classroom-warning rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 shadow-sm">
+                        {audioError}
+                      </div>
+                    )}
+
                     {messages.map((m) => {
                       const isTeacher = m.author === "Teacher";
                       return (
@@ -5510,44 +6660,23 @@ useEffect(() => {
                 </div>
               </div>
 
-              <div className="neo-mobile-quick-actions hidden shrink-0 md:hidden">
-                <button
-                  type="button"
-                  data-mission-action="start-lesson"
-                  onClick={() => !isStartingLesson && handleStartLessonClick()}
-                  disabled={isStartingLesson}
-                  className={`neo-mobile-quick-action is-primary ${
-                    highlightStartLessonButton ? "ring-4 ring-blue-200" : ""
-                  }`}
-                >
-                  <span>▶</span>
-                  {isStartingLesson ? "Preparing..." : "Start Lesson"}
-                </button>
-                <button
-                  type="button"
-                  data-mission-action="topic-test"
-                  onClick={handleStartTopicTest}
-                  disabled={isLoadingTest || !currentTopic}
-                  className={`neo-mobile-quick-action is-test ${
-                    highlightTopicTestButton ? "ring-4 ring-blue-200" : ""
-                  }`}
-                >
-                  <span>✦</span>
-                  {isLoadingTest ? "Preparing..." : "Topic Test"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleEndClassClick}
-                  className="neo-mobile-quick-action is-end"
-                >
-                  <span>■</span>
-                  End & Save
-                </button>
-              </div>
+              {liveActionDrawer}
+
+              <input
+                ref={uploadInputRef}
+                type="file"
+                accept="image/*,.pdf"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  setUploadedFiles(Array.from(e.target.files || []));
+                  setMenuOpen(false);
+                }}
+              />
 
               <div className="neo-composer shrink-0 rounded-[28px] border border-slate-200 bg-white px-3 py-3 shadow-sm">
                 <div className="neo-composer-row relative flex items-center gap-2">
-                  <div className="relative">
+                  <div ref={composerMenuRef} className="relative">
                     <button
                       type="button"
                       onClick={() => setMenuOpen((v) => !v)}
@@ -5557,8 +6686,9 @@ useEffect(() => {
                     </button>
 
                     {menuOpen && (
-                      <div className="absolute bottom-14 left-0 z-30 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+                      <div className="neo-composer-plus-menu absolute bottom-14 left-0 z-30 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
                         <label className="flex cursor-pointer items-center rounded-xl px-3 py-3 text-sm text-slate-700 hover:bg-slate-100">
+                          <Upload className="h-4 w-4" />
                           Upload notes / photo
                           <input
                             type="file"
@@ -5580,6 +6710,7 @@ useEffect(() => {
                           }}
                           className="flex w-full items-center rounded-xl px-3 py-3 text-sm text-slate-700 hover:bg-slate-100"
                         >
+                          <Camera className="h-4 w-4" />
                           Open camera
                         </button>
                       </div>
@@ -5607,13 +6738,14 @@ useEffect(() => {
                   <button
                     type="button"
                     onClick={handleMicToggle}
-                    className={`neo-composer-mic h-12 min-w-[68px] rounded-full border px-4 text-sm font-semibold ${
+                    aria-label={isListening ? "Stop listening" : "Use microphone"}
+                    className={`neo-composer-mic h-12 w-12 rounded-full border text-sm font-semibold ${
                       isListening
                         ? "border-blue-600 bg-blue-600 text-white"
                         : "border-slate-300 bg-white text-slate-700"
                     }`}
                   >
-                    {isListening ? "Stop" : "Mic"}
+                    <Mic className="h-4 w-4" />
                   </button>
 
                   <button
@@ -5663,12 +6795,14 @@ useEffect(() => {
           </div>
 
           {boardOpen && (
-            <aside className="hidden lg:block absolute inset-y-0 right-0 w-[30%] min-w-[320px] border-l border-slate-200 bg-white p-3">
-              <div className="flex h-full flex-col rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
+            <aside className={`neo-smart-board-panel hidden lg:block absolute inset-y-0 right-0 w-[38%] min-w-[380px] border-l border-blue-100 bg-white p-3 ${
+              boardFullscreen ? "is-board-fullscreen" : ""
+            }`}>
+              <div className="flex h-full flex-col rounded-[28px] border border-blue-100 bg-white p-4 shadow-sm">
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
                     <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                      Teacher smart board
+                      Teacher Smart Board
                     </div>
                     <div className="mt-1 text-2xl font-semibold text-slate-900">
                       {currentTopic?.topic_name || "Visual board"}
@@ -5677,19 +6811,11 @@ useEffect(() => {
                       {currentSubject?.subject_name || "Board"}
                     </div>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setBoardOpen(false)}
-                    className="rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    Close
-                  </button>
                 </div>
 
-                
+                {boardActionBar}
 
-                <div className="min-h-0 flex-1">{renderBoardVisual()}</div>
+                <div className="mt-3 min-h-0 flex-1">{renderBoardVisual()}</div>
               </div>
             </aside>
           )}
@@ -5697,27 +6823,23 @@ useEffect(() => {
       </div>
 
       {boardOpen && (
-  <div className="fixed inset-y-0 right-0 z-40 w-full max-w-md border-l border-slate-200 bg-white p-4 shadow-2xl lg:hidden">
+  <div className={`neo-smart-board-mobile fixed z-[90] bg-white p-4 shadow-2xl lg:hidden ${
+    boardFullscreen ? "is-board-fullscreen" : ""
+  }`}>
     <div className="mb-3 flex items-start justify-between gap-3">
       <div>
         <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-          Teacher smart board
+          Teacher Smart Board
         </div>
         <div className="mt-1 text-xl font-semibold text-slate-900">
           {currentTopic?.topic_name || "Visual board"}
         </div>
       </div>
-
-      <button
-        type="button"
-        onClick={() => setBoardOpen(false)}
-        className="rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700"
-      >
-        Close
-      </button>
     </div>
 
-    <div className="h-[calc(100%-72px)]">
+    {boardActionBar}
+
+    <div className="mt-3 h-[calc(100%-130px)] min-h-0">
       {renderBoardVisual()}
     </div>
   </div>
