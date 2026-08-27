@@ -2854,12 +2854,12 @@ body {
     display: none;
   }
 
-  .neo-classroom.is-live-minimal .neo-secondary-control-chip {
+  .neo-classroom.is-live-minimal .neo-secondary-control-chip:not(.neo-mobile-required-control) {
     display: none !important;
   }
 
   .neo-classroom.is-live-minimal button[aria-label="Open classroom menu"] {
-    display: none !important;
+    display: inline-flex !important;
   }
 
   .neo-classroom.is-live-minimal .neo-chat-panel {
@@ -5400,6 +5400,10 @@ body {
   image-rendering: auto;
 }
 
+.neo-top-logo-word {
+  display: none;
+}
+
 @media (min-width: 768px) {
   .neo-top-logo,
   .neo-student-shell.is-live-class-active .neo-top-logo {
@@ -5411,22 +5415,24 @@ body {
 @media (max-width: 767px) {
   .neo-top-logo,
   .neo-student-shell.is-live-class-active .neo-top-logo {
-    width: 8.6rem !important;
-    height: 2.15rem !important;
+    width: 7.65rem !important;
+    max-width: 7.65rem !important;
+    height: 2rem !important;
   }
 }
 
 @media (max-width: 767px) {
   .neo-student-shell.is-live-class-active .neo-top-logo {
-    border-radius: 0.45rem !important;
-    padding: 0.08rem 0.2rem !important;
-    background: rgba(255, 255, 255, 0.96) !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
   }
 
   .neo-student-shell.is-live-class-active .neo-top-logo img,
   .neo-student-shell.is-live-class-active .neo-top-logo-image {
     opacity: 1 !important;
-    filter: none !important;
+    filter: drop-shadow(0 0 10px rgba(89, 230, 255, 0.14)) !important;
   }
 }
 
@@ -5566,6 +5572,107 @@ body {
   .neo-live-icon-palette,
   .neo-live-action-backdrop,
   .neo-mobile-bottom-nav {
+    display: none !important;
+  }
+}
+
+/* Final mobile classroom override. This must remain last so required phone
+   header controls win over older mobile/live-minimal cleanup rules. */
+@media (max-width: 767px) {
+  .neo-student-shell.is-live-class-active .neo-top-logo {
+    display: inline-flex !important;
+    width: 7.75rem !important;
+    max-width: 7.75rem !important;
+    height: 2rem !important;
+    flex: 0 0 7.75rem !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 0.35rem !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .neo-student-shell.is-live-class-active .neo-top-logo-image {
+    display: block !important;
+    width: 1.65rem !important;
+    min-width: 1.65rem !important;
+    max-width: 1.65rem !important;
+    height: 1.65rem !important;
+    object-fit: contain !important;
+    object-position: center !important;
+    filter: drop-shadow(0 0 10px rgba(89, 230, 255, 0.18)) !important;
+  }
+
+  .neo-student-shell.is-live-class-active .neo-top-logo-word {
+    display: inline-block !important;
+    color: #f8fbff !important;
+    font-size: 1.02rem !important;
+    font-weight: 900 !important;
+    line-height: 1 !important;
+    letter-spacing: 0 !important;
+    text-shadow: 0 0 16px rgba(89, 230, 255, 0.24);
+    white-space: nowrap !important;
+  }
+
+  .neo-conversation-copy > div:last-child,
+  .neo-mobile-class-status {
+    display: none !important;
+  }
+
+  .neo-classroom.is-live-minimal .neo-classroom-menu-button,
+  .neo-classroom.is-live-minimal button[aria-label="Open classroom menu"],
+  .neo-conversation-header button[aria-label="Open classroom menu"] {
+    display: inline-flex !important;
+    width: 2.35rem !important;
+    min-width: 2.35rem !important;
+    max-width: 2.35rem !important;
+    height: 2.35rem !important;
+    flex: 0 0 2.35rem !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 1px solid rgba(89, 230, 255, 0.48) !important;
+    border-radius: 0.8rem !important;
+    padding: 0 !important;
+    background: rgba(9, 18, 38, 0.9) !important;
+    color: #75f1ff !important;
+    box-shadow:
+      0 0 18px rgba(89, 230, 255, 0.24),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  }
+
+  .neo-classroom.is-live-minimal .neo-mobile-required-control,
+  .neo-conversation-controls .neo-mobile-required-control,
+  .neo-change-topic-control,
+  .neo-open-board-control {
+    display: inline-flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    min-width: max-content !important;
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+  }
+
+  .neo-conversation-controls {
+    display: flex !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    padding-right: 1.5rem !important;
+    scrollbar-width: none;
+  }
+
+  .neo-open-board-mobile-label {
+    display: inline !important;
+  }
+
+  .neo-open-board-desktop-label {
     display: none !important;
   }
 }

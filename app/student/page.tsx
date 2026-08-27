@@ -26,6 +26,7 @@ import {
   ListChecks,
   Loader2,
   Maximize2,
+  Menu,
   Mic,
   Minimize2,
   Monitor,
@@ -2347,6 +2348,7 @@ useEffect(() => {
               alt="NeoLearn logo"
               className="neo-top-logo-image"
             />
+            <span className="neo-top-logo-word">NeoLearn</span>
           </div>
         </div>
 
@@ -6485,7 +6487,7 @@ useEffect(() => {
                       aria-label="Open classroom menu"
                       className="neo-classroom-menu-button rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 lg:hidden"
                     >
-                      <MoreVertical className="h-4 w-4" />
+                      <Menu className="h-4 w-4" />
                     </button>
 
                     {!drawerOpen && (
@@ -6517,7 +6519,8 @@ useEffect(() => {
 
                   <div className="neo-conversation-controls flex flex-wrap items-center gap-2">
   <select
-    className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm"
+    aria-label="Language"
+    className="neo-mobile-required-control neo-language-control rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm"
     value={language}
     onChange={(e) =>
       setLanguage(e.target.value as "English" | "Hindi" | "Bengali")
@@ -6529,7 +6532,8 @@ useEffect(() => {
   </select>
 
   <select
-    className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm"
+    aria-label="Speed"
+    className="neo-mobile-required-control neo-speed-control rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm"
     value={speed}
     onChange={(e) =>
       setSpeed(e.target.value as "Slow" | "Normal" | "Fast")
@@ -6543,7 +6547,7 @@ useEffect(() => {
   <button
     type="button"
     onClick={onOpenStartFlow}
-    className="neo-secondary-control-chip inline-flex items-center gap-1 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+    className="neo-mobile-required-control neo-change-topic-control neo-secondary-control-chip inline-flex items-center gap-1 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100"
   >
     <RotateCcw className="h-3.5 w-3.5" />
     Change Topic
@@ -6551,9 +6555,10 @@ useEffect(() => {
   <button
     type="button"
     onClick={() => setBoardOpen((v) => !v)}
-    className="neo-secondary-control-chip rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+    className="neo-mobile-required-control neo-open-board-control neo-secondary-control-chip rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
   >
-    {boardOpen ? "Hide Board" : "Open Board"}
+    <span className="neo-open-board-mobile-label">Open Board</span>
+    <span className="neo-open-board-desktop-label">{boardOpen ? "Hide Board" : "Open Board"}</span>
   </button>
 </div>
 </div>
