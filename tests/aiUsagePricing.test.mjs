@@ -5,6 +5,7 @@ import {
   calculateOpenAICost,
   clientReportedRealtimeUsagePolicy,
   extractOpenAIUsage,
+  realtimeSessionSetupUsagePolicy,
 } from "../app/lib/aiUsagePricing.mjs";
 
 test("prices text usage with cached and reasoning tokens", () => {
@@ -110,4 +111,13 @@ test("marks realtime browser usage client-reported and non-authoritative", () =>
   assert.equal(policy.authoritativeBilling, false);
   assert.equal(policy.pricingStatusOverride, "unknown");
   assert.equal(policy.pricingReasonOverride, "client_reported_not_authoritative");
+});
+
+test("marks realtime client secret setup as non-authoritative session setup", () => {
+  const policy = realtimeSessionSetupUsagePolicy();
+  assert.equal(policy.metadata.client_reported, false);
+  assert.equal(policy.metadata.usage_source, "session_setup");
+  assert.equal(policy.authoritativeBilling, false);
+  assert.equal(policy.pricingStatusOverride, "unknown");
+  assert.equal(policy.pricingReasonOverride, null);
 });

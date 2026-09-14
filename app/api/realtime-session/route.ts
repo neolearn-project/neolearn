@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { OwnershipError, ownershipErrorResponse, requireStudentMobile } from "@/lib/auth/ownership";
 import { readJsonResponse } from "@/app/lib/safeResponse";
-import { clientReportedRealtimeUsagePolicy } from "@/app/lib/aiUsagePricing.mjs";
+import {
+  clientReportedRealtimeUsagePolicy,
+  realtimeSessionSetupUsagePolicy,
+} from "@/app/lib/aiUsagePricing.mjs";
 import {
   DuplicateAiRequestError,
   beginAiUsageLedger,
@@ -77,6 +80,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const sessionSetupPolicy = realtimeSessionSetupUsagePolicy();
     const secretRes = await recordOpenAIUsage({
       req,
       studentId: identity.user.id,
@@ -85,6 +89,10 @@ export async function GET(req: NextRequest) {
       model: OPENAI_REALTIME_MODEL,
       providerCall: "realtime.client_secrets",
       requestId,
+      metadata: sessionSetupPolicy.metadata,
+      authoritativeBilling: sessionSetupPolicy.authoritativeBilling,
+      pricingStatusOverride: sessionSetupPolicy.pricingStatusOverride as "unknown",
+      pricingReasonOverride: sessionSetupPolicy.pricingReasonOverride,
       success: (res) => res.ok,
       call: () => fetch("https://api.openai.com/v1/realtime/client_secrets", {
         method: "POST",

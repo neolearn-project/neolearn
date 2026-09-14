@@ -97,6 +97,18 @@ export function clientReportedRealtimeUsagePolicy() {
   };
 }
 
+export function realtimeSessionSetupUsagePolicy() {
+  return {
+    metadata: {
+      usage_source: "session_setup",
+      client_reported: false,
+    },
+    authoritativeBilling: false,
+    pricingStatusOverride: "unknown",
+    pricingReasonOverride: null,
+  };
+}
+
 export function extractOpenAIUsage(raw) {
   const usage = raw?.usage || raw?.response?.usage || raw?.data?.usage || null;
   if (!usage || typeof usage !== "object") return null;
