@@ -5,6 +5,22 @@ import OpenAI from "openai";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createClient } from "@supabase/supabase-js";
 import { OwnershipError, ownershipErrorResponse, requireStudentMobile } from "@/lib/auth/ownership";
+import {
+  DuplicateAiRequestError,
+  duplicateAiRequestResponse,
+  recordOpenAIUsage,
+  resolveAiRequestId,
+} from "@/app/lib/aiUsageLedger";
+import {
+  AiRouteInProgressError,
+  AiRouteRequestHashMismatchError,
+  ReplayAiRouteResponse,
+  aiRouteInProgressResponse,
+  aiRouteRequestHashMismatchResponse,
+  beginAiRouteRequest,
+  completeAiRouteRequest,
+  failAiRouteRequest,
+} from "@/app/lib/aiUsageRouteReplay.mjs";
 import { readJsonResponse } from "@/app/lib/safeResponse";
 import { matchCatalogRows, normalizeText, type CatalogRow } from "@/app/lib/catalogMatch";
 import {
@@ -152,6 +168,11 @@ ${caseBased.join("\n\n")}
 
 async function buildOpenAiMarkdown(args: {
   apiKey: string;
+  req: NextRequest;
+  requestId: string;
+  retryAttempt: number;
+  studentId: string;
+  studentMobile: string;
   board: string;
   classId: string;
   courseType: string;
@@ -346,9 +367,20 @@ Minimum requirements:
 Final quality rule:
 - The note must feel standard, simple, neat, easy to memorize, and accurate to the actual chapter.`;
 
-  const response = await client.responses.create({
-    model: "gpt-5-mini",
-    input: [{ role: "user", content: prompt }],
+  const model = "gpt-5-mini";
+  const response = await recordOpenAIUsage({
+    req: args.req,
+    studentId: args.studentId,
+    studentMobile: args.studentMobile,
+    feature: "notes",
+    model,
+    providerCall: "responses.create",
+    requestId: args.requestId,
+    retryAttempt: args.retryAttempt,
+    call: () => client.responses.create({
+      model,
+      input: [{ role: "user", content: prompt }],
+    }),
   });
 
   const text = (response as any)?.output_text?.trim();
@@ -550,6 +582,7 @@ async function resolveTextbookSourceMap(args: {
   return exact || null;
 }
 export async function POST(req: NextRequest) {
+  let replayReservation: Awaited<ReturnType<typeof beginAiRouteRequest>> | null = null;
   try {
     const body = await req.json();
 
@@ -560,7 +593,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: "Invalid request body." }, { status: 400 });
       }
 
-      await requireStudentMobile(req, mobile);
+      var identity = await requireStudentMobile(req, mobile);
 
       const h = headers();
       const host = h.get("x-forwarded-host") || h.get("host");
@@ -607,6 +640,7 @@ export async function POST(req: NextRequest) {
     }
 
     const board = String(body?.board || "cbse").toLowerCase();
+    const requestId = resolveAiRequestId(req, body, "notes");
     const classId = String(body?.classId || "").trim();
     const courseType = String(body?.courseType || "regular").trim() || "regular";
     const competitiveExam = String(body?.competitiveExam || "").trim() || null;
@@ -794,11 +828,32 @@ export async function POST(req: NextRequest) {
     let content = "";
     let source: "internal" | "openai" = "internal";
     let qualityScore = 0.45;
+    replayReservation = await beginAiRouteRequest({
+      requestId,
+      studentId: identity.user.id,
+      studentMobile: mobile,
+      feature: "notes",
+      requestPayload: {
+        board,
+        classId,
+        courseType,
+        competitiveExam,
+        subjectId,
+        chapterId,
+        topicId,
+        noteType,
+      },
+    });
 
     if (apiKey) {
       try {
         const aiMarkdown = await buildOpenAiMarkdown({
           apiKey,
+          req,
+          requestId,
+          retryAttempt: replayReservation.attempt,
+          studentId: identity.user.id,
+          studentMobile: mobile,
           board,
           classId,
           courseType,
@@ -874,7 +929,7 @@ export async function POST(req: NextRequest) {
       console.error("notes_cache insert failed:", err);
     }
 
-    return NextResponse.json({
+    return completeAiRouteRequest(replayReservation, NextResponse.json({
       ok: true,
       source,
       content,
@@ -886,10 +941,15 @@ export async function POST(req: NextRequest) {
         chapterType,
         bookName,
         matchType: resolvedMatchType,
-        score: resolvedMatchScore,
+          score: resolvedMatchScore,
       },
-    });
+    }));
   } catch (err: any) {
+    if (err instanceof ReplayAiRouteResponse) return err.response;
+    if (err instanceof AiRouteInProgressError) return aiRouteInProgressResponse(err);
+    if (err instanceof AiRouteRequestHashMismatchError) return aiRouteRequestHashMismatchResponse(err);
+    await failAiRouteRequest(replayReservation, err);
+    if (err instanceof DuplicateAiRequestError) return duplicateAiRequestResponse(err);
     console.error("notes/generate error:", err);
     return NextResponse.json(
       { ok: false, error: err?.message || "Failed to generate notes." },

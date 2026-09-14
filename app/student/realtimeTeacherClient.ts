@@ -21,6 +21,8 @@ export class RealtimeTeacherClient {
   private remoteAudio: HTMLAudioElement | null = null;
   private transcript = "";
   private connected = false;
+  private realtimeRequestId = "";
+  private realtimeModel = "gpt-realtime-mini";
 
   constructor(studentMobile: string, events: RealtimeTeacherEvents = {}) {
     this.studentMobile = studentMobile;
@@ -61,6 +63,8 @@ export class RealtimeTeacherClient {
 
     const clientSecret = sessionJson?.clientSecret;
     const model = sessionJson?.model || "gpt-realtime-mini";
+    this.realtimeRequestId = sessionJson?.requestId || "";
+    this.realtimeModel = model;
 
     if (!clientSecret) {
       throw new Error("Realtime client secret missing.");
@@ -218,6 +222,32 @@ export class RealtimeTeacherClient {
     ) {
       this.logStatus("Realtime teacher ready.");
     }
+
+    if (event.type === "response.done") {
+      this.recordRealtimeUsage(event).catch(() => {});
+    }
+  }
+
+  private async recordRealtimeUsage(event: any) {
+    const response = event?.response || event;
+    if (!response?.usage) return;
+
+    await fetch("/api/realtime-session", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...studentAuthHeaders(),
+      },
+      body: JSON.stringify({
+        mobile: this.studentMobile,
+        requestId: this.realtimeRequestId,
+        model: this.realtimeModel,
+        response: {
+          id: response.id || null,
+          usage: response.usage,
+        },
+      }),
+    });
   }
 
   private sendEvent(event: any) {
