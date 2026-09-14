@@ -2,6 +2,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { OwnershipError, ownershipErrorResponse, requireStudentMobile } from "@/lib/auth/ownership";
+import {
+  DuplicateAiRequestError,
+  duplicateAiRequestResponse,
+  recordOpenAIUsage,
+  resolveAiRequestId,
+} from "@/app/lib/aiUsageLedger";
+import {
+  AiRouteInProgressError,
+  AiRouteRequestHashMismatchError,
+  ReplayAiRouteResponse,
+  aiRouteInProgressResponse,
+  aiRouteRequestHashMismatchResponse,
+  beginAiRouteRequest,
+  completeAiRouteRequest,
+  failAiRouteRequest,
+} from "@/app/lib/aiUsageRouteReplay.mjs";
 import { readJsonResponse } from "@/app/lib/safeResponse";
 import {
   buildCompetitiveJsonQuestionInstruction,
@@ -579,6 +595,7 @@ function normalizeGeneratedQuestions(questions: TopicTestQuestion[], isCompetiti
 }
 
 export async function POST(req: NextRequest) {
+  let replayReservation: Awaited<ReturnType<typeof beginAiRouteRequest>> | null = null;
   try {
     const body = await req.json();
 const mobile = String(body.mobile || body.studentMobile || "").trim();
@@ -589,7 +606,8 @@ if (!mobile) {
     { status: 400 }
   );
 }
-await requireStudentMobile(req, mobile);
+const identity = await requireStudentMobile(req, mobile);
+const requestId = resolveAiRequestId(req, body, "topic_test");
 
 const entitlementRes = await fetch(
   `${new URL(req.url).origin}/api/student/entitlements?mobile=${encodeURIComponent(mobile)}`,
@@ -656,6 +674,24 @@ if (!ent.features?.topicTest) {
 
     const language: "en" | "hi" | "bn" =
       (body.language as "en" | "hi" | "bn") || "en";
+    replayReservation = await beginAiRouteRequest({
+      requestId,
+      studentId: identity.user.id,
+      studentMobile: mobile,
+      feature: "topic_tests",
+      requestPayload: {
+        board,
+        classLevel,
+        subject,
+        chapter,
+        topic,
+        track,
+        competitiveExam,
+        language,
+        numQuestions,
+      },
+    });
+    const routeAttempt = replayReservation.attempt;
 
     const languageInstruction =
       language === "bn"
@@ -751,12 +787,24 @@ STRICT RETRY:
 `.trim()
         : "";
 
-      const response = await client.responses.create({
-        model: "gpt-4.1-mini",
-        input: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `${userPrompt}${retryInstruction ? `\n\n${retryInstruction}` : ""}` },
-        ],
+      const retryAttempt = routeAttempt * 10 + (strictRetry ? 1 : 0);
+      const model = "gpt-4.1-mini";
+      const response = await recordOpenAIUsage({
+        req,
+        studentId: identity.user.id,
+        studentMobile: mobile,
+        feature: "topic_tests",
+        model,
+        providerCall: "responses.create",
+        requestId,
+        retryAttempt,
+        call: () => client.responses.create({
+          model,
+          input: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: `${userPrompt}${retryInstruction ? `\n\n${retryInstruction}` : ""}` },
+          ],
+        }),
       });
 
       const raw = stripJsonFences(response.output_text || "");
@@ -839,8 +887,16 @@ STRICT RETRY:
       });
     }
 
-    return NextResponse.json({ ok: true, questions: responseQuestions });
+    return completeAiRouteRequest(
+      replayReservation,
+      NextResponse.json({ ok: true, questions: responseQuestions })
+    );
   } catch (err) {
+    if (err instanceof ReplayAiRouteResponse) return err.response;
+    if (err instanceof AiRouteInProgressError) return aiRouteInProgressResponse(err);
+    if (err instanceof AiRouteRequestHashMismatchError) return aiRouteRequestHashMismatchResponse(err);
+    await failAiRouteRequest(replayReservation, err);
+    if (err instanceof DuplicateAiRequestError) return duplicateAiRequestResponse(err);
     if (err instanceof OwnershipError) return ownershipErrorResponse(err);
     console.error("topic-test route error:", err);
     return NextResponse.json(

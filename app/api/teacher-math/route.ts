@@ -3,6 +3,22 @@ import OpenAI from "openai";
 import Twilio from "twilio"; // (not used here, ignore if you don't want)
 import { createClient } from "@supabase/supabase-js";
 import { OwnershipError, ownershipErrorResponse, requireStudentIdentity } from "@/lib/auth/ownership";
+import {
+  DuplicateAiRequestError,
+  duplicateAiRequestResponse,
+  recordOpenAIUsage,
+  resolveAiRequestId,
+} from "@/app/lib/aiUsageLedger";
+import {
+  AiRouteInProgressError,
+  AiRouteRequestHashMismatchError,
+  ReplayAiRouteResponse,
+  aiRouteInProgressResponse,
+  aiRouteRequestHashMismatchResponse,
+  beginAiRouteRequest,
+  completeAiRouteRequest,
+  failAiRouteRequest,
+} from "@/app/lib/aiUsageRouteReplay.mjs";
 
 import {
   getTeacherConfig,
@@ -47,16 +63,43 @@ function getOpenAIClient() {
 
 import { supabaseAdminClient } from "@/app/lib/supabaseServer";
 
-async function embedQuestion(client: OpenAI, text: string): Promise<number[]> {
+async function embedQuestion(
+  client: OpenAI,
+  text: string,
+  ledger?: {
+    req: Request;
+    requestId: string;
+    studentId?: string | null;
+    studentMobile?: string | null;
+    retryAttempt?: number;
+  }
+): Promise<number[]> {
   // 1536 dims (matches your vector(1536))
-  const emb = await client.embeddings.create({
-    model: "text-embedding-3-small",
-    input: text,
-  });
+  const model = "text-embedding-3-small";
+  const emb = ledger
+    ? await recordOpenAIUsage({
+        req: ledger.req,
+        studentId: ledger.studentId,
+        studentMobile: ledger.studentMobile,
+        feature: "memory_embedding",
+        model,
+        providerCall: "embeddings.create",
+        requestId: ledger.requestId,
+        retryAttempt: ledger.retryAttempt,
+        call: () => client.embeddings.create({
+          model,
+          input: text,
+        }),
+      })
+    : await client.embeddings.create({
+        model,
+        input: text,
+      });
   return emb.data[0].embedding;
 }
 
 export async function POST(req: Request) {
+  let replayReservation: Awaited<ReturnType<typeof beginAiRouteRequest>> | null = null;
   try {
    const raw = await req.text();
 
@@ -100,16 +143,17 @@ const studentMobile = String(body?.studentMobile || "").trim();
 
 // Prefer Supabase Auth UID (recommended)
 const studentId = String(body?.studentId || "").trim();
+const requestId = resolveAiRequestId(req, body, "teacher_math");
+const identity = await requireStudentIdentity(req);
 
-if (studentMobile || studentId) {
-  const identity = await requireStudentIdentity(req);
-  if (
-    (studentMobile && studentMobile !== identity.mobile) ||
-    (studentId && studentId !== identity.user.id)
-  ) {
-    throw new OwnershipError("Student access denied.", 403);
-  }
+if (
+  (studentMobile && studentMobile !== identity.mobile) ||
+  (studentId && studentId !== identity.user.id)
+) {
+  throw new OwnershipError("Student access denied.", 403);
 }
+const verifiedStudentMobile = identity.mobile;
+const verifiedStudentId = identity.user.id;
 
 // legacy fallback (old UI may send topicId)
 const topicId = String(body?.topicId || "").trim();
@@ -204,17 +248,41 @@ const topicId = String(body?.topicId || "").trim();
     // Clients
     // ------------------------
     const openai = getOpenAIClient();
+    if (!openai) {
+      return NextResponse.json(
+        { error: "Teacher unavailable (missing OpenAI API key)." },
+        { status: 500 }
+      );
+    }
+    replayReservation = await beginAiRouteRequest({
+      requestId,
+      studentId: verifiedStudentId,
+      studentMobile: verifiedStudentMobile,
+      feature: "teacher_math",
+      requestPayload: {
+        questionSha256: await crypto.subtle.digest("SHA-256", new TextEncoder().encode(question)).then((hash) =>
+          Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join("")
+        ),
+        board,
+        classId,
+        lang,
+        subjectId,
+        chapterId,
+        topicId,
+        subjectDbId,
+        chapterDbId,
+        topicDbId,
+        selectedSubjectName,
+        selectedChapterName,
+        selectedTopicName,
+        track,
+        competitiveExam,
+      },
+    });
 
     // DIRECT TOPIC LOCK FOR REPEAT / CONFUSION QUESTIONS
     // Bypasses memory/persona/weak-topic fallback to avoid wrong old chapters.
     if (selectedTopicName) {
-      if (!openai) {
-        return NextResponse.json(
-          { error: "Teacher unavailable (missing OpenAI API key)." },
-          { status: 500 }
-        );
-      }
-
       const directPrompt = `
 ${isCompetitive ? "You are a serious Indian competitive exam mentor." : "You are a kind Indian school teacher."}
 
@@ -258,19 +326,30 @@ ${isCompetitive ? '- Use the Competitive Deep Mode chat headings instead of the 
 - End with one follow-up question.`}
 `.trim();
 
-      const directResponse = await openai.responses.create({
-        model: "gpt-5-mini",
-        input: [
-          {
-            role: "system",
-            content:
-              "You must obey the selected subject, chapter, and topic exactly. Never switch to another chapter. For Sanskrit, examples must use correct Sanskrit grammar forms and must not be converted into Hindi plural forms.",
-          },
-          {
-            role: "user",
-            content: directPrompt,
-          },
-        ],
+      const directModel = "gpt-5-mini";
+      const directResponse = await recordOpenAIUsage({
+        req,
+        studentId: verifiedStudentId,
+        studentMobile: verifiedStudentMobile,
+        feature: "teacher_math",
+        model: directModel,
+        providerCall: "responses.create.direct_topic_lock",
+        requestId,
+        retryAttempt: replayReservation.attempt,
+        call: () => openai.responses.create({
+          model: directModel,
+          input: [
+            {
+              role: "system",
+              content:
+                "You must obey the selected subject, chapter, and topic exactly. Never switch to another chapter. For Sanskrit, examples must use correct Sanskrit grammar forms and must not be converted into Hindi plural forms.",
+            },
+            {
+              role: "user",
+              content: directPrompt,
+            },
+          ],
+        }),
       });
 
       const rawAnswer = String((directResponse as any).output_text || "").trim();
@@ -283,8 +362,9 @@ ${isCompetitive ? '- Use the Competitive Deep Mode chat headings instead of the 
           })
         : rawAnswer;
 
-      return NextResponse.json(
-        {
+      return completeAiRouteRequest(
+        replayReservation,
+        NextResponse.json({
           answer:
             answer ||
             `Restating your doubt: You want me to explain ${selectedTopicName} again.\n\nThis topic belongs to ${selectedSubjectName}, chapter ${selectedChapterName}. Let us understand this same topic step by step.`,
@@ -292,17 +372,9 @@ ${isCompetitive ? '- Use the Competitive Deep Mode chat headings instead of the 
           cached: false,
           source: "direct-topic-lock",
           audio: null,
-        },
-        { status: 200 }
+        }, { status: 200 })
       );
     }
-    if (!openai) {
-      return NextResponse.json(
-        { error: "Teacher unavailable (missing OpenAI API key)." },
-        { status: 500 }
-      );
-    }
-
     let supabase: any = null;
 try {
   supabase = supabaseAdminClient();
@@ -317,19 +389,19 @@ try {
 let profile: PersonaProfile | null = null;
 
 try {
-  if (supabase && studentId) {
+  if (supabase && verifiedStudentId) {
     const { data } = await supabase
       .from("student_profile")
       .select("preferred_language, preferred_speed, explain_style, weak_topic_ids, persona_summary")
-      .eq("student_id", studentId)
+      .eq("student_id", verifiedStudentId)
       .maybeSingle();
 
     profile = (data as any) || null;
-  } else if (supabase && studentMobile) {
+  } else if (supabase && verifiedStudentMobile) {
     const { data } = await supabase
       .from("student_profile")
       .select("preferred_language, preferred_speed, explain_style, weak_topic_ids, persona_summary")
-      .eq("mobile", studentMobile)
+      .eq("mobile", verifiedStudentMobile)
       .maybeSingle();
 
     profile = (data as any) || null;
@@ -423,17 +495,17 @@ ${isCompetitive ? `- Answer using the exact Competitive Deep Mode chat structure
 // âœ… If confusion detected, mark topic as weak (best effort)
 // âœ… If confusion detected, mark topic as weak (best effort)
 try {
-  if (supabase && decision.weakTopicAdd && (studentId || studentMobile)) {
-  const { data: row } = studentId
+  if (supabase && decision.weakTopicAdd && (verifiedStudentId || verifiedStudentMobile)) {
+  const { data: row } = verifiedStudentId
     ? await supabase
         .from("student_profile")
         .select("weak_topic_ids")
-        .eq("student_id", studentId)
+        .eq("student_id", verifiedStudentId)
         .maybeSingle()
     : await supabase
         .from("student_profile")
         .select("weak_topic_ids")
-        .eq("mobile", studentMobile)
+        .eq("mobile", verifiedStudentMobile)
         .maybeSingle();
 
   const current: string[] = Array.isArray((row as any)?.weak_topic_ids)
@@ -443,16 +515,16 @@ try {
   if (!current.includes(decision.weakTopicAdd)) {
     const next = [...current, decision.weakTopicAdd];
 
-    if (studentId) {
+    if (verifiedStudentId) {
       await supabase
         .from("student_profile")
         .update({ weak_topic_ids: next })
-        .eq("student_id", studentId);
+        .eq("student_id", verifiedStudentId);
     } else {
       await supabase
         .from("student_profile")
         .update({ weak_topic_ids: next })
-        .eq("mobile", studentMobile);
+        .eq("mobile", verifiedStudentMobile);
     }
   }
 }
@@ -475,12 +547,22 @@ Explain according to the syllabus of this class and board, focused on the given 
 
     const model = pickModel(question);
 
-    const rawResponse = await openai.responses.create({
+    const rawResponse = await recordOpenAIUsage({
+      req,
+      studentId: verifiedStudentId,
+      studentMobile: verifiedStudentMobile,
+      feature: "teacher_math",
       model,
-      input: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
+      providerCall: "responses.create",
+      requestId,
+      retryAttempt: replayReservation.attempt,
+      call: () => openai.responses.create({
+        model,
+        input: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      }),
     });
 
     let answer = "Sorry, I could not answer this question.";
@@ -509,7 +591,7 @@ Explain according to the syllabus of this class and board, focused on the given 
     // ------------------------
     // âœ… PHASE B: Persona Engine (UPDATE profile)
     // ------------------------
-    if (supabase && (studentId || studentMobile)) {
+    if (supabase && (verifiedStudentId || verifiedStudentMobile)) {
   try {
     const existingWeak: string[] = Array.isArray(profile?.weak_topic_ids)
       ? profile!.weak_topic_ids!
@@ -518,7 +600,7 @@ Explain according to the syllabus of this class and board, focused on the given 
     const toAdd = decision.weakTopicAdd ? [decision.weakTopicAdd] : [];
     const mergedWeak = Array.from(new Set([...existingWeak, ...toAdd])).slice(0, 50);
 
-    const filter = studentId ? { student_id: studentId } : { mobile: studentMobile };
+    const filter = verifiedStudentId ? { student_id: verifiedStudentId } : { mobile: verifiedStudentMobile };
 
     await supabase
       .from("student_profile")
@@ -542,10 +624,16 @@ Explain according to the syllabus of this class and board, focused on the given 
     // ------------------------
     if (supabase) {
       try {
-        const embedding = await embedQuestion(openai, question);
+        const embedding = await embedQuestion(openai, question, {
+          req,
+          requestId,
+          retryAttempt: replayReservation.attempt,
+          studentId: verifiedStudentId,
+          studentMobile: verifiedStudentMobile,
+        });
 
         const { error } = await supabase.from("teacher_memory").insert({
-          student_mobile: studentMobile || null, // ok for now
+          student_mobile: verifiedStudentMobile || null, // ok for now
           board: String(board),
           class_id: String(classId),
 
@@ -573,11 +661,33 @@ Explain according to the syllabus of this class and board, focused on the given 
     try {
       const safeText = answer.length > 1200 ? answer.slice(0, 1200) : answer;
 
-const tts = await openai.audio.speech.create({
-  model: "gpt-4o-mini-tts",
-  voice: "alloy",
-  input: safeText,
-  response_format: "mp3",
+const ttsModel = "gpt-4o-mini-tts";
+const tts = await recordOpenAIUsage({
+  req,
+  studentId: verifiedStudentId,
+  studentMobile: verifiedStudentMobile,
+  feature: "teacher_math_audio",
+  model: ttsModel,
+  providerCall: "audio.speech.create",
+  requestId,
+  retryAttempt: replayReservation.attempt,
+  usage: () => ({
+    inputTokens: null,
+    cachedInputTokens: 0,
+    outputTokens: null,
+    reasoningTokens: 0,
+    totalTokens: null,
+    audioInputTokens: 0,
+    cachedAudioInputTokens: 0,
+    audioOutputTokens: 0,
+    ttsCharacters: safeText.length,
+  }),
+  call: () => openai.audio.speech.create({
+    model: ttsModel,
+    voice: "alloy",
+    input: safeText,
+    response_format: "mp3",
+  }),
 });
 
 
@@ -588,8 +698,9 @@ const tts = await openai.audio.speech.create({
       console.error("TTS error:", e);
     }
 
-    return NextResponse.json(
-  {
+    return completeAiRouteRequest(
+      replayReservation,
+      NextResponse.json({
     answer,
     modelUsed: model,
     cached: false,
@@ -600,10 +711,14 @@ const tts = await openai.audio.speech.create({
       notes: decision.notes,
     },
     audio: audioBase64 ? `data:audio/mp3;base64,${audioBase64}` : null,
-  },
-  { status: 200 }
-);  
+      }, { status: 200 })
+    );
   } catch (err: any) {
+    if (err instanceof ReplayAiRouteResponse) return err.response;
+    if (err instanceof AiRouteInProgressError) return aiRouteInProgressResponse(err);
+    if (err instanceof AiRouteRequestHashMismatchError) return aiRouteRequestHashMismatchResponse(err);
+    await failAiRouteRequest(replayReservation, err);
+    if (err instanceof DuplicateAiRequestError) return duplicateAiRequestResponse(err);
     if (err instanceof OwnershipError) return ownershipErrorResponse(err);
     console.error("teacher-math error:", err);
 

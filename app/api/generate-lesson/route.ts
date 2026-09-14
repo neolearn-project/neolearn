@@ -3,6 +3,22 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { OwnershipError, ownershipErrorResponse, requireStudentMobile } from "@/lib/auth/ownership";
 import {
+  DuplicateAiRequestError,
+  duplicateAiRequestResponse,
+  recordOpenAIUsage,
+  resolveAiRequestId,
+} from "@/app/lib/aiUsageLedger";
+import {
+  AiRouteInProgressError,
+  AiRouteRequestHashMismatchError,
+  ReplayAiRouteResponse,
+  aiRouteInProgressResponse,
+  aiRouteRequestHashMismatchResponse,
+  beginAiRouteRequest,
+  completeAiRouteRequest,
+  failAiRouteRequest,
+} from "@/app/lib/aiUsageRouteReplay.mjs";
+import {
   buildCompetitiveStructureInstruction,
   competitiveExamLabel,
   isCompetitiveMode,
@@ -14,10 +30,12 @@ const client = new OpenAI({
 });
 
 export async function POST(req: NextRequest) {
+  let replayReservation: Awaited<ReturnType<typeof beginAiRouteRequest>> | null = null;
   try {
     const body = await req.json();
     const mobile = String(body?.mobile || "").trim();
-    await requireStudentMobile(req, mobile);
+    const identity = await requireStudentMobile(req, mobile);
+    const requestId = resolveAiRequestId(req, body, "generate_lesson");
 
     const board = (body.board as string) || "CBSE";
     const classLevel = (body.classLevel as string) || "Class 6";
@@ -30,6 +48,22 @@ export async function POST(req: NextRequest) {
 
     // ðŸ‘‡ from frontend: "en" | "hi" | "bn"
     const language: "en" | "hi" | "bn" = (body.language as any) || "en";
+    replayReservation = await beginAiRouteRequest({
+      requestId,
+      studentId: identity.user.id,
+      studentMobile: mobile,
+      feature: "lesson_generation",
+      requestPayload: {
+        board,
+        classLevel,
+        subject,
+        chapter,
+        topic,
+        track,
+        competitiveExam,
+        language,
+      },
+    });
 
     // ðŸ”¹ This block is exactly your old language behaviour
     const languageInstruction =
@@ -141,12 +175,23 @@ Follow the structure given by the system instructions,
 but DO NOT mention "NeoLearn" or "AI" in the script.
 `.trim();
 
-    const response = await client.responses.create({
-      model: "gpt-4.1-mini",
-      input: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
+    const model = "gpt-4.1-mini";
+    const response = await recordOpenAIUsage({
+      req,
+      studentId: identity.user.id,
+      studentMobile: mobile,
+      feature: "lesson_generation",
+      model,
+      providerCall: "responses.create",
+      requestId,
+      retryAttempt: replayReservation.attempt,
+      call: () => client.responses.create({
+        model,
+        input: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      }),
     });
 
     const rawScript = (response.output_text || "").trim();
@@ -162,8 +207,16 @@ but DO NOT mention "NeoLearn" or "AI" in the script.
     }
 
     // Frontend expects script/text
-    return NextResponse.json({ ok: true, script });
+    return completeAiRouteRequest(
+      replayReservation,
+      NextResponse.json({ ok: true, script })
+    );
   } catch (err) {
+    if (err instanceof ReplayAiRouteResponse) return err.response;
+    if (err instanceof AiRouteInProgressError) return aiRouteInProgressResponse(err);
+    if (err instanceof AiRouteRequestHashMismatchError) return aiRouteRequestHashMismatchResponse(err);
+    await failAiRouteRequest(replayReservation, err);
+    if (err instanceof DuplicateAiRequestError) return duplicateAiRequestResponse(err);
     if (err instanceof OwnershipError) return ownershipErrorResponse(err);
     console.error("generate-lesson error:", err);
     return NextResponse.json(

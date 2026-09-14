@@ -1,6 +1,22 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { OwnershipError, ownershipErrorResponse, requireStudentMobile } from "@/lib/auth/ownership";
+import {
+  DuplicateAiRequestError,
+  duplicateAiRequestResponse,
+  recordOpenAIUsage,
+  resolveAiRequestId,
+} from "@/app/lib/aiUsageLedger";
+import {
+  AiRouteInProgressError,
+  AiRouteRequestHashMismatchError,
+  ReplayAiRouteResponse,
+  aiRouteInProgressResponse,
+  aiRouteRequestHashMismatchResponse,
+  beginAiRouteRequest,
+  completeAiRouteRequest,
+  failAiRouteRequest,
+} from "@/app/lib/aiUsageRouteReplay.mjs";
 
 export const runtime = "nodejs";
 
@@ -49,6 +65,7 @@ function normalizeSpeed(speed: string) {
 }
 
 export async function POST(req: Request) {
+  let replayReservation: Awaited<ReturnType<typeof beginAiRouteRequest>> | null = null;
   try {
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
@@ -58,6 +75,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
+    const requestId = resolveAiRequestId(req, body, "lesson_audio");
 
     const mobile = String(body.mobile || body.studentMobile || "").trim();
     const rawText = String(body.text || body.lessonText || body.answer || "").trim();
@@ -70,7 +88,7 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    await requireStudentMobile(req, mobile);
+    const identity = await requireStudentMobile(req, mobile);
 
     if (!rawText) {
       return NextResponse.json(
@@ -84,6 +102,19 @@ export async function POST(req: Request) {
         ? rawText.slice(0, 3800) +
           "\n\nThis is the first part of the lesson audio. Please continue reading the remaining text on screen."
         : rawText;
+    replayReservation = await beginAiRouteRequest({
+      requestId,
+      studentId: identity.user.id,
+      studentMobile: mobile,
+      feature: "lesson_audio",
+      requestPayload: {
+        textSha256: await crypto.subtle.digest("SHA-256", new TextEncoder().encode(safeText)).then((hash) =>
+          Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join("")
+        ),
+        language: languageRaw,
+        speed: speedRaw,
+      },
+    });
 
     const entitlementRes = await fetch(
       `${new URL(req.url).origin}/api/student/entitlements?mobile=${encodeURIComponent(mobile)}`,
@@ -154,18 +185,40 @@ export async function POST(req: Request) {
       "Do not add extra content beyond the given lesson text.",
     ].join(" ");
 
-    const speech = await openai.audio.speech.create({
-      model: "gpt-4o-mini-tts",
-      voice: "shimmer",
-      response_format: "mp3",
-      input: safeText,
-      instructions,
-      speed: ttsSpeed,
+    const model = "gpt-4o-mini-tts";
+    const speech = await recordOpenAIUsage({
+      req,
+      studentId: identity.user.id,
+      studentMobile: mobile,
+      feature: "lesson_audio",
+      model,
+      providerCall: "audio.speech.create",
+      requestId,
+      retryAttempt: replayReservation.attempt,
+      usage: () => ({
+        inputTokens: null,
+        cachedInputTokens: 0,
+        outputTokens: null,
+        reasoningTokens: 0,
+        totalTokens: null,
+        audioInputTokens: 0,
+        cachedAudioInputTokens: 0,
+        audioOutputTokens: 0,
+        ttsCharacters: safeText.length,
+      }),
+      call: () => openai.audio.speech.create({
+        model,
+        voice: "shimmer",
+        response_format: "mp3",
+        input: safeText,
+        instructions,
+        speed: ttsSpeed,
+      }),
     });
 
     const audioBuffer = Buffer.from(await speech.arrayBuffer());
 
-    return new NextResponse(audioBuffer, {
+    const response = new NextResponse(audioBuffer, {
       status: 200,
       headers: {
         "Content-Type": "audio/mpeg",
@@ -173,7 +226,13 @@ export async function POST(req: Request) {
         "Content-Length": String(audioBuffer.length),
       },
     });
+    return completeAiRouteRequest(replayReservation, response);
   } catch (err: any) {
+    if (err instanceof ReplayAiRouteResponse) return err.response;
+    if (err instanceof AiRouteInProgressError) return aiRouteInProgressResponse(err);
+    if (err instanceof AiRouteRequestHashMismatchError) return aiRouteRequestHashMismatchResponse(err);
+    await failAiRouteRequest(replayReservation, err);
+    if (err instanceof DuplicateAiRequestError) return duplicateAiRequestResponse(err);
     if (err instanceof OwnershipError) return ownershipErrorResponse(err);
     console.error("TTS generation error:", {
       message: err?.message,

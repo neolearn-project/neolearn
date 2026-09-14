@@ -39,6 +39,19 @@ export function studentAuthHeaders(json = false): Record<string, string> {
   };
 }
 
+export function newStudentAiRequestId(prefix = "ai") {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
+
+export function studentAiUsageHeaders(json = true, requestId = newStudentAiRequestId()): Record<string, string> {
+  return {
+    ...studentAuthHeaders(json),
+    "x-neolearn-request-id": requestId,
+  };
+}
+
 export async function parentAuthHeaders(json = false): Promise<Record<string, string>> {
   const { data, error } = await supabaseBrowser.auth.getSession();
   if (error) throw new ClientAuthError();

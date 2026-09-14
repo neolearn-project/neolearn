@@ -41,7 +41,7 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
-import { ClientAuthError, loginAgainMessage, studentAuthHeaders } from "@/app/lib/clientAuth";
+import { ClientAuthError, loginAgainMessage, newStudentAiRequestId, studentAiUsageHeaders, studentAuthHeaders } from "@/app/lib/clientAuth";
 import { readJsonResponse } from "@/app/lib/safeResponse";
 
 type ClassId = "6" | "7" | "8" | "9" | "10" | "11" | "12";
@@ -936,11 +936,12 @@ const handleGenerateNotes = useCallback(async () => {
 
   setNotesLoading(true);
   setNotesError(null);
+  const aiRequestId = newStudentAiRequestId("notes");
 
   try {
     const res = await fetch("/api/notes/generate", {
       method: "POST",
-      headers: studentAuthHeaders(true),
+      headers: studentAiUsageHeaders(true, aiRequestId),
       body: JSON.stringify({
         mobile: student.mobile,
         board: "cbse",
@@ -1966,13 +1967,14 @@ const handleStartLesson = useCallback(async () => {
   try {
     const langCode = getLangCode(language);
     const speedCode = getSpeedCode(speed);
+    const aiRequestId = newStudentAiRequestId("lesson");
 
     let scriptText = "";
 
     try {
       const lessonRes = await fetch("/api/generate-lesson", {
         method: "POST",
-        headers: studentAuthHeaders(true),
+        headers: studentAiUsageHeaders(true, aiRequestId),
         body: JSON.stringify({
           mobile: student?.mobile,
           board: effectiveStudentTrack === "competitive" ? effectiveCompetitiveExam : "CBSE",
@@ -2045,7 +2047,7 @@ const handleStartLesson = useCallback(async () => {
     try {
       const audioRes = await fetch("/api/lesson-audio", {
         method: "POST",
-        headers: studentAuthHeaders(true),
+        headers: studentAiUsageHeaders(true, aiRequestId),
         body: JSON.stringify({
           mobile: student?.mobile,
           text: scriptText,
@@ -2185,11 +2187,12 @@ useEffect(() => {
   }
 
   setIsAsking(true);
+  const aiRequestId = newStudentAiRequestId("teacher_math");
 
   try {
     const res = await fetch("/api/teacher-math", {
       method: "POST",
-      headers: studentAuthHeaders(true),
+      headers: studentAiUsageHeaders(true, aiRequestId),
       body: JSON.stringify({
         question: trimmed,
 
@@ -2220,7 +2223,6 @@ useEffect(() => {
         selectedTopic: currentTopic.topic_name,
 
         studentMobile: student?.mobile,
-        studentId: (student as any)?.student_id || (student as any)?.id || "",
       }),
     });
 
@@ -2240,7 +2242,7 @@ useEffect(() => {
 
     const ttsRes = await fetch("/api/lesson-audio", {
       method: "POST",
-      headers: studentAuthHeaders(true),
+      headers: studentAiUsageHeaders(true, aiRequestId),
       body: JSON.stringify({
         mobile: student?.mobile,
         text: answer,
@@ -5431,12 +5433,13 @@ const handleStartTopicTest = async () => {
   setTopicTestResult(null);
 
   try {
+    const aiRequestId = newStudentAiRequestId("topic_test");
     const langCode =
       language === "Hindi" ? "hi" : language === "Bengali" ? "bn" : "en";
 
     const res = await fetch("/api/topic-test", {
       method: "POST",
-      headers: studentAuthHeaders(true),
+      headers: studentAiUsageHeaders(true, aiRequestId),
       body: JSON.stringify({
         mobile: studentMobile,
         board: String(studentTrack).toLowerCase() === "competitive" ? competitiveExam || "Competitive" : "CBSE",
