@@ -1190,9 +1190,7 @@ const handleBuyPlan = async (planCode: string) => {
 
     const createRes = await fetch("/api/razorpay/create-order", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: studentAuthHeaders(true),
       body: JSON.stringify({
         studentMobile,
         planCode,
@@ -1222,9 +1220,7 @@ const handleBuyPlan = async (planCode: string) => {
         try {
           const verifyRes = await fetch("/api/razorpay/verify", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers: studentAuthHeaders(true),
             body: JSON.stringify({
               studentMobile,
               planCode,

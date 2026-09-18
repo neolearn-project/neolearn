@@ -1,6 +1,12 @@
 ﻿import { NextResponse } from "next/server";
 import Razorpay from "razorpay";
 import { createClient } from "@supabase/supabase-js";
+import {
+  OwnershipError,
+  ownershipErrorResponse,
+  requireStudentMobile,
+} from "@/lib/auth/ownership";
+import { rupeesToPaise } from "@/app/lib/paymentAmount.mjs";
 
 export const runtime = "nodejs";
 
@@ -51,6 +57,8 @@ export async function POST(req: Request) {
       );
     }
 
+    await requireStudentMobile(req, studentMobile);
+
     const supabase = getSupabase();
 
     const { data: plan, error: planError } = await supabase
@@ -80,14 +88,20 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!Number.isFinite(plan.price) || Number(plan.price) <= 0) {
+    const amountPaise = rupeesToPaise(plan.price);
+    const purchaseValidityDays = Number(plan.validity_days);
+    if (amountPaise === null) {
       return NextResponse.json(
         { ok: false, error: "Invalid plan price." },
         { status: 400 }
       );
     }
-
-    const amountPaise = Math.round(Number(plan.price) * 100);
+    if (!Number.isSafeInteger(purchaseValidityDays) || purchaseValidityDays <= 0) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid plan validity." },
+        { status: 400 }
+      );
+    }
 
     const { keyId, instance } = getRazorpay();
 
@@ -112,6 +126,7 @@ export async function POST(req: Request) {
       plan_code: plan.code,
       amount: Number(plan.price),
       currency: "INR",
+      purchase_validity_days: purchaseValidityDays,
       payment_status: "created",
       razorpay_order_id: order.id,
       source: "create_order",
@@ -123,7 +138,7 @@ export async function POST(req: Request) {
     });
 
     if (paymentRecordError) {
-      console.error("create-order payment record error:", paymentRecordError);
+      console.error("create-order payment persistence failed");
       return NextResponse.json(
         { ok: false, error: "Failed to persist payment order." },
         { status: 500 }
@@ -150,7 +165,8 @@ export async function POST(req: Request) {
       studentMobile,
     });
   } catch (e: any) {
-    console.error("create-order error:", e);
+    if (e instanceof OwnershipError) return ownershipErrorResponse(e);
+    console.error("create-order request failed");
     return NextResponse.json(
       { ok: false, error: e?.message || "Server error." },
       { status: 500 }
