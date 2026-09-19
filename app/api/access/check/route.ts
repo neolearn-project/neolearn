@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { computeAccessSummary } from "@/lib/access/checkPolicy";
+import { isPaidSubscriptionActive } from "@/lib/access/subscriptionPeriod.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +19,7 @@ function parseLimit(value: unknown, fallback: number) {
 
 export async function GET(req: NextRequest) {
   try {
+    const nowIso = new Date().toISOString();
     const { searchParams } = new URL(req.url);
     const mobile = String(searchParams.get("mobile") || "").trim();
 
@@ -71,8 +73,13 @@ export async function GET(req: NextRequest) {
         .from("student_subscriptions")
         .select("*")
         .eq("student_mobile", mobile)
+        .eq("is_active", true)
         .eq("payment_status", "paid")
-        .order("end_at", { ascending: false }),
+        .lte("start_at", nowIso)
+        .gt("end_at", nowIso)
+        .order("end_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     if (progressResult.error) {
@@ -118,55 +125,8 @@ export async function GET(req: NextRequest) {
       override
     );
 
-    const now = Date.now();
-    const subscriptionRows = Array.isArray(subscriptionResult.data)
-      ? subscriptionResult.data
-      : subscriptionResult.data
-      ? [subscriptionResult.data]
-      : [];
-
-    const sub = subscriptionRows.find((row: any) => {
-      const rowEndMs = parseDbTime(row?.end_at);
-      const rowIsPaid = String(row?.payment_status || "").toLowerCase() === "paid";
-      const rowIsActiveFlag =
-        row?.is_active === true || String(row?.is_active) === "true";
-
-      return (
-        rowIsActiveFlag &&
-        rowIsPaid &&
-        Number.isFinite(rowEndMs) &&
-        rowEndMs > now
-      );
-    }) || null;
-
-    function parseDbTime(value: any) {
-      if (!value) return NaN;
-
-      const raw = String(value).trim();
-
-      // Supabase may return timestamp like: 2026-06-29 09:17:36.732+00
-      // Convert it to ISO-like format for safer JS parsing.
-      const isoLike =
-        raw.includes("T") ? raw : raw.replace(" ", "T");
-
-      const parsed = new Date(isoLike).getTime();
-
-      if (Number.isFinite(parsed)) return parsed;
-
-      // Last fallback.
-      return new Date(raw).getTime();
-    }
-
-    const subEndMs = parseDbTime(sub?.end_at);
-    const subIsPaid = String(sub?.payment_status || "").toLowerCase() === "paid";
-    const subIsActiveFlag = sub?.is_active === true || String(sub?.is_active) === "true";
-
-    const subscriptionActive =
-      !!sub &&
-      subIsActiveFlag &&
-      subIsPaid &&
-      Number.isFinite(subEndMs) &&
-      subEndMs > now;
+    const sub = subscriptionResult.data;
+    const subscriptionActive = isPaidSubscriptionActive(sub, nowIso);
 
     const allowed = summary.allowed || summary.overrideActive || subscriptionActive;
 

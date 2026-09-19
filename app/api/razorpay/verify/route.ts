@@ -3,6 +3,12 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Razorpay from "razorpay";
 import { sendWhatsAppTemplate } from "@/lib/whatsapp";
+import {
+  OwnershipError,
+  ownershipErrorResponse,
+  requireStudentMobile,
+} from "@/lib/auth/ownership";
+import { verifyProviderAndFinalize } from "@/app/lib/razorpayPaymentCore.mjs";
 
 export const runtime = "nodejs";
 
@@ -45,12 +51,6 @@ function signaturesMatch(expected: string, supplied: string) {
     expectedBuffer.length === suppliedBuffer.length &&
     crypto.timingSafeEqual(expectedBuffer, suppliedBuffer)
   );
-}
-
-function addDaysIso(startIso: string, days: number) {
-  const d = new Date(startIso);
-  d.setDate(d.getDate() + days);
-  return d.toISOString();
 }
 
 function safeText(value: any, fallback = "-") {
@@ -99,6 +99,8 @@ export async function POST(req: Request) {
       );
     }
 
+    await requireStudentMobile(req, studentMobile);
+
     const { keySecret: razorpaySecret, instance: razorpay } = getRazorpay();
 
     const expectedSignature = crypto
@@ -115,200 +117,78 @@ export async function POST(req: Request) {
 
     const supabase = getSupabase();
 
-    const { data: plan, error: planError } = await supabase
-      .from("plans")
-      .select("code, name, track, price, validity_days, is_active")
-      .eq("code", planCode)
-      .maybeSingle();
+    const processed = await verifyProviderAndFinalize({
+      razorpay,
+      supabase,
+      orderId: razorpayOrderId,
+      paymentId: razorpayPaymentId,
+      authenticatedMobile: studentMobile,
+      requestedPlanCode: planCode,
+      paymentSignature: razorpaySignature,
+      source: "verify",
+    });
 
-    if (planError) {
-      return NextResponse.json(
-        { ok: false, error: planError.message },
-        { status: 500 }
-      );
-    }
-
-    if (!plan) {
-      return NextResponse.json(
-        { ok: false, error: "Plan not found." },
-        { status: 404 }
-      );
-    }
-
-    if (!plan.is_active) {
-      return NextResponse.json(
-        { ok: false, error: "This plan is inactive." },
-        { status: 400 }
-      );
-    }
-
-    const expectedAmountPaise = Math.round(Number(plan.price) * 100);
-    const expectedCurrency = "INR";
-
-    if (!Number.isFinite(expectedAmountPaise) || expectedAmountPaise <= 0) {
-      return NextResponse.json(
-        { ok: false, error: "Invalid plan price." },
-        { status: 400 }
-      );
-    }
-
-    const [providerOrder, initialProviderPayment] = await Promise.all([
-      razorpay.orders.fetch(razorpayOrderId),
-      razorpay.payments.fetch(razorpayPaymentId),
-    ]);
-
-    const orderAmount = Number(providerOrder.amount);
-    const orderCurrency = String(providerOrder.currency || "").toUpperCase();
-    const paymentAmount = Number(initialProviderPayment.amount);
-    const paymentCurrency = String(initialProviderPayment.currency || "").toUpperCase();
-    const orderStudentMobile = String(
-      providerOrder.notes?.student_mobile ?? ""
-    ).trim();
-    const orderPlanCode = String(providerOrder.notes?.plan_code ?? "")
-      .trim()
-      .toUpperCase();
-
-    if (initialProviderPayment.order_id !== razorpayOrderId) {
-      return NextResponse.json(
-        { ok: false, error: "Payment does not belong to the submitted order." },
-        { status: 400 }
-      );
-    }
-
-    if (
-      orderAmount !== expectedAmountPaise ||
-      paymentAmount !== orderAmount ||
-      orderCurrency !== expectedCurrency ||
-      paymentCurrency !== orderCurrency
-    ) {
-      return NextResponse.json(
-        { ok: false, error: "Payment amount or currency mismatch." },
-        { status: 400 }
-      );
-    }
-
-    if (
-      orderStudentMobile !== studentMobile ||
-      orderPlanCode !== planCode
-    ) {
-      return NextResponse.json(
-        { ok: false, error: "Payment order details do not match the request." },
-        { status: 400 }
-      );
-    }
-
-    let providerPayment = initialProviderPayment;
-
-    if (providerPayment.status === "authorized") {
-      try {
-        providerPayment = await razorpay.payments.capture(
-          razorpayPaymentId,
-          orderAmount,
-          orderCurrency
+    if (!processed.ok) {
+      const rpcMessage = String(processed.rpcMessage || "");
+      if (rpcMessage.includes("PAYMENT_NOT_FOUND")) {
+        return NextResponse.json(
+          { ok: false, error: "Original payment order record not found." },
+          { status: 404 }
         );
-      } catch (captureError) {
-        // Auto-capture can complete between fetch and capture. Re-fetch before failing.
-        providerPayment = await razorpay.payments.fetch(razorpayPaymentId);
-        if (providerPayment.status !== "captured") {
-          throw captureError;
-        }
       }
-    }
-
-    if (providerPayment.status !== "captured" || !providerPayment.captured) {
+      if (rpcMessage.includes("PAYMENT_CONFLICT")) {
+        return NextResponse.json(
+          { ok: false, error: "Stored payment order does not match Razorpay." },
+          { status: 409 }
+        );
+      }
+      if (processed.error === "not_found") {
+        return NextResponse.json(
+          { ok: false, error: "Original payment order record not found." },
+          { status: 404 }
+        );
+      }
+      if (processed.error === "conflict") {
+        return NextResponse.json(
+          { ok: false, error: "Stored payment order does not match Razorpay." },
+          { status: 409 }
+        );
+      }
+      if (processed.error === "provider_order") {
+        return NextResponse.json(
+          { ok: false, error: "Payment does not belong to the submitted order." },
+          { status: 400 }
+        );
+      }
+      if (["provider_amount", "captured_amount"].includes(String(processed.error || ""))) {
+        return NextResponse.json(
+          { ok: false, error: "Payment amount or currency mismatch." },
+          { status: 400 }
+        );
+      }
+      if (processed.error === "provider_details") {
+        return NextResponse.json(
+          { ok: false, error: "Payment order details do not match the request." },
+          { status: 400 }
+        );
+      }
+      if (processed.error === "not_captured") {
+        return NextResponse.json(
+          { ok: false, error: `Payment is not captured (status: ${processed.providerStatus}).` },
+          { status: 400 }
+        );
+      }
+      console.error("payment verification or finalization failed");
       return NextResponse.json(
-        {
-          ok: false,
-          error: `Payment is not captured (status: ${providerPayment.status}).`,
-        },
-        { status: 400 }
-      );
-    }
-
-    if (
-      Number(providerPayment.amount) !== orderAmount ||
-      String(providerPayment.currency || "").toUpperCase() !== orderCurrency
-    ) {
-      return NextResponse.json(
-        { ok: false, error: "Captured payment amount or currency mismatch." },
-        { status: 400 }
-      );
-    }
-
-    const { data: paymentIdRows, error: paymentIdLookupError } = await supabase
-      .from("student_payments")
-      .select("id, razorpay_order_id, razorpay_payment_id, payment_status")
-      .eq("razorpay_payment_id", razorpayPaymentId)
-      .limit(1);
-
-    if (paymentIdLookupError) {
-      return NextResponse.json(
-        { ok: false, error: paymentIdLookupError.message },
+        { ok: false, error: "Payment finalization failed." },
         { status: 500 }
       );
     }
 
-    const existingPaymentIdRow = paymentIdRows?.[0] || null;
-    if (existingPaymentIdRow) {
-      if (
-        existingPaymentIdRow.razorpay_order_id === razorpayOrderId &&
-        existingPaymentIdRow.payment_status === "paid"
-      ) {
-        return NextResponse.json({
-          ok: true,
-          alreadyProcessed: true,
-          message: "Payment was already verified.",
-          payment: {
-            razorpay_order_id: razorpayOrderId,
-            razorpay_payment_id: razorpayPaymentId,
-          },
-        });
-      }
+    const finalization: any = processed.finalization;
+    const storedPayment: any = processed.storedPayment;
 
-      return NextResponse.json(
-        { ok: false, error: "Payment is already being processed or was previously used." },
-        { status: 409 }
-      );
-    }
-
-    const { data: paymentRecord, error: paymentRecordError } = await supabase
-      .from("student_payments")
-      .select(
-        "id, student_mobile, plan_code, amount, currency, payment_status, razorpay_payment_id"
-      )
-      .eq("razorpay_order_id", razorpayOrderId)
-      .maybeSingle();
-
-    if (paymentRecordError) {
-      return NextResponse.json(
-        { ok: false, error: paymentRecordError.message },
-        { status: 500 }
-      );
-    }
-
-    if (!paymentRecord) {
-      return NextResponse.json(
-        { ok: false, error: "Original payment order record not found." },
-        { status: 404 }
-      );
-    }
-
-    if (
-      paymentRecord.student_mobile !== studentMobile ||
-      String(paymentRecord.plan_code || "").toUpperCase() !== planCode ||
-      Math.round(Number(paymentRecord.amount) * 100) !== orderAmount ||
-      String(paymentRecord.currency || "").toUpperCase() !== orderCurrency
-    ) {
-      return NextResponse.json(
-        { ok: false, error: "Stored payment order does not match Razorpay." },
-        { status: 409 }
-      );
-    }
-
-    if (
-      paymentRecord.payment_status === "paid" &&
-      paymentRecord.razorpay_payment_id === razorpayPaymentId
-    ) {
+    if (finalization.already_processed) {
       return NextResponse.json({
         ok: true,
         alreadyProcessed: true,
@@ -320,119 +200,15 @@ export async function POST(req: Request) {
       });
     }
 
-    if (paymentRecord.payment_status !== "created" || paymentRecord.razorpay_payment_id) {
-      return NextResponse.json(
-        { ok: false, error: "Payment order is not available for verification." },
-        { status: 409 }
-      );
-    }
+    const nowIso = String(finalization.start_at || "");
+    const endAtIso = String(finalization.end_at || "");
+    const subscriptionIsActive = finalization.is_active === true;
 
-    const claimTime = new Date().toISOString();
-    const { data: claimedPayment, error: claimError } = await supabase
-      .from("student_payments")
-      .update({
-        razorpay_payment_id: razorpayPaymentId,
-        razorpay_signature: razorpaySignature,
-        source: "verify",
-        updated_at: claimTime,
-        notes: {
-          validity_days: plan.validity_days,
-          track: plan.track,
-          provider_payment_status: providerPayment.status,
-        },
-      })
-      .eq("id", paymentRecord.id)
-      .eq("payment_status", "created")
-      .is("razorpay_payment_id", null)
-      .select("id")
+    const { data: plan } = await supabase
+      .from("plans")
+      .select("code, name")
+      .eq("code", storedPayment.plan_code)
       .maybeSingle();
-
-    if (claimError) {
-      return NextResponse.json(
-        { ok: false, error: claimError.message },
-        { status: 500 }
-      );
-    }
-
-    if (!claimedPayment) {
-      return NextResponse.json(
-        { ok: false, error: "Payment is already being processed." },
-        { status: 409 }
-      );
-    }
-
-    const releasePaymentClaim = async () => {
-      const { error } = await supabase
-        .from("student_payments")
-        .update({
-          razorpay_payment_id: null,
-          razorpay_signature: null,
-          source: "create_order",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", paymentRecord.id)
-        .eq("payment_status", "created")
-        .eq("razorpay_payment_id", razorpayPaymentId);
-
-      if (error) {
-        console.error("payment claim release failed:", error);
-      }
-    };
-
-    const nowIso = new Date().toISOString();
-    const endAtIso = addDaysIso(nowIso, Number(plan.validity_days));
-
-    const { error: deactivateError } = await supabase
-      .from("student_subscriptions")
-      .update({ is_active: false })
-      .eq("student_mobile", studentMobile)
-      .eq("is_active", true);
-
-    if (deactivateError) {
-      await releasePaymentClaim();
-      return NextResponse.json(
-        { ok: false, error: deactivateError.message },
-        { status: 500 }
-      );
-    }
-
-    const { error: subError } = await supabase.from("student_subscriptions").insert({
-      student_mobile: studentMobile,
-      plan_code: plan.code,
-      payment_status: "paid",
-      is_active: true,
-      start_at: nowIso,
-      end_at: endAtIso,
-      created_at: nowIso,
-    });
-
-    if (subError) {
-      await releasePaymentClaim();
-      return NextResponse.json(
-        { ok: false, error: subError.message },
-        { status: 500 }
-      );
-    }
-
-    const { data: completedPayment, error: completePaymentError } = await supabase
-      .from("student_payments")
-      .update({
-        payment_status: "paid",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", paymentRecord.id)
-      .eq("payment_status", "created")
-      .eq("razorpay_payment_id", razorpayPaymentId)
-      .select("id")
-      .maybeSingle();
-
-    if (completePaymentError || !completedPayment) {
-      console.error("payment completion update failed:", completePaymentError);
-      return NextResponse.json(
-        { ok: false, error: "Subscription activated but payment finalization failed." },
-        { status: 500 }
-      );
-    }
 
     let whatsappPaymentSent = false;
     let whatsappPaymentError: string | null = null;
@@ -454,8 +230,8 @@ export async function POST(req: Request) {
 
       const parentMobile = safeText(childLink?.parent_mobile, "");
       const studentName = safeText(childLink?.child_name, "Student");
-      const planName = safeText(plan.name, plan.code);
-      const amountText = String(Number(plan.price));
+      const planName = safeText(plan?.name, storedPayment.plan_code);
+      const amountText = (storedPayment.amountPaise / 100).toFixed(2);
       const validTill = formatDateForWhatsApp(endAtIso);
 
       if (parentMobile) {
@@ -480,16 +256,20 @@ export async function POST(req: Request) {
         whatsappPaymentSent = true;
         whatsappPaymentTo = parentMobile;
       } else {
-        whatsappPaymentError = `Parent mobile not found for student ${studentMobile}.`;
+        whatsappPaymentError = "Parent mobile not found for this student.";
       }
-    } catch (waErr: any) {
-      whatsappPaymentError = waErr?.message || "Payment WhatsApp send failed.";
-      console.error("payment success whatsapp failed:", waErr);
+    } catch {
+      whatsappPaymentError = "Payment WhatsApp send failed.";
+      console.error("payment success notification failed");
     }
 
     return NextResponse.json({
       ok: true,
-      message: "Payment verified and subscription activated.",
+      message: subscriptionIsActive
+        ? finalization.recovered
+          ? "Payment verified and subscription recovered."
+          : "Payment verified and subscription activated."
+        : "Payment verified; the recovered subscription period is not active.",
       whatsappPayment: {
         sent: whatsappPaymentSent,
         to: whatsappPaymentTo,
@@ -502,15 +282,16 @@ export async function POST(req: Request) {
       },
       subscription: {
         student_mobile: studentMobile,
-        plan_code: plan.code,
+        plan_code: storedPayment.plan_code,
         payment_status: "paid",
-        is_active: true,
+        is_active: subscriptionIsActive,
         start_at: nowIso,
         end_at: endAtIso,
       },
     });
   } catch (e: any) {
-    console.error("verify payment error:", e);
+    if (e instanceof OwnershipError) return ownershipErrorResponse(e);
+    console.error("verify payment request failed");
     return NextResponse.json(
       { ok: false, error: e?.message || "Server error." },
       { status: 500 }
