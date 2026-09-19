@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { computeAccessSummary } from "@/lib/access/checkPolicy";
+import { isPaidSubscriptionActive } from "@/lib/access/subscriptionPeriod.mjs";
 import {
   OwnershipError,
   ownershipErrorResponse,
@@ -33,6 +34,7 @@ function indexFlags(rows: Array<{ key: string; enabled: boolean }> = []) {
 
 export async function GET(req: NextRequest) {
   try {
+    const nowIso = new Date().toISOString();
     const { searchParams } = new URL(req.url);
     const mobile = String(searchParams.get("mobile") || "").trim();
 
@@ -83,6 +85,8 @@ export async function GET(req: NextRequest) {
         .eq("student_mobile", mobile)
         .eq("is_active", true)
         .eq("payment_status", "paid")
+        .lte("start_at", nowIso)
+        .gt("end_at", nowIso)
         .order("end_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
@@ -129,13 +133,8 @@ export async function GET(req: NextRequest) {
 
     const summary = computeAccessSummary(progressResult.data || [], effectiveLimit, override);
 
-    const now = Date.now();
     const sub = subscriptionResult.data;
-    const subscriptionActive =
-      !!sub &&
-      !!sub.is_active &&
-      sub.payment_status === "paid" &&
-      new Date(sub.end_at).getTime() > now;
+    const subscriptionActive = isPaidSubscriptionActive(sub, nowIso);
 
     const hasPaidAccess = summary.overrideActive || subscriptionActive;
     const hasFreeAccess = !hasPaidAccess && summary.allowed;
