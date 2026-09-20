@@ -118,10 +118,7 @@ export async function GET(req: NextRequest) {
       await readJsonResponse<any>(secretRes);
 
     if (!secretRes.ok) {
-      console.error(
-        "OpenAI realtime client secret error:",
-        secretJson || secretError
-      );
+      console.error("OpenAI realtime client secret request failed");
       return NextResponse.json(
         {
           error: "Failed to create realtime client secret.",
@@ -159,7 +156,7 @@ export async function GET(req: NextRequest) {
   } catch (err: any) {
     if (err instanceof DuplicateAiRequestError) return duplicateAiRequestResponse(err);
     if (err instanceof OwnershipError) return ownershipErrorResponse(err);
-    console.error("realtime-session error:", err);
+    console.error("realtime-session request failed");
     return NextResponse.json(
       { error: err?.message || "Realtime session server error." },
       { status: 500 }
@@ -196,6 +193,7 @@ export async function POST(req: NextRequest) {
 
     await finishAiUsageLedger({
       ledgerId: ledger.id,
+      shadowReservationId: ledger.shadowReservationId,
       model,
       response,
       success: true,
@@ -209,7 +207,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, duplicate: true }, { status: 200 });
     }
     if (err instanceof OwnershipError) return ownershipErrorResponse(err);
-    console.error("realtime usage ledger error:", err);
+    console.error("realtime usage ledger failed");
     return NextResponse.json({ ok: false, error: "Failed to record realtime usage." }, { status: 500 });
   }
 }
