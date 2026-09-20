@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { createAiCreditShadowRuntime } from "@/app/lib/aiCreditShadowRuntime.mjs";
 import {
   AI_USAGE_PRICE_VERSION,
   buildAiUsageIdempotencyKey,
@@ -33,6 +34,8 @@ type BeginArgs = {
   metadata?: Record<string, unknown>;
   authoritativeBilling?: boolean;
 };
+
+const shadowCredits = createAiCreditShadowRuntime({ supabaseAdmin });
 
 export class DuplicateAiRequestError extends Error {
   constructor(public requestId: string, public feature: string) {
@@ -116,20 +119,28 @@ export async function beginAiUsageLedger(args: BeginArgs) {
       if ((error as any).code === "23505") {
         throw new DuplicateAiRequestError(requestId, args.feature);
       }
-      console.error("ai usage ledger begin failed:", error);
-      return { id: null as string | null, requestId, idempotencyKey };
+      console.error("ai usage ledger begin failed");
+      return { id: null as string | null, requestId, idempotencyKey, shadowReservationId: null };
     }
 
-    return { id: data?.id as string, requestId, idempotencyKey };
+    const ledgerId = data?.id as string;
+    const shadowReservation = ledgerId ? await shadowCredits.reserve(ledgerId) : null;
+    return {
+      id: ledgerId,
+      requestId,
+      idempotencyKey,
+      shadowReservationId: shadowReservation?.id || null,
+    };
   } catch (error) {
     if (error instanceof DuplicateAiRequestError) throw error;
-    console.error("ai usage ledger begin failed:", error);
-    return { id: null as string | null, requestId, idempotencyKey };
+    console.error("ai usage ledger begin failed");
+    return { id: null as string | null, requestId, idempotencyKey, shadowReservationId: null };
   }
 }
 
 export async function finishAiUsageLedger(args: {
   ledgerId: string | null;
+  shadowReservationId?: string | null;
   model: string;
   response?: any;
   usage?: UsageMetrics | null;
@@ -173,9 +184,25 @@ export async function finishAiUsageLedger(args: {
       .from("ai_usage_ledger")
       .update(payload)
       .eq("id", args.ledgerId);
-    if (error) console.error("ai usage ledger finish failed:", error);
+    if (error) {
+      console.error("ai usage ledger finish failed");
+      // Preserve the provider response and reservation on completion failure;
+      // reconciliation remains dormant until a separately reviewed stale-orphan process exists.
+      return;
+    }
   } catch (error) {
-    console.error("ai usage ledger finish failed:", error);
+    console.error("ai usage ledger finish failed");
+    // Preserve the provider response and reservation on completion failure;
+    // reconciliation remains dormant until a separately reviewed stale-orphan process exists.
+    return;
+  }
+
+  if (args.shadowReservationId) {
+    if (args.success) {
+      await shadowCredits.settle(args.shadowReservationId);
+    } else {
+      await shadowCredits.release(args.shadowReservationId, "provider_failed");
+    }
   }
 }
 
@@ -192,6 +219,7 @@ export async function recordOpenAIUsage<T>(args: BeginArgs & {
     const success = args.success ? args.success(response) : true;
     await finishAiUsageLedger({
       ledgerId: ledger.id,
+      shadowReservationId: ledger.shadowReservationId,
       model: args.model,
       response,
       usage: args.usage?.(response) || null,
@@ -203,6 +231,7 @@ export async function recordOpenAIUsage<T>(args: BeginArgs & {
   } catch (error) {
     await finishAiUsageLedger({
       ledgerId: ledger.id,
+      shadowReservationId: ledger.shadowReservationId,
       model: args.model,
       response: null,
       usage: null,
