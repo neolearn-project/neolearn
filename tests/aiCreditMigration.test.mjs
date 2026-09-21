@@ -6,6 +6,10 @@ const sql = await readFile(
   new URL("../supabase/migrations/20260919_ai_credit_shadow_persistence_v1.sql", import.meta.url),
   "utf8"
 );
+const reconciliationSql = await readFile(
+  new URL("../supabase/migrations/20260921_ai_credit_shadow_terminal_reconciliation_v1.sql", import.meta.url),
+  "utf8"
+);
 
 test("migration is transactional and creates only the four shadow tables", () => {
   assert.match(sql, /^begin;/im);
@@ -71,4 +75,28 @@ test("TTL, terminal states, RLS and append-only rules are explicit", () => {
   assert.match(sql, /reservation_row\.state = 'released'[\s\S]+already_processed/i);
   assert.match(sql, /force row level security/gi);
   assert.match(sql, /ai_credit_transactions is append-only/i);
+});
+
+test("terminal reconciliation is bounded, service-role-only, deterministic and leaves live attempts untouched", () => {
+  assert.match(reconciliationSql, /^begin;/im);
+  assert.match(reconciliationSql, /^commit;/im);
+  assert.match(reconciliationSql, /create function public\.reconcile_ai_credit_shadow_terminal\(p_batch_size integer default 100\)/i);
+  assert.match(reconciliationSql, /security definer[\s\S]+set search_path = pg_catalog, public/i);
+  assert.match(reconciliationSql, /p_batch_size < 1 or p_batch_size > 500/i);
+  assert.match(reconciliationSql, /for update of l skip locked/i);
+  assert.match(reconciliationSql, /order by l\.id, r\.id/i);
+  assert.doesNotMatch(reconciliationSql, /ai_usage_requests|locked_until|stale/i);
+  assert.match(reconciliationSql, /public\.settle_ai_credit_shadow\(candidate\.reservation_id\)/i);
+  assert.match(reconciliationSql, /public\.release_ai_credit_shadow\(candidate\.reservation_id, 'terminal_reconciliation'\)/i);
+  assert.match(reconciliationSql, /revoke all on function public\.reconcile_ai_credit_shadow_terminal\(integer\)[\s\S]+from public, anon, authenticated/i);
+  assert.match(reconciliationSql, /grant execute on function public\.reconcile_ai_credit_shadow_terminal\(integer\)\s+to service_role/i);
+});
+
+test("terminal RPC preflight checks catalog types and modes, independent of parameter names", () => {
+  assert.doesNotMatch(reconciliationSql, /pg_get_function_identity_arguments/i);
+  assert.match(reconciliationSql, /p\.proargtypes, p\.proargmodes/i);
+  assert.match(reconciliationSql, /fn\.pronargs = 1[\s\S]*?fn\.proargtypes\[0\] = 'pg_catalog\.uuid'::pg_catalog\.regtype::oid/i);
+  assert.match(reconciliationSql, /fn\.pronargs = 2[\s\S]*?fn\.proargtypes\[1\] = 'pg_catalog\.text'::pg_catalog\.regtype::oid/i);
+  assert.match(reconciliationSql, /if not found_settle or not found_release then/i);
+  assert.match(reconciliationSql, /PRECHECK: incompatible % overload/i);
 });
