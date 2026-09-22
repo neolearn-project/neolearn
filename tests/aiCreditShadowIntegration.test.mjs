@@ -130,18 +130,16 @@ test("retry identity is supplied unchanged and realtime completion forwards the 
   ]);
 });
 
-test("direct-provider routes remain explicitly outside Phase 1B.2 student-credit scope", () => {
+test("remaining direct-provider routes outside Phase 1B.2 student-credit scope", () => {
   const studentCandidates = [
-    "app/api/avatar-lesson/route.ts",
     "app/api/ai-syllabus-subject/route.ts",
-    "app/api/teacher-quiz/route.ts",
   ];
   const adminExcluded = [
     "app/api/admin/content-studio/script/route.ts",
     "app/api/admin/content-studio/scenes/route.ts",
     "app/api/admin/content-studio/audio/route.ts",
   ];
-  assert.equal(studentCandidates.length, 3);
+  assert.equal(studentCandidates.length, 1);
   assert.equal(adminExcluded.length, 3);
 });
 

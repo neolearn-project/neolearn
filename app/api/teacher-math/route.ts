@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import Twilio from "twilio"; // (not used here, ignore if you don't want)
 import { createClient } from "@supabase/supabase-js";
 import { OwnershipError, ownershipErrorResponse, requireStudentIdentity } from "@/lib/auth/ownership";
+import { requireAiAccess } from "@/lib/access/requireAiAccess";
 import {
   DuplicateAiRequestError,
   duplicateAiRequestResponse,
@@ -12,9 +13,11 @@ import {
 import {
   AiRouteInProgressError,
   AiRouteRequestHashMismatchError,
+  AiRouteOwnershipUnavailableError,
   ReplayAiRouteResponse,
   aiRouteInProgressResponse,
   aiRouteRequestHashMismatchResponse,
+  aiRouteOwnershipUnavailableResponse,
   beginAiRouteRequest,
   completeAiRouteRequest,
   failAiRouteRequest,
@@ -154,6 +157,7 @@ if (
 }
 const verifiedStudentMobile = identity.mobile;
 const verifiedStudentId = identity.user.id;
+await requireAiAccess(verifiedStudentMobile, "teacher_math");
 
 // legacy fallback (old UI may send topicId)
 const topicId = String(body?.topicId || "").trim();
@@ -259,6 +263,7 @@ const topicId = String(body?.topicId || "").trim();
       studentId: verifiedStudentId,
       studentMobile: verifiedStudentMobile,
       feature: "teacher_math",
+      strictOwnership: true,
       requestPayload: {
         questionSha256: await crypto.subtle.digest("SHA-256", new TextEncoder().encode(question)).then((hash) =>
           Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join("")
@@ -362,7 +367,7 @@ ${isCompetitive ? '- Use the Competitive Deep Mode chat headings instead of the 
           })
         : rawAnswer;
 
-      return completeAiRouteRequest(
+      return await completeAiRouteRequest(
         replayReservation,
         NextResponse.json({
           answer:
@@ -379,7 +384,7 @@ ${isCompetitive ? '- Use the Competitive Deep Mode chat headings instead of the 
 try {
   supabase = supabaseAdminClient();
 } catch (e: any) {
-  console.warn("Supabase admin not configured:", e?.message);
+  console.warn("Supabase admin not configured");
 }
 
 
@@ -407,7 +412,7 @@ try {
     profile = (data as any) || null;
   }
 } catch (e) {
-  console.error("persona profile load failed:", e);
+  console.error("persona profile load failed");
 }
 
 
@@ -457,7 +462,7 @@ const languageInstruction =
         }
       }
     } catch (e) {
-      console.error("memory search failed:", e);
+      console.error("memory search failed");
     }
 
     // ------------------------
@@ -530,7 +535,7 @@ try {
 }
 
 } catch (e) {
-  console.error("weak topic update failed:", e);
+  console.error("weak topic update failed");
 }
 
 
@@ -576,7 +581,7 @@ Explain according to the syllabus of this class and board, focused on the given 
           .join(" ");
       }
     } catch (e) {
-      console.error("Answer parsing error:", e);
+      console.error("Answer parsing error");
     }
 
     if (isCompetitive) {
@@ -613,7 +618,7 @@ Explain according to the syllabus of this class and board, focused on the given 
       })
       .match(filter);
   } catch (e) {
-    console.error("student_profile update failed:", e);
+    console.error("student_profile update failed");
   }
 }
 
@@ -650,9 +655,9 @@ Explain according to the syllabus of this class and board, focused on the given 
           embedding,
         });
 
-        if (error) console.error("teacher_memory insert error:", error);
+        if (error) console.error("teacher_memory insert error");
       } catch (e) {
-        console.error("Memory save failed:", e);
+        console.error("Memory save failed");
       }
     }
 
@@ -695,10 +700,10 @@ const tts = await recordOpenAIUsage({
       const buffer = Buffer.from(arrayBuffer);
       audioBase64 = buffer.toString("base64");
     } catch (e) {
-      console.error("TTS error:", e);
+      console.error("TTS error");
     }
 
-    return completeAiRouteRequest(
+    return await completeAiRouteRequest(
       replayReservation,
       NextResponse.json({
     answer,
@@ -717,10 +722,11 @@ const tts = await recordOpenAIUsage({
     if (err instanceof ReplayAiRouteResponse) return err.response;
     if (err instanceof AiRouteInProgressError) return aiRouteInProgressResponse(err);
     if (err instanceof AiRouteRequestHashMismatchError) return aiRouteRequestHashMismatchResponse(err);
+    if (err instanceof AiRouteOwnershipUnavailableError) return aiRouteOwnershipUnavailableResponse();
     await failAiRouteRequest(replayReservation, err);
     if (err instanceof DuplicateAiRequestError) return duplicateAiRequestResponse(err);
     if (err instanceof OwnershipError) return ownershipErrorResponse(err);
-    console.error("teacher-math error:", err);
+    console.error("teacher-math error");
 
     const msg = err?.error?.message || err?.message || "Unknown error";
 
