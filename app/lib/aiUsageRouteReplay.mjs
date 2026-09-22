@@ -13,6 +13,7 @@ import {
 } from "@/app/lib/aiUsageRouteReplayCore.mjs";
 
 const DEFAULT_STALE_MS = 2 * 60 * 1000;
+const STRICT_OWNERSHIP_LOCK = "9999-12-31T23:59:59.000Z";
 
 export class ReplayAiRouteResponse extends Error {
   constructor(response) {
@@ -35,6 +36,28 @@ export class AiRouteRequestHashMismatchError extends Error {
     this.requestId = requestId;
     this.feature = feature;
   }
+}
+
+export class AiRouteOwnershipUnavailableError extends Error {
+  constructor() { super("AI request ownership is temporarily unavailable."); }
+}
+
+export class AiRouteNotReplayableError extends Error {
+  constructor() { super("Completed AI response cannot be replayed."); }
+}
+
+export function aiRouteOwnershipUnavailableResponse() {
+  return NextResponse.json(
+    { ok: false, error: "AI request temporarily unavailable. Please retry later." },
+    { status: 503, headers: { "Retry-After": "5" } }
+  );
+}
+
+export function aiRouteNotReplayableResponse() {
+  return NextResponse.json(
+    { ok: false, error: "AI request already completed; response cannot be replayed." },
+    { status: 409 }
+  );
 }
 
 export function aiRouteInProgressResponse(error) {
@@ -64,6 +87,7 @@ export function aiRouteRequestHashMismatchResponse(error) {
 export { classifyExistingRouteRequest, responseFromReplayRow, routeReplayStudentId };
 
 export async function beginAiRouteRequest(args) {
+  const strictOwnership = args.strictOwnership === true;
   const requestId = String(args.requestId || "").trim();
   const feature = String(args.feature || "").trim();
   const studentId = routeReplayStudentId({
@@ -73,9 +97,10 @@ export async function beginAiRouteRequest(args) {
   const staleMs = Number.isFinite(args.staleMs) ? args.staleMs : DEFAULT_STALE_MS;
   const requestHash = args.requestHash || hashReplayRequestPayload(args.requestPayload || {});
   const now = new Date();
-  const lockedUntil = new Date(now.getTime() + staleMs).toISOString();
+  const lockedUntil = strictOwnership ? STRICT_OWNERSHIP_LOCK : new Date(now.getTime() + staleMs).toISOString();
 
   if (!requestId || !feature) {
+    if (strictOwnership) throw new AiRouteOwnershipUnavailableError();
     return { id: null, requestId, attempt: 0, replayEnabled: false };
   }
 
@@ -100,16 +125,19 @@ export async function beginAiRouteRequest(args) {
       .single();
 
     if (!inserted.error) {
+      if (strictOwnership && !inserted.data?.id) throw new AiRouteOwnershipUnavailableError();
       return {
         id: inserted.data?.id || null,
         requestId,
         attempt: 0,
         replayEnabled: Boolean(inserted.data?.id),
+        strictOwnership,
       };
     }
 
     if (inserted.error?.code !== "23505") {
-      console.error("ai route replay begin failed:", inserted.error);
+      console.error("ai route replay begin failed");
+      if (strictOwnership) throw new AiRouteOwnershipUnavailableError();
       return { id: null, requestId, attempt: 0, replayEnabled: false };
     }
 
@@ -122,7 +150,8 @@ export async function beginAiRouteRequest(args) {
       .maybeSingle();
 
     if (existing.error || !existing.data) {
-      console.error("ai route replay lookup failed:", existing.error);
+      console.error("ai route replay lookup failed");
+      if (strictOwnership) throw new AiRouteOwnershipUnavailableError();
       return { id: null, requestId, attempt: 0, replayEnabled: false };
     }
 
@@ -138,6 +167,14 @@ export async function beginAiRouteRequest(args) {
 
     if (decision.action === "replay") {
       throw new ReplayAiRouteResponse(responseFromReplayRow(existing.data));
+    }
+
+    if (strictOwnership && existing.data.status === "success") {
+      throw new AiRouteNotReplayableError();
+    }
+
+    if (strictOwnership && decision.action === "reclaim") {
+      throw new AiRouteInProgressError(requestId, feature);
     }
 
     if (decision.action === "in_progress") {
@@ -181,16 +218,20 @@ export async function beginAiRouteRequest(args) {
       requestId,
       attempt: nextAttempt,
       replayEnabled: true,
+      strictOwnership,
     };
   } catch (error) {
     if (
       error instanceof ReplayAiRouteResponse ||
       error instanceof AiRouteInProgressError ||
-      error instanceof AiRouteRequestHashMismatchError
+      error instanceof AiRouteRequestHashMismatchError ||
+      error instanceof AiRouteOwnershipUnavailableError ||
+      error instanceof AiRouteNotReplayableError
     ) {
       throw error;
     }
-    console.error("ai route replay begin failed:", error);
+    console.error("ai route replay begin failed");
+    if (strictOwnership) throw new AiRouteOwnershipUnavailableError();
     return { id: null, requestId, attempt: 0, replayEnabled: false };
   }
 }
@@ -208,15 +249,12 @@ export async function completeAiRouteRequest(reservation, response) {
   } catch (error) {
     if (error?.code !== "REPLAY_PAYLOAD_TOO_LARGE") throw error;
     storeBody = false;
-    console.warn("ai route replay payload too large; response will not be replayed:", {
-      bytes: bytes.length,
-      contentType: headers["content-type"] || null,
-    });
+    console.warn("ai route replay payload too large; completed response is not replayable");
   }
 
   try {
     const db = supabaseAdmin();
-    const { error } = await db
+    const { data, error } = await db
       .from("ai_usage_requests")
       .update({
         status: "success",
@@ -228,10 +266,15 @@ export async function completeAiRouteRequest(reservation, response) {
         completed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq("id", reservation.id);
-    if (error) console.error("ai route replay complete failed:", error);
-  } catch (error) {
-    console.error("ai route replay complete failed:", error);
+      .eq("id", reservation.id)
+      .eq("status", "in_progress")
+      .select("id")
+      .single();
+    if (reservation.strictOwnership && (error || !data?.id)) throw new AiRouteOwnershipUnavailableError();
+    if (error) console.error("ai route replay complete failed");
+  } catch {
+    console.error("ai route replay complete failed");
+    if (reservation.strictOwnership) throw new AiRouteOwnershipUnavailableError();
   }
 
   return response;
@@ -250,7 +293,7 @@ export async function failAiRouteRequest(reservation, error) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", reservation.id);
-  } catch (finishError) {
-    console.error("ai route replay failure mark failed:", finishError);
+  } catch {
+    console.error("ai route replay failure mark failed");
   }
 }

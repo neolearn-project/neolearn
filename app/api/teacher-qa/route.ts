@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { OwnershipError, ownershipErrorResponse, requireStudentIdentity } from "@/lib/auth/ownership";
+import { requireAiAccess } from "@/lib/access/requireAiAccess";
 import {
   DuplicateAiRequestError,
   duplicateAiRequestResponse,
@@ -11,9 +12,11 @@ import {
 import {
   AiRouteInProgressError,
   AiRouteRequestHashMismatchError,
+  AiRouteOwnershipUnavailableError,
   ReplayAiRouteResponse,
   aiRouteInProgressResponse,
   aiRouteRequestHashMismatchResponse,
+  aiRouteOwnershipUnavailableResponse,
   beginAiRouteRequest,
   completeAiRouteRequest,
   failAiRouteRequest,
@@ -43,6 +46,7 @@ export async function POST(req: Request) {
     ) {
       throw new OwnershipError("Student access denied.", 403);
     }
+    await requireAiAccess(identity.mobile, "teacher_qa");
 
     const classLevel = body.classLevel || "Class 6";
     const subject = body.subject || "Maths";
@@ -65,6 +69,7 @@ export async function POST(req: Request) {
       studentId: identity.user.id,
       studentMobile: identity.mobile,
       feature: "teacher_qa",
+      strictOwnership: true,
       requestPayload: {
         questionSha256: await crypto.subtle.digest("SHA-256", new TextEncoder().encode(question)).then((hash) =>
           Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join("")
@@ -145,7 +150,7 @@ ${languageInstruction}
       ? qaRepairCompetitiveText(rawAnswer, { subject, chapter, topic: chapter, exam: competitiveExam })
       : rawAnswer;
 
-    return completeAiRouteRequest(
+    return await completeAiRouteRequest(
       replayReservation,
       NextResponse.json({ answer })
     );
@@ -153,10 +158,11 @@ ${languageInstruction}
     if (err instanceof ReplayAiRouteResponse) return err.response;
     if (err instanceof AiRouteInProgressError) return aiRouteInProgressResponse(err);
     if (err instanceof AiRouteRequestHashMismatchError) return aiRouteRequestHashMismatchResponse(err);
+    if (err instanceof AiRouteOwnershipUnavailableError) return aiRouteOwnershipUnavailableResponse();
     await failAiRouteRequest(replayReservation, err);
     if (err instanceof OwnershipError) return ownershipErrorResponse(err);
     if (err instanceof DuplicateAiRequestError) return duplicateAiRequestResponse(err);
-    console.error("teacher-qa error:", err);
+    console.error("teacher-qa error");
     return NextResponse.json(
       { error: "Failed to generate teacher answer" },
       { status: 500 }

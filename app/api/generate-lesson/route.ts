@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { OwnershipError, ownershipErrorResponse, requireStudentMobile } from "@/lib/auth/ownership";
+import { requireAiAccess } from "@/lib/access/requireAiAccess";
 import {
   DuplicateAiRequestError,
   duplicateAiRequestResponse,
@@ -11,9 +12,11 @@ import {
 import {
   AiRouteInProgressError,
   AiRouteRequestHashMismatchError,
+  AiRouteOwnershipUnavailableError,
   ReplayAiRouteResponse,
   aiRouteInProgressResponse,
   aiRouteRequestHashMismatchResponse,
+  aiRouteOwnershipUnavailableResponse,
   beginAiRouteRequest,
   completeAiRouteRequest,
   failAiRouteRequest,
@@ -35,6 +38,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const mobile = String(body?.mobile || "").trim();
     const identity = await requireStudentMobile(req, mobile);
+    await requireAiAccess(identity.mobile, "lesson_generation");
     const requestId = resolveAiRequestId(req, body, "generate_lesson");
 
     const board = (body.board as string) || "CBSE";
@@ -53,6 +57,7 @@ export async function POST(req: NextRequest) {
       studentId: identity.user.id,
       studentMobile: mobile,
       feature: "lesson_generation",
+      strictOwnership: true,
       requestPayload: {
         board,
         classLevel,
@@ -207,7 +212,7 @@ but DO NOT mention "NeoLearn" or "AI" in the script.
     }
 
     // Frontend expects script/text
-    return completeAiRouteRequest(
+    return await completeAiRouteRequest(
       replayReservation,
       NextResponse.json({ ok: true, script })
     );
@@ -215,10 +220,11 @@ but DO NOT mention "NeoLearn" or "AI" in the script.
     if (err instanceof ReplayAiRouteResponse) return err.response;
     if (err instanceof AiRouteInProgressError) return aiRouteInProgressResponse(err);
     if (err instanceof AiRouteRequestHashMismatchError) return aiRouteRequestHashMismatchResponse(err);
+    if (err instanceof AiRouteOwnershipUnavailableError) return aiRouteOwnershipUnavailableResponse();
     await failAiRouteRequest(replayReservation, err);
     if (err instanceof DuplicateAiRequestError) return duplicateAiRequestResponse(err);
     if (err instanceof OwnershipError) return ownershipErrorResponse(err);
-    console.error("generate-lesson error:", err);
+    console.error("generate-lesson error");
     return NextResponse.json(
       { ok: false, error: "Failed to generate lesson script." },
       { status: 500 }
