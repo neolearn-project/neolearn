@@ -37,11 +37,20 @@ import {
   type PersonaProfile,
 } from "@/app/lib/personaEngine";
 import {
-  buildCompetitiveStructureInstruction,
   competitiveExamLabel,
   isCompetitiveMode,
 } from "@/app/lib/competitivePrompt";
 import { qaRepairCompetitiveText } from "@/app/lib/competitiveQa";
+import {
+  buildClassroomProviderInput,
+  callClassroomProvider,
+  CLASSROOM_REQUEST_MAX_BYTES,
+  readClassroomBodyBounded,
+  authenticateAndAuthorizeClassroom,
+  sha256Text,
+  validateClassroomHistory,
+  validateClassroomJpegDataUrl,
+} from "@/app/lib/classroomConversation.mjs";
 
 // ------------------------
 // Decide model based on question complexity
@@ -104,7 +113,15 @@ async function embedQuestion(
 export async function POST(req: Request) {
   let replayReservation: Awaited<ReturnType<typeof beginAiRouteRequest>> | null = null;
   try {
-   const raw = await req.text();
+   const contentLength = Number(req.headers.get("content-length") || 0);
+   if (contentLength > CLASSROOM_REQUEST_MAX_BYTES) {
+     return NextResponse.json({ error: "Request is too large. Choose a smaller image." }, { status: 413 });
+   }
+   const boundedBody = await readClassroomBodyBounded(req, CLASSROOM_REQUEST_MAX_BYTES);
+   if (!boundedBody.ok) {
+     return NextResponse.json({ error: "Request is too large. Choose a smaller image." }, { status: 413 });
+   }
+   const raw = boundedBody.text;
 
 if (!raw || !raw.trim()) {
   return NextResponse.json(
@@ -112,7 +129,6 @@ if (!raw || !raw.trim()) {
     { status: 400 }
   );
 }
-
 let body: any;
 try {
   body = JSON.parse(raw);
@@ -126,9 +142,19 @@ try {
     // ------------------------
     // Inputs from UI
     // ------------------------
-    const question = String(body?.question || "").trim();
-    if (!question) {
-      return NextResponse.json({ error: "Question is required" }, { status: 400 });
+    let question = String(body?.question || "").trim();
+    const imageDataUrl = body?.imageDataUrl ?? null;
+    if (body?.imageDataUrls !== undefined || body?.attachments !== undefined || Array.isArray(imageDataUrl)) {
+      return NextResponse.json({ error: "Please attach one image at a time." }, { status: 400 });
+    }
+    if (!question && !imageDataUrl) {
+      return NextResponse.json({ error: "Add a question or one image." }, { status: 400 });
+    }
+    if (!question && imageDataUrl) {
+      question = "Please explain what is shown in this image in the context of my selected lesson.";
+    }
+    if (question.length > 2_000) {
+      return NextResponse.json({ error: "Please keep your question under 2,000 characters." }, { status: 400 });
     }
 
     const subjectId = (body?.subjectId || "maths") as SubjectId; // semantic
@@ -147,17 +173,44 @@ const studentMobile = String(body?.studentMobile || "").trim();
 // Prefer Supabase Auth UID (recommended)
 const studentId = String(body?.studentId || "").trim();
 const requestId = resolveAiRequestId(req, body, "teacher_math");
-const identity = await requireStudentIdentity(req);
-
-if (
-  (studentMobile && studentMobile !== identity.mobile) ||
-  (studentId && studentId !== identity.user.id)
-) {
-  throw new OwnershipError("Student access denied.", 403);
-}
+const identity = await authenticateAndAuthorizeClassroom({
+  authenticate: () => requireStudentIdentity(req),
+  authorize: async (authenticatedIdentity: { mobile: string; user: { id: string } }) => {
+    if (
+      (studentMobile && studentMobile !== authenticatedIdentity.mobile) ||
+      (studentId && studentId !== authenticatedIdentity.user.id)
+    ) {
+      throw new OwnershipError("Student access denied.", 403);
+    }
+    await requireAiAccess(authenticatedIdentity.mobile, "teacher_math");
+  },
+});
 const verifiedStudentMobile = identity.mobile;
 const verifiedStudentId = identity.user.id;
-await requireAiAccess(verifiedStudentMobile, "teacher_math");
+
+const validatedHistoryResult = validateClassroomHistory(body?.conversation ?? [], question);
+if (!validatedHistoryResult.ok) {
+  return NextResponse.json({ error: "Conversation is too long or has an invalid message." }, { status: 400 });
+}
+const conversationHistory = validatedHistoryResult.history;
+const validatedImageResult = imageDataUrl === null
+  ? null
+  : await validateClassroomJpegDataUrl(imageDataUrl);
+if (validatedImageResult && validatedImageResult.ok === false) {
+  const status = validatedImageResult.error === "unsupported_image" ? 415
+    : validatedImageResult.error === "image_too_large" || validatedImageResult.error === "image_dimensions_too_large" ? 413
+      : 422;
+  const message = validatedImageResult.error === "unsupported_image"
+    ? "This image format is not supported. Use JPEG, PNG, or WebP. PDFs are not supported."
+    : validatedImageResult.error === "image_too_large"
+      ? "This image is too large. Choose a smaller image."
+      : validatedImageResult.error === "image_dimensions_too_large"
+        ? "This image has too many pixels. Choose a smaller image."
+        : "This image could not be read. Retake it or upload a clearer image.";
+  return NextResponse.json({ error: message, code: validatedImageResult.error }, { status });
+}
+const validatedImage: { dataUrl: string; sha256: string; bytes: Uint8Array; width: number; height: number } | null =
+  validatedImageResult?.ok === true ? validatedImageResult as { dataUrl: string; sha256: string; bytes: Uint8Array; width: number; height: number } : null;
 
 // legacy fallback (old UI may send topicId)
 const topicId = String(body?.topicId || "").trim();
@@ -193,61 +246,6 @@ const topicId = String(body?.topicId || "").trim();
         ? "TBSE / Tripura Board"
         : "CBSE (NCERT)";
 
-    // HARD TOPIC LOCK: Lines and Angles -> Point
-    // Prevents wrong interpretation as decimal point / place value.
-    const qLowerForTopicLock = question.toLowerCase();
-    const chapterLowerForTopicLock = selectedChapterName.toLowerCase();
-    const topicLowerForTopicLock = selectedTopicName.toLowerCase();
-
-    const isGenericConfusionOrRepeat =
-      qLowerForTopicLock.includes("repeat") ||
-      qLowerForTopicLock.includes("again") ||
-      qLowerForTopicLock.includes("understand") ||
-      qLowerForTopicLock.includes("confused") ||
-      qLowerForTopicLock.includes("doubt") ||
-      qLowerForTopicLock.includes("samajh") ||
-      qLowerForTopicLock.includes("nahi") ||
-      qLowerForTopicLock.includes("nehi");
-
-    const isLinesAnglesPoint =
-      chapterLowerForTopicLock.includes("line") &&
-      chapterLowerForTopicLock.includes("angle") &&
-      topicLowerForTopicLock.includes("point");
-
-    if (isLinesAnglesPoint && isGenericConfusionOrRepeat) {
-      const answer = [
-        "Restating your doubt: You want me to explain Point again in Lines and Angles.",
-        "",
-        "A point is an exact position or location.",
-        "We show a point by a small dot on paper.",
-        "A point has no length, no breadth, and no height.",
-        "It has no size. It only shows one exact place.",
-        "We usually name a point with a capital letter like A, B, C, or P.",
-        "",
-        "Example 1:",
-        "Draw a small dot on your notebook and write A beside it. This is point A.",
-        "",
-        "Example 2:",
-        "Draw two dots and name them B and C. These are two different points. Later, we can join two points to make a line segment.",
-        "",
-        "Remember: this is a geometry point in Lines and Angles. It is not a decimal point.",
-        "",
-        "Follow-up question: Can you draw one dot and name it point P?"
-      ].join("\n");
-
-      return NextResponse.json(
-        {
-          answer,
-          modelUsed: "rule-lines-angles-point",
-          cached: false,
-          source: "topic-lock",
-          audio: null,
-        },
-        { status: 200 }
-      );
-    }
-
-
     // ------------------------
     // Clients
     // ------------------------
@@ -268,6 +266,8 @@ const topicId = String(body?.topicId || "").trim();
         questionSha256: await crypto.subtle.digest("SHA-256", new TextEncoder().encode(question)).then((hash) =>
           Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join("")
         ),
+        conversationSha256: await sha256Text(JSON.stringify(conversationHistory)),
+        imageSha256: validatedImage?.sha256 || null,
         board,
         classId,
         lang,
@@ -291,7 +291,7 @@ const topicId = String(body?.topicId || "").trim();
       const directPrompt = `
 ${isCompetitive ? "You are a serious Indian competitive exam mentor." : "You are a kind Indian school teacher."}
 
-The student is asking a doubt or response inside the current lesson. Answer only inside the selected subject, chapter, and topic.
+The student is continuing a tutoring conversation guided by the selected subject, chapter, topic, and level.
 
 STRICT CURRENT CONTEXT:
 Subject: ${selectedSubjectName}
@@ -303,10 +303,11 @@ Board: ${boardLabel}
 Student message: ${question}
 
 Rules:
-${isCompetitive ? buildCompetitiveStructureInstruction(competitiveExam, {
-  responseType: "doubt",
-  subject: selectedSubjectName,
-}) : ""}
+- Respond to the student's actual latest message and use the recent conversation to understand "why", "again", corrections, mistakes, interruptions, and requests for simpler or deeper explanations.
+- Give a complete answer when asked. Do not force a question, quiz, headings, or practice task after every response. Ask a follow-up only when it genuinely helps.
+- Keep the selected syllabus as guidance. If the screenshot or question appears to concern something else, briefly acknowledge what is visible and ask whether the student wants help with that image/topic or wants to return to the selected lesson; do not invent relevance or silently ignore it.
+- Preserve topic disambiguation: for example, a "point" in Lines and Angles is a geometric position, not a decimal point. If image evidence conflicts, clarify instead of switching silently.
+- For ${competitiveExam}, retain exam-relevant accuracy, formulas, units, and important traps where useful. Do not add MCQs unless requested.
 - SANSKRIT ACCURACY GUARD:
   If Subject is Sanskrit, keep Sanskrit examples grammatically correct.
   Do not convert Sanskrit forms into Hindi plural words.
@@ -317,21 +318,21 @@ ${isCompetitive ? buildCompetitiveStructureInstruction(competitiveExam, {
   गृहम् → गृहे → गृहाणि
   पत्रम् → पत्रे → पत्राणि
   Never write doubtful mixed forms like "पुस्तकें?" when the correct Sanskrit form is "पुस्तके".
-- Explain or respond ONLY about the selected topic above.
-- Do NOT explain Knowing Our Numbers unless the selected topic/chapter is actually Knowing Our Numbers.
-- Do NOT explain place value, face value, decimals, fractions, or number system unless that is the selected topic.
-- Do NOT use old memory, old weak topic, or any previous lesson.
+- Do not switch to a different syllabus topic silently. In particular, keep existing topic disambiguation such as a geometry point versus a decimal point; ask a brief clarification if the image shows another topic.
+- Do not use unrelated long-term memory. Use the bounded recent conversation supplied with this request for turn continuity.
 - If Subject is English, explain the selected story/literature topic only.
 - If Subject is Science, explain the selected science topic only.
 - If Subject is Sanskrit or Hindi, explain the selected grammar/literature topic only.
-${isCompetitive ? "- Use crisp exam-mentor language: compact, direct, and high-value." : "- Use simple child-friendly language."}
-${isCompetitive ? '- Use the Competitive Deep Mode chat headings instead of the regular short doubt format. Do not include free-form MCQs; say "Use Topic Test for validated MCQs."' : `- Start with: "Restating your doubt:"
-- Then explain in 4 to 6 short steps.
-- Give 1 or 2 examples from the selected topic.
-- End with one follow-up question.`}
+${isCompetitive ? "- Use precise, compact exam-mentor language without turning this chat reply into a full lesson." : "- Use simple child-friendly language. Prefer a direct answer; explain step by step only as much as needed."}
 `.trim();
 
       const directModel = "gpt-5-mini";
+      const directInput = buildClassroomProviderInput({
+        systemPrompt: `You are a responsive tutor. Stay within the server-provided syllabus context, respond in ${lang === "hi" ? "simple Hindi" : lang === "bn" ? "simple Bengali" : "simple English"}, and answer the latest user turn.`,
+        history: conversationHistory,
+        userPrompt: directPrompt,
+        imageDataUrl: (validatedImage?.dataUrl || null) as any,
+      });
       const directResponse = await recordOpenAIUsage({
         req,
         studentId: verifiedStudentId,
@@ -341,20 +342,7 @@ ${isCompetitive ? '- Use the Competitive Deep Mode chat headings instead of the 
         providerCall: "responses.create.direct_topic_lock",
         requestId,
         retryAttempt: replayReservation.attempt,
-        call: () => openai.responses.create({
-          model: directModel,
-          input: [
-            {
-              role: "system",
-              content:
-                "You must obey the selected subject, chapter, and topic exactly. Never switch to another chapter. For Sanskrit, examples must use correct Sanskrit grammar forms and must not be converted into Hindi plural forms.",
-            },
-            {
-              role: "user",
-              content: directPrompt,
-            },
-          ],
-        }),
+        call: () => callClassroomProvider(openai, directModel, directInput),
       });
 
       const rawAnswer = String((directResponse as any).output_text || "").trim();
@@ -474,10 +462,7 @@ ${isCompetitive ? "You are a serious Indian competitive exam mentor." : "You are
 PERSONA RULES (must follow):
 ${personaInstruction}
 
-${isCompetitive ? buildCompetitiveStructureInstruction(competitiveExam, {
-  responseType: "doubt",
-  subject: selectedSubjectName || teacher.displayName,
-}) : ""}
+${isCompetitive ? `For ${competitiveExam}, keep explanations accurate and exam-relevant. Use formulas, units, examples, and common traps when useful, but remain conversational; do not force headings, MCQs, practice tasks, or a follow-up question.` : ""}
 
 Subject: ${teacher.displayName}
 Board: ${boardLabel}
@@ -487,14 +472,10 @@ Chapter: ${chapter.title}
 ${languageInstruction}
 
 Your job is to:
-${isCompetitive ? `- Answer using the exact Competitive Deep Mode chat structure.
-- Make the response suitable for ${competitiveExam} preparation.
-- Include solved example, shortcut, traps, revision points, next practice task, and the line: "Use Topic Test for validated MCQs."
-- Do not include free-form MCQs, multiple-choice options, or answer explanations inside this chat answer.` : `- Restate the child's doubt in one simple line.
-- Explain step-by-step clearly.
-- Give 1 to 2 small worked examples related only to the selected topic: ${selectedTopicName || selectedChapterName || chapter.title}.
-- Use short, simple sentences.
-- End with one follow-up question to check understanding.`}
+- Answer the latest message using the supplied recent conversation to understand references, corrections, mistakes, and requests to explain again, more simply, or in more depth.
+- Give a complete answer when the student requests one. Do not force a follow-up question, quiz, or practice task. Ask a question only if useful to clarify or advance the student's learning.
+- Be concise by default and expand when requested; keep examples related to the selected topic.
+- If an image or question conflicts with the selected syllabus context, acknowledge what it appears to show and clarify instead of inventing relevance or ignoring it.
 `.trim();
 
 // âœ… If confusion detected, mark topic as weak (best effort)
@@ -550,6 +531,13 @@ Student question: ${question}
 Explain according to the syllabus of this class and board, focused on the given chapter.
 `.trim();
 
+    const providerInput = buildClassroomProviderInput({
+      systemPrompt,
+      history: conversationHistory,
+      userPrompt,
+      imageDataUrl: (validatedImage?.dataUrl || null) as any,
+    });
+
     const model = pickModel(question);
 
     const rawResponse = await recordOpenAIUsage({
@@ -561,13 +549,7 @@ Explain according to the syllabus of this class and board, focused on the given 
       providerCall: "responses.create",
       requestId,
       retryAttempt: replayReservation.attempt,
-      call: () => openai.responses.create({
-        model,
-        input: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
+      call: () => callClassroomProvider(openai, model, providerInput),
     });
 
     let answer = "Sorry, I could not answer this question.";

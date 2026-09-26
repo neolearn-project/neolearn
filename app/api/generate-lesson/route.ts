@@ -22,7 +22,6 @@ import {
   failAiRouteRequest,
 } from "@/app/lib/aiUsageRouteReplay.mjs";
 import {
-  buildCompetitiveStructureInstruction,
   competitiveExamLabel,
   isCompetitiveMode,
 } from "@/app/lib/competitivePrompt";
@@ -102,13 +101,10 @@ Do not speak like a foreign teacher.
 `.trim();
 
     const competitiveInstruction = isCompetitive
-      ? buildCompetitiveStructureInstruction(competitiveExam, {
-          responseType: "lesson",
-          subject,
-        })
+      ? `For ${competitiveExam}, keep the explanation exam-relevant and conceptually precise. Include a useful formula, fact, rule, or trap only when it helps this opening explanation. Do not produce headings, a full exam lesson, MCQs, a practice list, or a compulsory question.`
       : "";
 
-        const systemPrompt = `
+    const systemPrompt = `
 ${isCompetitive
   ? "You are a serious FEMALE competitive exam mentor in a professional Indian coaching institute called NeoLearn. You teach with precision, exam discipline, and no filler."
   : "You are a very friendly FEMALE teacher in a professional Indian coaching institute called NeoLearn.\nYou always teach slowly, clearly and in a warm, encouraging tone."}
@@ -132,36 +128,15 @@ Very important style rules:
   "In the end, remember that...",
   "For homework, you can try these questions."
 
-When you teach the topic, follow this structure, but write it as natural speech
-(one continuous talk with line breaks, NOT headings):
+Teach this as the first turn of a real tutoring conversation, not a complete lesson script.
+- Give a short explanation of one central idea in about 2-4 simple sentences, grounded in the selected syllabus and student level.
+- Use at most one small example if it makes the idea clearer.
+- You may ask one useful, low-pressure question to check what the student wants next; do not ask a quiz question by default.
+- Then stop and wait. Do not continue into another section, recap, homework, multiple questions, or an answer to a question the student has not asked.
+- Respect the requested language and keep the tone natural, responsive, and non-formulaic.
+- If the topic needs more than this opening turn, invite the student to continue rather than compressing the whole chapter into one response.
 
-${isCompetitive ? `
-For Competitive Deep Mode, ignore the regular school lesson outline below and use the exact competitive chat headings from Competitive Deep Mode. Make the lesson deep enough for ${competitiveExam} preparation.
-Do not include free-form MCQs in this chat lesson. Tell the student: "Use Topic Test for validated MCQs."
-`.trim() : `1) Greeting + Topic Introduction
-   - Give a neutral classroom greeting (1â€“2 sentences) with no religious wording.
-   - Say which topic you will teach and why it is useful (1â€“2 sentences).
-
-2) Main Explanation
-   - Explain the key idea of "${topic}" in ${classLevel} level.
-   - Use 5â€“8 short sentences.
-   - Go step by step, from basic idea to slightly deeper point.
-
-3) Worked Examples
-   - Give 2 or 3 small numerical examples.
-   - For each example, show the numbers and then explain the steps in words.
-
-4) Mini Test (Questions only)
-   - Ask 3 or 4 very short questions (Q1, Q2, Q3, Q4).
-   - Do NOT give the answers here.
-   - Each question should be similar to your examples.
-
-5) Short Summary
-   - 3â€“4 sentences reminding the most important points.
-
-6) Homework / Practice
-   - Give 2 or 3 easy practice questions for homework (different from the mini test).
-`}
+${competitiveInstruction}
 `.trim();
 
 
@@ -173,11 +148,7 @@ Subject: ${subject}
 Chapter: ${chapter || "(chapter name not given)"}
 Topic: ${topic}
 
-Write the teaching script exactly as you would speak to one student
-in one continuous talk, with line breaks between parts.
-
-Follow the structure given by the system instructions,
-but DO NOT mention "NeoLearn" or "AI" in the script.
+Teach only the selected topic. Keep the opening concise and leave room for the student to guide the next turn. Do not mention "NeoLearn" or "AI" in the script.
 `.trim();
 
     const model = "gpt-4.1-mini";

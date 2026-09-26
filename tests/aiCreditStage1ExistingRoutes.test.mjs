@@ -2,6 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import ts from "typescript";
+import {
+  buildClassroomProviderInput,
+  callClassroomProvider,
+  readClassroomBodyBounded,
+  sha256Text,
+  validateClassroomHistory,
+  validateClassroomJpegDataUrl,
+} from "../app/lib/classroomConversation.mjs";
 
 for (const name of ["generate-lesson", "teacher-qa", "teacher-math"]) {
   test(`${name} stops unauthenticated, cross-student and denied requests before provider work`, async () => {
@@ -29,6 +37,18 @@ for (const name of ["generate-lesson", "teacher-qa", "teacher-math"]) {
       OwnershipError,
       ReplayAiRouteResponse, AiRouteInProgressError, AiRouteRequestHashMismatchError, AiRouteOwnershipUnavailableError,
       DuplicateAiRequestError,
+      CLASSROOM_REQUEST_MAX_BYTES: 3_500_000,
+      authenticateAndAuthorizeClassroom: async ({ authenticate, authorize }) => {
+        const identity = await authenticate();
+        await authorize(identity);
+        return identity;
+      },
+      buildClassroomProviderInput,
+      callClassroomProvider,
+      readClassroomBodyBounded,
+      sha256Text,
+      validateClassroomHistory,
+      validateClassroomJpegDataUrl,
       aiRouteInProgressResponse: () => Response.json({ ok: false }, { status: 409 }),
       aiRouteRequestHashMismatchResponse: () => Response.json({ ok: false }, { status: 409 }),
       aiRouteOwnershipUnavailableResponse: () => Response.json({ ok: false }, { status: 503 }),

@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import { ClientAuthError, loginAgainMessage, newStudentAiRequestId, studentAiUsageHeaders, studentAuthHeaders } from "@/app/lib/clientAuth";
 import { readJsonResponse } from "@/app/lib/safeResponse";
+import { buildClassroomHistory, classroomScopeKey } from "@/app/lib/classroomConversation.mjs";
 
 type ClassId = "6" | "7" | "8" | "9" | "10" | "11" | "12";
 
@@ -62,6 +63,47 @@ interface StudentInfo {
   access_token?: string;
   refresh_token?: string;
   expires_at?: number | null;
+}
+
+const MAX_CLASSROOM_IMAGE_BYTES = 2 * 1024 * 1024;
+const MAX_CLASSROOM_SOURCE_PIXELS = 40_000_000;
+
+async function normalizeClassroomImage(file: File): Promise<string> {
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    throw new Error(file.type === "application/pdf" ? "PDF attachments are not supported yet. Choose one image." : "This image format is not supported. Choose JPEG, PNG, or WebP.");
+  }
+  if (file.size > 12 * 1024 * 1024) throw new Error("This image is too large to process. Choose a smaller image.");
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    throw new Error("This image could not be read. Retake it or upload a clearer image.");
+  }
+  try {
+    if (!bitmap.width || !bitmap.height || bitmap.width * bitmap.height > MAX_CLASSROOM_SOURCE_PIXELS) {
+      throw new Error("This image has too many pixels. Choose a smaller image.");
+    }
+    let scale = Math.min(1, 4096 / bitmap.width, 4096 / bitmap.height);
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Your browser couldn't prepare this image. Please retry.");
+    for (let attempt = 0; attempt < 8; attempt++) {
+      canvas.width = Math.max(1, Math.floor(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.floor(bitmap.height * scale));
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      for (const quality of [0.9, 0.8, 0.7, 0.6]) {
+        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        const encoded = dataUrl.split(",", 2)[1] || "";
+        const byteLength = Math.floor(encoded.length * 3 / 4) - (encoded.endsWith("==") ? 2 : encoded.endsWith("=") ? 1 : 0);
+        if (byteLength > 0 && byteLength <= MAX_CLASSROOM_IMAGE_BYTES) return dataUrl;
+      }
+      scale *= 0.8;
+    }
+    throw new Error("This image is too large to send. Choose a smaller image.");
+  } finally {
+    bitmap.close();
+  }
 }
 
 interface SubjectRow {
@@ -1064,8 +1106,10 @@ const loadPlans = useCallback(async () => {
   // conversation + audio
 const [messages, setMessages] = useState<ChatMessage[]>([]);
 const [question, setQuestion] = useState("");
+const [lessonOpening, setLessonOpening] = useState<{ scopeKey: string; text: string } | null>(null);
 const [isStartingLesson, setIsStartingLesson] = useState(false);
 const [isAsking, setIsAsking] = useState(false);
+const askRequestInFlightRef = useRef(false);
 const [audioUrl, setAudioUrl] = useState<string | null>(null);
 const lessonAudioRef = useRef<HTMLAudioElement | null>(null);
 const audioUrlRef = useRef<string | null>(null);
@@ -1625,6 +1669,24 @@ useEffect(() => {
     [filteredTopics, selectedTopicId]
   );
 
+  const classroomSelectionKey = [student?.studentId || student?.mobile || "", selectedSubjectId ?? "", selectedChapterId ?? "", selectedTopicId ?? ""].join(":");
+  const [classroomSelectionEpoch, setClassroomSelectionEpoch] = useState(0);
+  const previousClassroomSelectionRef = useRef(classroomSelectionKey);
+  useEffect(() => {
+    if (previousClassroomSelectionRef.current !== classroomSelectionKey) {
+      previousClassroomSelectionRef.current = classroomSelectionKey;
+      setClassroomSelectionEpoch((value) => value + 1);
+    }
+  }, [classroomSelectionKey]);
+
+  const classroomConversationScope = classroomScopeKey({
+    studentId: student?.studentId || student?.mobile || "",
+    subjectId: String(currentSubject?.id ?? ""),
+    chapterId: String(currentChapter?.id ?? ""),
+    topicId: String(currentTopic?.id ?? ""),
+    sessionId: `${classSession?.id || ""}:${classroomSelectionEpoch}`,
+  });
+
 const loadDailyMission = useCallback(async () => {
   if (!student?.mobile) return;
 
@@ -1895,7 +1957,7 @@ useEffect(() => {
 
   // Start Lesson -> /api/generate-lesson + /api/lesson-audio
 const handleStartLesson = useCallback(async () => {
-  if (isStartingLesson || lessonRequestInFlightRef.current) return;
+  if (isStartingLesson || isAsking || askRequestInFlightRef.current || lessonRequestInFlightRef.current) return;
   stopLessonAudio();
   const lessonAudioRequestVersion = audioRequestVersionRef.current;
 
@@ -1935,6 +1997,7 @@ const handleStartLesson = useCallback(async () => {
   }
 
   setMessages([]);
+  setLessonOpening(null);
 
   if (!ent.features?.lessonGeneration) {
     setTrialLimitNotice({
@@ -1948,9 +2011,17 @@ const handleStartLesson = useCallback(async () => {
 
   setTrialLimitNotice(null);
   const now = Date.now();
+  const lessonSessionId = crypto.randomUUID();
+  const lessonScopeKey = classroomScopeKey({
+    studentId: student?.studentId || student?.mobile || "",
+    subjectId: String(currentSubject.id),
+    chapterId: String(currentChapter.id),
+    topicId: String(currentTopic.id),
+    sessionId: `${lessonSessionId}:${classroomSelectionEpoch}`,
+  });
   resetSessionTranscript();
   setClassSession({
-    id: crypto.randomUUID(),
+    id: lessonSessionId,
     startTime: now,
     endTime: now + 40 * 60 * 1000,
     isLive: true,
@@ -1986,34 +2057,27 @@ const handleStartLesson = useCallback(async () => {
       });
 
       if (!lessonRes.ok) {
-        if (lessonRes.status === 401) {
-          removeLessonLoadingMessage();
-          setAudioError(loginAgainMessage(lessonRes.status));
-          return;
-        }
-        console.error(
-          "generate-lesson failed:",
-          lessonRes.status,
-          await lessonRes.text()
-        );
-      } else {
-        const data = await lessonRes.json();
-        scriptText = (data.script || data.text || "").trim();
+        removeLessonLoadingMessage();
+        setClassSession(null);
+        setRemainingSeconds(0);
+        setAudioError(lessonRes.status === 401
+          ? loginAgainMessage(lessonRes.status)
+          : "I couldn't prepare this lesson. Please try again.");
+        return;
       }
-    } catch (err) {
-      console.error("generate-lesson network error:", err);
-    }
-
-    if (!scriptText) {
-      const langLabel = language;
-      scriptText = (
-        `Hi ${student?.name || "Student"}, I am your NeoLearn ${cleanSubjectName(currentSubject.subject_name)} teacher.\n\n` +
-        `Today we will learn the topic "${currentTopic.topic_name}" from the chapter "${currentChapter.chapter_name}" for Class ${student?.classId || "6"}.\n` +
-        `I will explain it step by step in very simple ${langLabel} so you can understand easily.`
-      ).trim();
+      const data = await lessonRes.json();
+      scriptText = (data.script || data.text || "").trim();
+      if (!scriptText) throw new Error("empty_lesson");
+    } catch {
+      removeLessonLoadingMessage();
+      setClassSession(null);
+      setRemainingSeconds(0);
+      setAudioError("I couldn't prepare this lesson. Please try again.");
+      return;
     }
 
     removeLessonLoadingMessage();
+    setLessonOpening({ scopeKey: lessonScopeKey, text: scriptText });
     pushMessage("Teacher", scriptText);
 
     try {
@@ -2084,6 +2148,7 @@ const handleStartLesson = useCallback(async () => {
   }
 }, [
   isStartingLesson,
+  isAsking,
   currentSubject,
   currentChapter,
   currentTopic,
@@ -2137,12 +2202,10 @@ useEffect(() => {
 
   // Student asks a doubt -> /api/teacher-math (or your Q&A route)
     // Student asks a doubt -> text + audio answer
-  const handleAskQuestion = useCallback(async () => {
+const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUrl: string }) => {
+  if (askRequestInFlightRef.current || isStartingLesson || lessonRequestInFlightRef.current) return;
   const trimmed = question.trim();
-  if (!trimmed) return;
-
-  pushMessage("You", trimmed);
-  setQuestion("");
+  if (!trimmed && !attachment) return;
 
   if (!currentSubject || !currentChapter || !currentTopic) {
     pushMessage(
@@ -2153,44 +2216,45 @@ useEffect(() => {
     return;
   }
 
-  const ent = await loadEntitlements();
-
-  if (!ent?.ok) {
-    setAudioError(
-      ent?.authRequired
-        ? "Session expired. Please login again."
-        : ent?.error || "Unable to verify your plan right now. Please try again."
-    );
-    return;
-  }
-
-  if (!ent.features?.teacherQa && !ent.features?.teacherQaPreview) {
-    pushMessage(
-      "Teacher",
-      "Teacher Q&A is available after subscription.",
-      true
-    );
-    return;
-  }
-
-  if (ent.features?.teacherQaPreview && !ent.features?.teacherQa) {
-    pushMessage(
-      "Teacher",
-      "Preview: full teacher doubt-solving is available after subscription.",
-      true
-    );
-    return;
-  }
-
+  const questionText = trimmed || "Please explain what is shown in this image in the context of my selected lesson.";
+  pushMessage("You", attachment ? `${questionText}\n[Image attached: ${attachment.name}]` : questionText);
+  setQuestion("");
+  askRequestInFlightRef.current = true;
   setIsAsking(true);
+
   const aiRequestId = newStudentAiRequestId("teacher_math");
 
   try {
+    const ent = await loadEntitlements();
+    if (!ent?.ok) {
+      setAudioError(ent?.authRequired
+        ? "Session expired. Please login again."
+        : ent?.error || "Unable to verify your plan right now. Please try again.");
+      return;
+    }
+    if (!ent.features?.teacherQa && !ent.features?.teacherQaPreview) {
+      pushMessage("Teacher", "Teacher Q&A is available after subscription.", true);
+      return;
+    }
+    if (ent.features?.teacherQaPreview && !ent.features?.teacherQa) {
+      pushMessage("Teacher", "Preview: full teacher doubt-solving is available after subscription.", true);
+      return;
+    }
+
+    const scopeMatches = lessonOpening?.scopeKey === classroomConversationScope;
+    const conversation = buildClassroomHistory({
+      messages: scopeMatches ? messages : [],
+      openingExplanation: scopeMatches ? lessonOpening.text : "",
+      currentQuestion: questionText,
+    });
+    stopLessonAudio();
     const res = await fetch("/api/teacher-math", {
       method: "POST",
       headers: studentAiUsageHeaders(true, aiRequestId),
       body: JSON.stringify({
-        question: trimmed,
+        question: questionText,
+        conversation,
+        ...(attachment ? { imageDataUrl: attachment.dataUrl } : {}),
 
         // full selected context - prevents fallback to maths/fractions
         board: effectiveStudentTrack === "competitive" ? effectiveCompetitiveExam : "cbse",
@@ -2223,17 +2287,25 @@ useEffect(() => {
     });
 
     if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
+      const failure = await res.json().catch(() => ({}));
+      const safeMessage = [413, 415, 422].includes(res.status) && typeof failure?.error === "string"
+        ? failure.error
+        : "Sorry, I couldn't answer that. Please try again.";
+      pushMessage("Teacher", safeMessage, true);
+      return;
     }
 
     const data = await res.json();
-    const answer: string =
-      data?.answer || data?.text || "I have noted your question.";
+    const answer = typeof data?.answer === "string" ? data.answer.trim()
+      : typeof data?.text === "string" ? data.text.trim() : "";
+    if (!answer) {
+      pushMessage("Teacher", "Sorry, I couldn't answer that. Please try again.", true);
+      return;
+    }
 
     pushMessage("Teacher", answer);
 
     const langCode = getLangCode(language);
-    stopLessonAudio();
     const answerAudioRequestVersion = audioRequestVersionRef.current;
 
     const ttsRes = await fetch("/api/lesson-audio", {
@@ -2290,13 +2362,18 @@ useEffect(() => {
       true
     );
   } finally {
+    askRequestInFlightRef.current = false;
     setIsAsking(false);
   }
 }, [
   question,
+  isStartingLesson,
   currentSubject,
   currentChapter,
   currentTopic,
+  messages,
+  lessonOpening,
+  classroomConversationScope,
   stopLessonAudio,
   student?.classId,
   student?.mobile,
@@ -2734,6 +2811,7 @@ useEffect(() => {
               setQuestion={setQuestion}
               onStartLesson={handleStartLesson}
               onAskQuestion={handleAskQuestion}
+              conversationScopeKey={classroomConversationScope}
               isStartingLesson={isStartingLesson}
               trialLimitNotice={trialLimitNotice}
               isAsking={isAsking}
@@ -4855,7 +4933,8 @@ function ClassroomView(props: {
   question: string;
   setQuestion: (s: string) => void;
   onStartLesson: () => Promise<void> | void;
-  onAskQuestion: () => Promise<void> | void;
+  onAskQuestion: (attachment?: { name: string; dataUrl: string }) => Promise<void> | void;
+  conversationScopeKey: string;
   isStartingLesson: boolean;
   trialLimitNotice: { topicId: number | null; message: string } | null;
   isAsking: boolean;
@@ -4905,6 +4984,7 @@ function ClassroomView(props: {
     setQuestion,
     onStartLesson,
     onAskQuestion,
+    conversationScopeKey,
     isStartingLesson,
     trialLimitNotice,
     isAsking,
@@ -4991,14 +5071,37 @@ function ClassroomView(props: {
   const [highlightTopicTestButton, setHighlightTopicTestButton] = useState(false);
   const [highlightStartLessonButton, setHighlightStartLessonButton] = useState(false);
 
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<{ name: string; dataUrl: string } | null>(null);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    setSelectedImage(null);
+    setAttachmentError(null);
+  }, [conversationScopeKey]);
+
+  const handleImageFiles = async (fileList: FileList | null) => {
+    setAttachmentError(null);
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    if (files.length !== 1) {
+      setSelectedImage(null);
+      setAttachmentError("Please attach one image at a time.");
+      return;
+    }
+    try {
+      const dataUrl = await normalizeClassroomImage(files[0]);
+      setSelectedImage({ name: files[0].name || "Image", dataUrl });
+    } catch (error) {
+      setSelectedImage(null);
+      setAttachmentError(error instanceof Error ? error.message : "This image could not be prepared. Please retry.");
+    }
+  };
 
   const goTab = (tab: ActiveTab) => {
     onNavigateTab(tab);
@@ -5113,7 +5216,15 @@ useEffect(() => {
     if (!ctx) return;
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    setCapturedImage(canvas.toDataURL("image/jpeg", 0.92));
+    const captured = canvas.toDataURL("image/jpeg", 0.9);
+    const encoded = captured.split(",", 2)[1] || "";
+    const byteLength = Math.floor(encoded.length * 3 / 4) - (encoded.endsWith("==") ? 2 : encoded.endsWith("=") ? 1 : 0);
+    if (!byteLength || byteLength > MAX_CLASSROOM_IMAGE_BYTES) {
+      setAttachmentError("This camera image is too large. Retake it from a little farther away.");
+      return;
+    }
+    setAttachmentError(null);
+    setSelectedImage({ name: "Camera photo", dataUrl: captured });
     stopCamera();
     setIsCameraOpen(false);
   };
@@ -5274,6 +5385,7 @@ const loadEntitlementsLocal = useCallback(async () => {
 }, [studentMobile]);
 
 const handleToggleRealtime = async () => {
+  if (isAsking) return;
   if (isRealtimeOn && realtimeClient) {
     try {
       realtimeClient.disconnect();
@@ -5316,8 +5428,18 @@ const handleToggleRealtime = async () => {
 };
 
 const handleAskRealtime = async () => {
+  if (isStartingLesson) return;
   const trimmed = question.trim();
-  if (!trimmed) return;
+  if (!trimmed && !selectedImage) return;
+  if (attachmentError) return;
+
+  if (selectedImage) {
+    if (isAsking) return;
+    onPauseLessonAudio();
+    disconnectRealtimeForLessonAudio("Image question sent through classroom chat.");
+    await onAskQuestion(selectedImage);
+    return;
+  }
 
   if (isRealtimeOn || realtimeClient) {
     try {
@@ -5338,6 +5460,7 @@ const handleAskRealtime = async () => {
 };
 
 const handleMicToggle = async () => {
+  if (isAsking) return;
   onPauseLessonAudio();
   const ent = await loadEntitlementsLocal();
   if (ent?.authRequired) {
@@ -6596,6 +6719,9 @@ useEffect(() => {
                     {audioError && (
                       <div className="neo-classroom-warning rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 shadow-sm">
                         {audioError}
+                        {audioError === "I couldn't prepare this lesson. Please try again." && (
+                          <button type="button" onClick={() => void onStartLesson()} className="ml-2 rounded-lg border border-amber-400 px-2 py-1 underline">Retry lesson</button>
+                        )}
                       </div>
                     )}
 
@@ -6637,29 +6763,21 @@ useEffect(() => {
                       </div>
                     )}
 
-                    {capturedImage && (
-                      <div className="rounded-3xl border border-slate-200 bg-white p-3">
-                        <div className="mb-2 text-xs font-semibold text-slate-500">
-                          Captured image
+                    {selectedImage && (
+                      <div className="flex items-center gap-3 rounded-3xl border border-slate-200 bg-white p-3">
+                        <img src={selectedImage.dataUrl} alt="Selected question" className="max-h-24 max-w-32 rounded-xl border border-slate-200 object-contain" />
+                        <div className="min-w-0 flex-1 text-xs text-slate-700">
+                          <div className="font-semibold">Image ready: {selectedImage.name}</div>
+                          <div>It will be included with your next message and follow-ups until removed.</div>
                         </div>
-                        <img
-                          src={capturedImage}
-                          alt="Captured"
-                          className="max-h-72 w-auto rounded-2xl border border-slate-200"
-                        />
+                        <button type="button" onClick={() => setSelectedImage(null)} className="rounded-xl px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100">Remove</button>
                       </div>
                     )}
 
-                    {uploadedFiles.length > 0 && (
-                      <div className="rounded-3xl border border-slate-200 bg-white p-3">
-                        <div className="mb-1 text-xs font-semibold text-slate-500">
-                          Uploaded files
-                        </div>
-                        <ul className="list-disc pl-5 text-xs text-slate-700">
-                          {uploadedFiles.map((f, idx) => (
-                            <li key={`${f.name}-${idx}`}>{f.name}</li>
-                          ))}
-                        </ul>
+                    {attachmentError && (
+                      <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-800">
+                        {attachmentError} Select a different image or retry.
+                        <button type="button" className="ml-2 underline" onClick={() => setAttachmentError(null)}>Dismiss</button>
                       </div>
                     )}
 
@@ -6673,11 +6791,12 @@ useEffect(() => {
               <input
                 ref={uploadInputRef}
                 type="file"
-                accept="image/*,.pdf"
+                accept="image/jpeg,image/png,image/webp,.pdf"
                 multiple
                 className="hidden"
                 onChange={(e) => {
-                  setUploadedFiles(Array.from(e.target.files || []));
+                  void handleImageFiles(e.currentTarget.files);
+                  e.currentTarget.value = "";
                   setMenuOpen(false);
                 }}
               />
@@ -6697,14 +6816,15 @@ useEffect(() => {
                       <div className="neo-composer-plus-menu absolute bottom-14 left-0 z-30 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
                         <label className="flex cursor-pointer items-center rounded-xl px-3 py-3 text-sm text-slate-700 hover:bg-slate-100">
                           <Upload className="h-4 w-4" />
-                          Upload notes / photo
+                          Upload one image
                           <input
                             type="file"
-                            accept="image/*,.pdf"
+                            accept="image/jpeg,image/png,image/webp,.pdf"
                             multiple
                             className="hidden"
                             onChange={(e) => {
-                              setUploadedFiles(Array.from(e.target.files || []));
+                              void handleImageFiles(e.currentTarget.files);
+                              e.currentTarget.value = "";
                               setMenuOpen(false);
                             }}
                           />
@@ -6759,14 +6879,16 @@ useEffect(() => {
                   <button
                     type="button"
                     onClick={handleAskRealtime}
-                    disabled={isAsking}
+                    disabled={isAsking || isStartingLesson || !!attachmentError}
+                    aria-label={isAsking ? "Sending message" : "Send message"}
                     className="neo-composer-send flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-lg font-bold text-white disabled:opacity-50"
                   >
-                   →
+                   {isAsking ? <Loader2 className="h-4 w-4 animate-spin" /> : "→"}
                   </button>
                 </div>
 
                 <div className="neo-realtime-status mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  {isAsking ? <span role="status">Tutor is preparing a reply…</span> : null}
                   <button
                     type="button"
                     onClick={handleToggleRealtime}
