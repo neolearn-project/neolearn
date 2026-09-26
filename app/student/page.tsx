@@ -2660,6 +2660,10 @@ useEffect(() => {
               Payments
             </TabButton>
 
+            <TabButton active={false} onClick={() => router.push("/student/ai-credits")}>
+              AI Credits
+            </TabButton>
+
             <TabButton
               active={activeTab === "gallery"}
               onClick={() => setActiveTab("gallery")}
