@@ -99,5 +99,5 @@ test("Stage 5 API and UI remain server-only, no-store, and non-enforcing", () =>
   assert.match(pageSource, /Observational only/);
   assert.doesNotMatch(pageSource, /method:\s*["'](?:POST|PUT|PATCH|DELETE)|reset|override|purchase|settle|release/i);
   assert.match(studentSource, /router\.push\("\/student\/ai-credits"\)/);
-  assert.match(roadmap, /Current status: Stage 5 in progress/);
+  assert.match(roadmap, /Current status: Stage 5 complete \(2026-09-26\)/);
 });

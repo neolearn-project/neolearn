@@ -1,6 +1,6 @@
 # AI Credit Limits roadmap
 
-## Current status: Stage 5 in progress (2026-09-26)
+## Current status: Stage 5 complete (2026-09-26)
 
 - Payment verification and webhook handling use the atomic payment finalization RPC. Subscription periods are checked against paid status and their start and end times.
 - AI usage is recorded in the usage ledger with provider call identity, retry attempts, pricing status, and authoritative billing metadata.
@@ -15,10 +15,13 @@
 
 Stage 4 operational monitoring completed on 2026-09-26. The service-role-only, read-only RPC uses an explicit evaluation timestamp and bounded deterministic findings. It reports terminal reservations, stale in-progress attempts, identity and settlement anomalies, billing exclusions, policy/tranche coverage, expired periods/tranches, term/5h/24h shadow usage readiness, reconciliation backlog, and relevant latest timestamps. Output is aggregate/redacted by default; optional identifiers are internal UUIDs. It does not reconcile, repair, settle, release, seed, activate, block, or enforce. The PostgreSQL 17 behavioral harness passed (`node.exe --test tests\aiCreditOperationalMonitoringPostgresHarness.test.mjs`: 1 passed, 0 failed, 0 skipped), covering all monitoring categories, bounds, deterministic repeated and concurrent reads, redaction, ACL/RLS, exact signature, fixed search path, and zero writes.
 
+### Stage 5 completion
+
+Stage 5 authenticated student AI-credit visibility completed on 2026-09-26. The logged-out API returned a generic authentication-required response. An authenticated student received the safe unavailable state because policy and entitlement data remain unseeded. Dashboard navigation and the Refresh and Back controls passed in Vercel Preview. No internal identifiers or database errors were exposed. Visibility remains observational and non-enforcing, and no migration, seed, activation, payment, subscription, reconciliation, or access behavior changed.
+
 ## Remaining stages
 
-5. **In progress.** Build authenticated student AI-credit visibility from the Stage 3 shadow report. The approved boundary is a server-only student API and `/student/ai-credits` page with refresh/navigation controls only. Inputs and identity are server-derived, output is allowlisted and observational, and no enforcement, purchase, grant, reset, override, or administrative controls are included.
-6. Build administrator credit monitoring and operational controls.
+6. **Pending.** Build administrator credit monitoring and operational controls.
 7. Plan monitored activation, rollback, and migration from shadow observation to enforcement.
 
 Do not activate credit limits before Stages 2–4 pass their tests and review gates. The current credit configuration is inactive and must stay dormant until then.
