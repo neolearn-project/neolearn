@@ -1,6 +1,6 @@
 # AI Credit Limits roadmap
 
-## Current status: Stage 5 complete (2026-09-26)
+## Current status: Stage 6 complete (2026-09-26)
 
 - Payment verification and webhook handling use the atomic payment finalization RPC. Subscription periods are checked against paid status and their start and end times.
 - AI usage is recorded in the usage ledger with provider call identity, retry attempts, pricing status, and authoritative billing metadata.
@@ -19,9 +19,12 @@ Stage 4 operational monitoring completed on 2026-09-26. The service-role-only, r
 
 Stage 5 authenticated student AI-credit visibility completed on 2026-09-26. The logged-out API returned a generic authentication-required response. An authenticated student received the safe unavailable state because policy and entitlement data remain unseeded. Dashboard navigation and the Refresh and Back controls passed in Vercel Preview. No internal identifiers or database errors were exposed. Visibility remains observational and non-enforcing, and no migration, seed, activation, payment, subscription, reconciliation, or access behavior changed.
 
+### Stage 6 completion
+
+Stage 6 authenticated administrator AI-credit monitoring completed on 2026-09-26. In Vercel Preview, the unauthenticated API returned generic `Unauthorized`; an incorrect password removed all monitoring data and showed a generic authentication message; authenticated navigation and Refresh passed; result limits and stale/near-limit thresholds worked; and aggregate counts remained consistent. Identifiers were redacted by default, explicit opt-in displayed UUIDs only, and disabling opt-in removed identifiers again. No student PII, database errors, credentials, or provider payloads were exposed. Enforcement remained inactive and monitoring remained read-only. No migration, reconciliation, repair, settlement, release, grant, override, activation, enforcement, payment or subscription change, cron, background job, or seed was added.
+
 ## Remaining stages
 
-6. **Pending.** Build administrator credit monitoring and operational controls.
 7. Plan monitored activation, rollback, and migration from shadow observation to enforcement.
 
 Do not activate credit limits before Stages 2–4 pass their tests and review gates. The current credit configuration is inactive and must stay dormant until then.
