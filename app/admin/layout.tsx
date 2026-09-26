@@ -28,6 +28,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               Dashboard
             </Link>
 
+            <Link href="/admin/ai-credit-monitoring" className="hover:underline">
+              AI Credit Monitor
+            </Link>
+
             <Link href="/admin/users" className="hover:underline">
               Users
             </Link>

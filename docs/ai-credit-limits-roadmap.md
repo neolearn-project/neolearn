@@ -1,6 +1,6 @@
 # AI Credit Limits roadmap
 
-## Current status: Stage 5 complete (2026-09-26)
+## Current status: Stage 6 in progress (2026-09-26)
 
 - Payment verification and webhook handling use the atomic payment finalization RPC. Subscription periods are checked against paid status and their start and end times.
 - AI usage is recorded in the usage ledger with provider call identity, retry attempts, pricing status, and authoritative billing metadata.
@@ -21,7 +21,7 @@ Stage 5 authenticated student AI-credit visibility completed on 2026-09-26. The 
 
 ## Remaining stages
 
-6. **Pending.** Build administrator credit monitoring and operational controls.
+6. **In progress.** Build authenticated administrator AI-credit monitoring from the Stage 4 operational report. The approved controls are read-only refresh, bounded result/staleness/near-limit inputs, and an explicit internal-UUID toggle. Output remains allowlisted, redacted by default, observational, and non-enforcing.
 7. Plan monitored activation, rollback, and migration from shadow observation to enforcement.
 
 Do not activate credit limits before Stages 2–4 pass their tests and review gates. The current credit configuration is inactive and must stay dormant until then.
