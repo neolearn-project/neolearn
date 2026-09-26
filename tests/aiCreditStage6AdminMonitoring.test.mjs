@@ -82,5 +82,5 @@ test("Stage 6 API and UI follow canonical admin and read-only patterns", () => {
   for (const control of ["Refresh","Result limit","Stale minutes","Near-limit bps"]) assert.match(page,new RegExp(control));
   assert.match(page,/No findings for this evaluation/); assert.match(page,/Authenticate and refresh to load monitoring/);
   assert.match(layout,/href="\/admin\/ai-credit-monitoring"/);
-  assert.match(roadmap,/Current status: Stage 6 in progress \(2026-09-26\)/);
+  assert.match(roadmap,/Current status: Stage 6 complete \(2026-09-26\)/);
 });
