@@ -6,6 +6,16 @@ export const CLASSROOM_IMAGE_MAX_DIMENSION = 4096;
 export const CLASSROOM_IMAGE_MAX_PIXELS = 12_000_000;
 export const CLASSROOM_REQUEST_MAX_BYTES = 3_500_000;
 
+export const CLASSROOM_GROUNDING_RULES = `
+- A subject, chapter, or topic title is navigation context, not evidence of a story's plot, characters, events, quotations, or answers.
+- Ground factual textbook claims only in readable uploaded pages or explicit chapter material present in the conversation. Never reconstruct a story from its title or from exercise questions.
+- Clearly distinguish supported textbook facts from interpretation and from a made-up illustrative example. Label examples as examples.
+- If evidence is missing, answer every part supported by the available material, name what is unsupported, and request only the specific relevant story/page needed for accuracy.
+- For "answer all" or equivalent requests, answer every readable numbered question and section. State which section is being answered and identify every cropped, blurred, or unreadable question instead of guessing it.
+- Treat short replies such as "yes", "no", "okay", "continue", and "that one" as replies to the previous teacher turn. Continue that thread naturally; do not repeat a menu or restart the lesson unless requested.
+- Be concise by default. Expand only when the student asks for detail.
+`.trim();
+
 export async function readClassroomBodyBounded(request, maxBytes = CLASSROOM_REQUEST_MAX_BYTES) {
   if (!request.body) return { ok: true, text: "" };
   const reader = request.body.getReader();

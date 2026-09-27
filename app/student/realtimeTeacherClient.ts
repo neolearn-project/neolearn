@@ -8,6 +8,7 @@ export type RealtimeTeacherEvents = {
   onError?: (message: string) => void;
   onTranscript?: (text: string) => void;
   onRemoteAudioStart?: () => void;
+  onRemoteAudioStop?: () => void;
 };
 
 const REALTIME_TEACHER_VOICE = "shimmer";
@@ -23,6 +24,8 @@ export class RealtimeTeacherClient {
   private connected = false;
   private realtimeRequestId = "";
   private realtimeModel = "gpt-realtime-mini";
+  private lifecycleGeneration = 0;
+  private responseActive = false;
 
   constructor(studentMobile: string, events: RealtimeTeacherEvents = {}) {
     this.studentMobile = studentMobile;
@@ -40,6 +43,7 @@ export class RealtimeTeacherClient {
   async connect(language: RealtimeLanguage, instructions: string) {
     if (this.connected && this.pc) return;
 
+    const connectGeneration = ++this.lifecycleGeneration;
     this.logStatus("Creating realtime voice session...");
 
     const sessionRes = await fetch(
@@ -49,6 +53,7 @@ export class RealtimeTeacherClient {
 
     const { data: sessionJson, errorText } =
       await readJsonResponse<any>(sessionRes);
+    if (connectGeneration !== this.lifecycleGeneration) return;
 
     if (!sessionRes.ok || !sessionJson?.ok) {
       throw new Error(
@@ -79,9 +84,7 @@ export class RealtimeTeacherClient {
       if (!this.remoteAudio) return;
       const [stream] = event.streams;
       if (stream) {
-        this.events.onRemoteAudioStart?.();
         this.remoteAudio.srcObject = stream;
-        this.remoteAudio.play().catch(() => {});
       }
     };
 
@@ -158,6 +161,7 @@ export class RealtimeTeacherClient {
     });
 
     const answerSdp = await answerRes.text();
+    if (connectGeneration !== this.lifecycleGeneration) return;
 
     if (!answerRes.ok) {
       throw new Error(answerSdp || "Realtime SDP exchange failed.");
@@ -193,7 +197,9 @@ export class RealtimeTeacherClient {
       event.type === "response.output_audio_transcript.delta" ||
       event.type === "response.audio_transcript.delta"
     ) {
+      this.responseActive = true;
       this.events.onRemoteAudioStart?.();
+      this.remoteAudio?.play().catch(() => {});
     }
 
     const delta =
@@ -224,6 +230,8 @@ export class RealtimeTeacherClient {
     }
 
     if (event.type === "response.done") {
+      this.responseActive = false;
+      this.events.onRemoteAudioStop?.();
       this.recordRealtimeUsage(event).catch(() => {});
     }
   }
@@ -261,6 +269,7 @@ export class RealtimeTeacherClient {
     const clean = String(text || "").trim();
     if (!clean) return;
 
+    this.cancelResponse();
     this.transcript = "";
     this.events.onTranscript?.("");
 
@@ -293,6 +302,7 @@ export class RealtimeTeacherClient {
     }
 
     if (this.localStream) return;
+    this.cancelResponse();
 
     this.localStream = await navigator.mediaDevices.getUserMedia({
       audio: true,
@@ -328,12 +338,21 @@ export class RealtimeTeacherClient {
   }
 
   stopAudio() {
+    this.cancelResponse();
     try {
       this.remoteAudio?.pause();
     } catch {}
+    this.events.onRemoteAudioStop?.();
+  }
+
+  private cancelResponse() {
+    if (!this.responseActive) return;
+    try { this.sendEvent({ type: "response.cancel" }); } catch {}
+    this.responseActive = false;
   }
 
   disconnect() {
+    this.lifecycleGeneration += 1;
     try {
       if (this.localStream) {
         this.localStream.getTracks().forEach((track) => track.stop());

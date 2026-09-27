@@ -9,6 +9,7 @@ import {
   sha256Text,
   validateClassroomHistory,
   validateClassroomJpegDataUrl,
+  CLASSROOM_GROUNDING_RULES,
 } from "../app/lib/classroomConversation.mjs";
 
 for (const name of ["generate-lesson", "teacher-qa", "teacher-math"]) {
@@ -38,6 +39,7 @@ for (const name of ["generate-lesson", "teacher-qa", "teacher-math"]) {
       ReplayAiRouteResponse, AiRouteInProgressError, AiRouteRequestHashMismatchError, AiRouteOwnershipUnavailableError,
       DuplicateAiRequestError,
       CLASSROOM_REQUEST_MAX_BYTES: 3_500_000,
+      CLASSROOM_GROUNDING_RULES,
       authenticateAndAuthorizeClassroom: async ({ authenticate, authorize }) => {
         const identity = await authenticate();
         await authorize(identity);

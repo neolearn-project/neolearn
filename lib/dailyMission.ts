@@ -217,7 +217,7 @@ function taskPayloads(missionId: string, topicName: string) {
     {
       mission_id: missionId,
       task_type: "topic_test",
-      title: "Practice: Take 5-question Topic Test",
+      title: "Practice: Take 10-question Topic Test",
       sort_order: 2,
     },
     {
@@ -308,7 +308,7 @@ async function readMissionWithTasks(supabase: SupabaseClient, missionId: string)
       return { ...task, title: `Learn: ${friendlyTopicName(topicName, "Continue current topic")}` };
     }
     if (task.task_type === "topic_test") {
-      return { ...task, title: "Practice: Take 5-question Topic Test" };
+      return { ...task, title: "Practice: Take 10-question Topic Test" };
     }
     if (task.task_type === "review_weak_area") {
       return { ...task, title: "Review: Fix mistakes from today's test" };

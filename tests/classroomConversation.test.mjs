@@ -12,6 +12,7 @@ import {
   validateClassroomHistory,
   validateClassroomJpegDataUrl,
   readClassroomBodyBounded,
+  CLASSROOM_GROUNDING_RULES,
 } from "../app/lib/classroomConversation.mjs";
 
 const page = await readFile(new URL("../app/student/page.tsx", import.meta.url), "utf8");
@@ -182,4 +183,13 @@ test("opening lesson is short and waits; provider failure no longer becomes a fa
   assert.match(page, /I couldn't prepare this lesson\. Please try again\./);
   assert.match(page, /Retry lesson/);
   assert.match(page, /status: "in_progress"/);
+});
+
+test("grounding contract continues short replies without inventing textbook facts", () => {
+  assert.match(CLASSROOM_GROUNDING_RULES, /short replies[\s\S]*previous teacher turn/i);
+  assert.match(CLASSROOM_GROUNDING_RULES, /title is navigation context, not evidence/i);
+  assert.match(CLASSROOM_GROUNDING_RULES, /answer every part supported/i);
+  assert.match(CLASSROOM_GROUNDING_RULES, /cropped, blurred, or unreadable/i);
+  assert.match(mathRoute, /CLASSROOM_GROUNDING_RULES/);
+  assert.match(page, /includeAudio: false/);
 });

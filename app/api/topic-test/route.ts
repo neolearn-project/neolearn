@@ -25,6 +25,10 @@ import {
   isCompetitiveMode,
 } from "@/app/lib/competitivePrompt";
 import { sanitizePdfSafeText } from "@/app/lib/competitiveQa";
+import {
+  NEW_TOPIC_TEST_QUESTION_COUNT,
+  selectValidDistinctTopicQuestions,
+} from "@/app/lib/topicTestContracts.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -45,13 +49,10 @@ type CompetitiveFallbackContext = {
   exam: string;
 };
 
-const COMPETITIVE_TOPIC_TEST_COUNT = 5;
+const COMPETITIVE_TOPIC_TEST_COUNT = NEW_TOPIC_TEST_QUESTION_COUNT;
 const COMPETITIVE_DIFFICULTY_MIX: Array<"Easy" | "Moderate" | "Hard"> = [
-  "Easy",
-  "Easy",
-  "Moderate",
-  "Moderate",
-  "Hard",
+  "Easy", "Easy", "Easy", "Moderate", "Moderate",
+  "Moderate", "Moderate", "Hard", "Hard", "Hard",
 ];
 
 function normalizeOptionText(value: string) {
@@ -442,7 +443,10 @@ function fallbackBankForCompetitiveTopic(ctx: CompetitiveFallbackContext) {
   if (/\b(hcf|lcm|highest common factor|least common multiple|factors?|multiples?)\b/.test(key)) {
     return hcfLcmFallbackBank();
   }
-  return genericTopicFallbackBank(ctx);
+  // There is no safe content-grounded fallback for an arbitrary title. A
+  // generic strategy question would be unrelated padding, so let the bounded
+  // generation fail with the explicit retry state instead.
+  return [];
 }
 
 function finalizeCompetitiveTopicTest(args: {
@@ -535,7 +539,7 @@ function selectCompetitiveQuestions(args: {
   questions: TopicTestQuestion[];
   requestedCount: number;
 }) {
-  const target = Math.max(1, Math.min(10, Math.floor(args.requestedCount || 5)));
+  const target = Math.max(1, Math.min(NEW_TOPIC_TEST_QUESTION_COUNT, Math.floor(args.requestedCount || NEW_TOPIC_TEST_QUESTION_COUNT)));
   const result: TopicTestQuestion[] = [];
   const seen = new Set<string>();
   const seenPatterns = new Set<string>();
@@ -654,9 +658,9 @@ if (!ent.features?.topicTest) {
     const track = String(body?.track || body?.subjectType || body?.courseType || "regular");
     const competitiveExam = competitiveExamLabel(body?.competitiveExam || body?.exam || board);
     const isCompetitive = isCompetitiveMode(track);
-    const numQuestions = isCompetitive
-      ? COMPETITIVE_TOPIC_TEST_COUNT
-      : Number(body.numQuestions || 5);
+    // New tests are always ten questions. Saved historical results remain percentages
+    // and are therefore compatible with their original five-question denominator.
+    const numQuestions = NEW_TOPIC_TEST_QUESTION_COUNT;
     const needsNumericalApplication =
       /\b(math|mathematics|physics|quant|aptitude|jee)\b/i.test(
         `${subject} ${competitiveExam}`
@@ -783,7 +787,7 @@ STRICT RETRY:
 - Do not include any generic exam-strategy question.
 - Do not ask "which approach is safest/best" or similar.
 - Do not use options about checking concepts, solving clearly, picking long options, or ignoring units.
-- Use five distinct sub-concepts or application patterns from the selected topic.
+- Use ten distinct sub-concepts or application patterns from the selected topic.
 `.trim()
         : "";
 
@@ -824,12 +828,6 @@ STRICT RETRY:
     let didStrictRetry = false;
 
     if (!Array.isArray(questions) || questions.length === 0) {
-      if (!isCompetitive) {
-        return NextResponse.json(
-          { ok: false, error: "AI returned no questions." },
-          { status: 500 }
-        );
-      }
       const retryGeneration = await generateQuestions(true);
       didStrictRetry = true;
       questions = retryGeneration.parsed;
@@ -848,12 +846,12 @@ STRICT RETRY:
           questions: cleaned,
           requestedCount: numQuestions,
         })
-      : cleaned;
+      : selectValidDistinctTopicQuestions(cleaned, numQuestions);
 
     if (
       isCompetitive &&
       !didStrictRetry &&
-      responseQuestions.length < Math.max(1, Math.min(10, Math.floor(numQuestions || 5)))
+      responseQuestions.length < numQuestions
     ) {
       const retryGeneration = await generateQuestions(true);
       didStrictRetry = true;
@@ -874,6 +872,15 @@ STRICT RETRY:
       );
     }
 
+    if (!isCompetitive && !didStrictRetry && responseQuestions.length < numQuestions) {
+      const retryGeneration = await generateQuestions(true);
+      didStrictRetry = true;
+      responseQuestions = selectValidDistinctTopicQuestions(
+        [...responseQuestions, ...normalizeGeneratedQuestions(retryGeneration.parsed, false)],
+        numQuestions
+      );
+    }
+
     if (isCompetitive) {
       responseQuestions = finalizeCompetitiveTopicTest({
         questions: [...responseQuestions],
@@ -885,6 +892,15 @@ STRICT RETRY:
           exam: competitiveExam,
         },
       });
+    }
+
+
+    if (responseQuestions.length !== numQuestions) {
+      return NextResponse.json({
+        ok: false,
+        code: "topic_test_retry_required",
+        error: `Could not create ${numQuestions} distinct, valid questions for this topic. Please retry.`,
+      }, { status: 422 });
     }
 
     return completeAiRouteRequest(

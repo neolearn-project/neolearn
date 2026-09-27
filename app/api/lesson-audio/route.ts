@@ -181,6 +181,7 @@ export async function POST(req: Request) {
       lang.instruction,
       "Use a distinctly feminine vocal character with crisp articulation, clear pronunciation, and a friendly classroom tone.",
       "Keep a confident, caring, natural pace that Class 6 to 12 students can follow easily; do not speak too slowly.",
+      "Use brief natural pauses after headings, questions, and important steps; pronounce Indian names and school terms carefully.",
       "Sound conversational and human, never robotic, dull, foreign-accented, sing-song, or overly dramatic.",
       "Do not add extra content beyond the given lesson text.",
     ].join(" ");

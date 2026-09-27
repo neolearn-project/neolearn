@@ -44,6 +44,7 @@ import {
 import { ClientAuthError, loginAgainMessage, newStudentAiRequestId, studentAiUsageHeaders, studentAuthHeaders } from "@/app/lib/clientAuth";
 import { readJsonResponse } from "@/app/lib/safeResponse";
 import { buildClassroomHistory, classroomScopeKey } from "@/app/lib/classroomConversation.mjs";
+import { NEW_TOPIC_TEST_QUESTION_COUNT } from "@/app/lib/topicTestContracts.mjs";
 
 type ClassId = "6" | "7" | "8" | "9" | "10" | "11" | "12";
 
@@ -187,7 +188,7 @@ function missionWeakAreaLabel(value: unknown, topicName: unknown) {
 
 function missionTaskTitle(taskType: DailyMissionTaskType, topicName: unknown) {
   if (taskType === "learn_topic") return `Learn: ${missionLabel(topicName, "Continue current topic")}`;
-  if (taskType === "topic_test") return "Practice: Take 5-question Topic Test";
+  if (taskType === "topic_test") return "Practice: Take 10-question Topic Test";
   return "Review: Fix mistakes from today's test";
 }
 
@@ -1114,6 +1115,7 @@ const [audioUrl, setAudioUrl] = useState<string | null>(null);
 const lessonAudioRef = useRef<HTMLAudioElement | null>(null);
 const audioUrlRef = useRef<string | null>(null);
 const audioRequestVersionRef = useRef(0);
+const activeAudioIdentityRef = useRef<string | null>(null);
 
 const pauseLessonAudio = useCallback(() => {
   pauseAudio(lessonAudioRef.current);
@@ -1121,6 +1123,7 @@ const pauseLessonAudio = useCallback(() => {
 
 const stopLessonAudio = useCallback(() => {
   audioRequestVersionRef.current += 1;
+  activeAudioIdentityRef.current = null;
   pauseAndResetAudio(lessonAudioRef.current);
 
   setAudioUrl((oldUrl) => {
@@ -2035,6 +2038,8 @@ const handleStartLesson = useCallback(async () => {
     const langCode = getLangCode(language);
     const speedCode = getSpeedCode(speed);
     const aiRequestId = newStudentAiRequestId("lesson");
+    const lessonAudioIdentity = `${lessonSessionId}:${aiRequestId}`;
+    activeAudioIdentityRef.current = lessonAudioIdentity;
 
     let scriptText = "";
 
@@ -2128,8 +2133,12 @@ const handleStartLesson = useCallback(async () => {
 
       const blob = await audioRes.blob();
       const url = URL.createObjectURL(blob);
-      if (lessonAudioRequestVersion === audioRequestVersionRef.current) {
-        setAudioUrl(url);
+      if (lessonAudioRequestVersion === audioRequestVersionRef.current
+          && activeAudioIdentityRef.current === lessonAudioIdentity) {
+        setAudioUrl((oldUrl) => {
+          if (oldUrl?.startsWith("blob:") && oldUrl !== url) URL.revokeObjectURL(oldUrl);
+          return url;
+        });
       } else {
         URL.revokeObjectURL(url);
       }
@@ -2248,6 +2257,8 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
       currentQuestion: questionText,
     });
     stopLessonAudio();
+    const answerAudioIdentity = `${classroomConversationScope}:${aiRequestId}`;
+    activeAudioIdentityRef.current = answerAudioIdentity;
     const res = await fetch("/api/teacher-math", {
       method: "POST",
       headers: studentAiUsageHeaders(true, aiRequestId),
@@ -2281,6 +2292,8 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
         selectedSubject: currentSubject.subject_name,
         selectedChapter: currentChapter.chapter_name,
         selectedTopic: currentTopic.topic_name,
+
+        includeAudio: false,
 
         studentMobile: student?.mobile,
       }),
@@ -2328,8 +2341,12 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
     if (ttsContentType.startsWith("audio/")) {
       const blob = await ttsRes.blob();
       const url = URL.createObjectURL(blob);
-      if (answerAudioRequestVersion === audioRequestVersionRef.current) {
-        setAudioUrl(url);
+      if (answerAudioRequestVersion === audioRequestVersionRef.current
+          && activeAudioIdentityRef.current === answerAudioIdentity) {
+        setAudioUrl((oldUrl) => {
+          if (oldUrl?.startsWith("blob:") && oldUrl !== url) URL.revokeObjectURL(oldUrl);
+          return url;
+        });
       } else {
         URL.revokeObjectURL(url);
       }
@@ -2349,9 +2366,13 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
 
       if (
         urlFromJson &&
-        answerAudioRequestVersion === audioRequestVersionRef.current
+        answerAudioRequestVersion === audioRequestVersionRef.current &&
+        activeAudioIdentityRef.current === answerAudioIdentity
       ) {
-        setAudioUrl(urlFromJson);
+        setAudioUrl((oldUrl) => {
+          if (oldUrl?.startsWith("blob:") && oldUrl !== urlFromJson) URL.revokeObjectURL(oldUrl);
+          return urlFromJson;
+        });
       }
     }
   } catch (err) {
@@ -5271,10 +5292,10 @@ const ensureRealtimeConnected = async (silent = false) => {
       onStatus: (s) => setRealtimeStatus(s),
       onError: (msg) => setRealtimeStatus(`Realtime error: ${msg}`),
       onRemoteAudioStart: () => {
-        onPauseLessonAudio();
+        onStopLessonAudio();
       },
       onTranscript: (text) => {
-        onPauseLessonAudio();
+        onStopLessonAudio();
         const safeText = String(text || "");
 
         setRealtimeTranscript(
@@ -5330,7 +5351,7 @@ const ensureRealtimeConnected = async (silent = false) => {
       ? "Speak with a clear, feminine Indian teacher voice in natural classroom Bengali. Be warm, crisp, friendly, and confident; never robotic, dull, foreign-accented, too slow, or overly dramatic."
       : "Speak with a clear, feminine Indian teacher voice using natural Indian English pronunciation and classroom cadence. Be warm, crisp, friendly, and confident; never robotic, dull, foreign-accented, too slow, or overly dramatic.";
 
-  onPauseLessonAudio();
+  onStopLessonAudio();
   await client.connect(
     realtimeLocale,
     [
@@ -5398,7 +5419,7 @@ const handleToggleRealtime = async () => {
     return;
   }
 
-  onPauseLessonAudio();
+  onStopLessonAudio();
   const ent = await loadEntitlementsLocal();
   if (ent?.authRequired) {
     setRealtimeStatus("Please login again.");
@@ -5435,7 +5456,7 @@ const handleAskRealtime = async () => {
 
   if (selectedImage) {
     if (isAsking) return;
-    onPauseLessonAudio();
+    onStopLessonAudio();
     disconnectRealtimeForLessonAudio("Image question sent through classroom chat.");
     await onAskQuestion(selectedImage);
     return;
@@ -5443,7 +5464,7 @@ const handleAskRealtime = async () => {
 
   if (isRealtimeOn || realtimeClient) {
     try {
-      onPauseLessonAudio();
+      onStopLessonAudio();
       const client = await ensureRealtimeConnected(true);
       setRealtimeTranscript("");
       client.sendText(buildRealtimeQuestion(trimmed));
@@ -5461,7 +5482,7 @@ const handleAskRealtime = async () => {
 
 const handleMicToggle = async () => {
   if (isAsking) return;
-  onPauseLessonAudio();
+  onStopLessonAudio();
   const ent = await loadEntitlementsLocal();
   if (ent?.authRequired) {
     setRealtimeStatus("Please login again.");
@@ -5574,7 +5595,7 @@ const handleStartTopicTest = async () => {
         chapter: currentChapter.chapter_name,
         topic: currentTopic.topic_name,
         language: langCode,
-        numQuestions: 5,
+        numQuestions: NEW_TOPIC_TEST_QUESTION_COUNT,
       }),
     });
 
@@ -5594,7 +5615,7 @@ const handleStartTopicTest = async () => {
       );
     }
 
-    const expectedQuestionCount = 5;
+    const expectedQuestionCount = NEW_TOPIC_TEST_QUESTION_COUNT;
     const isCompetitiveTest = String(studentTrack).toLowerCase() === "competitive";
     const questions: TopicTestQuestion[] = data.questions
       .slice(0, expectedQuestionCount)
@@ -5603,9 +5624,9 @@ const handleStartTopicTest = async () => {
         id: index + 1,
       }));
 
-    if (isCompetitiveTest && questions.length !== expectedQuestionCount) {
+    if (questions.length !== expectedQuestionCount) {
       throw new Error(
-        `Competitive topic test must contain exactly ${expectedQuestionCount} valid questions. Please try again.`
+        `Topic test must contain exactly ${expectedQuestionCount} distinct valid questions. Please try again.`
       );
     }
 
@@ -6988,6 +7009,11 @@ useEffect(() => {
                     ? "Review your answers and correct any mistakes."
                     : "Answer all questions, then submit to save your score."}
                 </p>
+                {!topicTestResult && (
+                  <p className="mt-1 text-xs font-semibold text-blue-700">
+                    Answered {Object.values(topicTestAnswers).filter((answer) => answer !== null).length}/{topicTest.length}
+                  </p>
+                )}
               </div>
 
               <button

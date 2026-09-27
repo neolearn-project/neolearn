@@ -100,7 +100,7 @@ function missionWeakAreaLabel(value: unknown, topicName: unknown) {
 
 function missionTaskTitle(task: DailyMissionTask, topicName: unknown) {
   if (task.task_type === "learn_topic") return `Learn: ${missionLabel(topicName, "Continue current topic")}`;
-  if (task.task_type === "topic_test") return "Practice: Take 5-question Topic Test";
+  if (task.task_type === "topic_test") return "Practice: Take 10-question Topic Test";
   return "Review: Fix mistakes from today's test";
 }
 

@@ -50,6 +50,7 @@ import {
   sha256Text,
   validateClassroomHistory,
   validateClassroomJpegDataUrl,
+  CLASSROOM_GROUNDING_RULES,
 } from "@/app/lib/classroomConversation.mjs";
 
 // ------------------------
@@ -320,6 +321,7 @@ Rules:
   Never write doubtful mixed forms like "पुस्तकें?" when the correct Sanskrit form is "पुस्तके".
 - Do not switch to a different syllabus topic silently. In particular, keep existing topic disambiguation such as a geometry point versus a decimal point; ask a brief clarification if the image shows another topic.
 - Do not use unrelated long-term memory. Use the bounded recent conversation supplied with this request for turn continuity.
+${CLASSROOM_GROUNDING_RULES}
 - If Subject is English, explain the selected story/literature topic only.
 - If Subject is Science, explain the selected science topic only.
 - If Subject is Sanskrit or Hindi, explain the selected grammar/literature topic only.
@@ -476,6 +478,7 @@ Your job is to:
 - Give a complete answer when the student requests one. Do not force a follow-up question, quiz, or practice task. Ask a question only if useful to clarify or advance the student's learning.
 - Be concise by default and expand when requested; keep examples related to the selected topic.
 - If an image or question conflicts with the selected syllabus context, acknowledge what it appears to show and clarify instead of inventing relevance or ignoring it.
+${CLASSROOM_GROUNDING_RULES}
 `.trim();
 
 // âœ… If confusion detected, mark topic as weak (best effort)
@@ -643,9 +646,9 @@ Explain according to the syllabus of this class and board, focused on the given 
       }
     }
 
-    // ---- Optional TTS ----
+    // ---- Optional legacy TTS. Classroom requests use the coordinated player. ----
     let audioBase64 = "";
-    try {
+    if (body?.includeAudio !== false) try {
       const safeText = answer.length > 1200 ? answer.slice(0, 1200) : answer;
 
 const ttsModel = "gpt-4o-mini-tts";
