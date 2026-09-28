@@ -1108,6 +1108,8 @@ const loadPlans = useCallback(async () => {
 const [messages, setMessages] = useState<ChatMessage[]>([]);
 const [question, setQuestion] = useState("");
 const [lessonOpening, setLessonOpening] = useState<{ scopeKey: string; text: string } | null>(null);
+const [groundedSourceContent, setGroundedSourceContent] = useState("");
+const [groundedSourceProvenance, setGroundedSourceProvenance] = useState("");
 const [isStartingLesson, setIsStartingLesson] = useState(false);
 const [isAsking, setIsAsking] = useState(false);
 const askRequestInFlightRef = useRef(false);
@@ -1673,6 +1675,10 @@ useEffect(() => {
   );
 
   const classroomSelectionKey = [student?.studentId || student?.mobile || "", selectedSubjectId ?? "", selectedChapterId ?? "", selectedTopicId ?? ""].join(":");
+  useEffect(() => {
+    setGroundedSourceContent("");
+    setGroundedSourceProvenance("");
+  }, [classroomSelectionKey]);
   const [classroomSelectionEpoch, setClassroomSelectionEpoch] = useState(0);
   const previousClassroomSelectionRef = useRef(classroomSelectionKey);
   useEffect(() => {
@@ -2058,16 +2064,21 @@ const handleStartLesson = useCallback(async () => {
           chapter: currentChapter.chapter_name,
           topic: currentTopic.topic_name,
           language: langCode,
+          sourceContent: groundedSourceContent || undefined,
+          sourceProvenance: groundedSourceProvenance || undefined,
         }),
       });
 
       if (!lessonRes.ok) {
+        const failure = await lessonRes.json().catch(() => ({}));
         removeLessonLoadingMessage();
         setClassSession(null);
         setRemainingSeconds(0);
         setAudioError(lessonRes.status === 401
           ? loginAgainMessage(lessonRes.status)
-          : "I couldn't prepare this lesson. Please try again.");
+          : lessonRes.status === 422 && typeof failure?.error === "string"
+            ? failure.error
+            : "I couldn't prepare this lesson. Please try again.");
         return;
       }
       const data = await lessonRes.json();
@@ -2266,6 +2277,8 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
         question: questionText,
         conversation,
         ...(attachment ? { imageDataUrl: attachment.dataUrl } : {}),
+        sourceContent: groundedSourceContent || undefined,
+        sourceProvenance: groundedSourceProvenance || undefined,
 
         // full selected context - prevents fallback to maths/fractions
         board: effectiveStudentTrack === "competitive" ? effectiveCompetitiveExam : "cbse",
@@ -2314,6 +2327,12 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
     if (!answer) {
       pushMessage("Teacher", "Sorry, I couldn't answer that. Please try again.", true);
       return;
+    }
+
+    if (typeof data?.sourceContent === "string" && data.sourceContent.trim()
+        && typeof data?.sourceProvenance === "string" && data.sourceProvenance) {
+      setGroundedSourceContent(data.sourceContent.trim());
+      setGroundedSourceProvenance(data.sourceProvenance);
     }
 
     pushMessage("Teacher", answer);
@@ -2840,6 +2859,8 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
               lessonAudioRef={lessonAudioRef}
               onPauseLessonAudio={pauseLessonAudio}
               onStopLessonAudio={stopLessonAudio}
+              groundedSourceContent={groundedSourceContent}
+              groundedSourceProvenance={groundedSourceProvenance}
               audioError={audioError}
               messagesEndRef={messagesEndRef}
               teacherAvatar={teacherAvatar}
@@ -4963,6 +4984,8 @@ function ClassroomView(props: {
   lessonAudioRef: React.RefObject<HTMLAudioElement | null>;
   onPauseLessonAudio: () => void;
   onStopLessonAudio: () => void;
+  groundedSourceContent: string;
+  groundedSourceProvenance: string;
   audioError: string | null;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
   teacherAvatar: string;
@@ -5013,6 +5036,8 @@ function ClassroomView(props: {
     lessonAudioRef,
     onPauseLessonAudio,
     onStopLessonAudio,
+    groundedSourceContent,
+    groundedSourceProvenance,
     audioError,
     messagesEndRef,
     teacherAvatar,
@@ -5548,7 +5573,7 @@ const handleLessonAudioPlay = () => {
     "Realtime voice disconnected to play lesson audio."
   );
 };
-  
+
 const handleStartTopicTest = async () => {
   if (isLoadingTest) return;
 
@@ -5596,6 +5621,8 @@ const handleStartTopicTest = async () => {
         topic: currentTopic.topic_name,
         language: langCode,
         numQuestions: NEW_TOPIC_TEST_QUESTION_COUNT,
+        sourceContent: groundedSourceContent || undefined,
+        sourceProvenance: groundedSourceProvenance || undefined,
       }),
     });
 

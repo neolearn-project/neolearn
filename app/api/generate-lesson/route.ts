@@ -26,6 +26,13 @@ import {
   isCompetitiveMode,
 } from "@/app/lib/competitivePrompt";
 import { qaRepairCompetitiveText } from "@/app/lib/competitiveQa";
+import {
+  inspectTextEvidence,
+  isSourceDependentLiterature,
+  sourceRequiredResponse,
+  verifySourceProvenance,
+} from "@/app/lib/sourceGrounding.mjs";
+import { sha256Text } from "@/app/lib/classroomConversation.mjs";
 
 const client = new OpenAI({
   apiKey: process.env.NEOLEARN_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
@@ -48,6 +55,16 @@ export async function POST(req: NextRequest) {
     const track = String(body?.track || body?.subjectType || body?.courseType || "regular");
     const competitiveExam = competitiveExamLabel(body?.competitiveExam || board);
     const isCompetitive = isCompetitiveMode(track);
+    const submittedSourceContent = String(body?.sourceContent || "").trim();
+    const sourceProvenanceVerified = await verifySourceProvenance({
+      studentId: identity.user.id, subject, chapter, topic, content: submittedSourceContent,
+    }, body?.sourceProvenance);
+    const suppliedEvidence = inspectTextEvidence(sourceProvenanceVerified ? submittedSourceContent : "");
+    const sourceDependent = !isCompetitive && isSourceDependentLiterature({
+      subject,
+      chapter,
+      topic,
+    });
 
     // ðŸ‘‡ from frontend: "en" | "hi" | "bn"
     const language: "en" | "hi" | "bn" = (body.language as any) || "en";
@@ -66,8 +83,17 @@ export async function POST(req: NextRequest) {
         track,
         competitiveExam,
         language,
+        submittedSourceSha256: submittedSourceContent ? await sha256Text(submittedSourceContent) : null,
+        sourceProvenanceVerified,
       },
     });
+
+    if (sourceDependent && !suppliedEvidence.usable) {
+      return await completeAiRouteRequest(
+        replayReservation,
+        NextResponse.json(sourceRequiredResponse({ evidenceKind: suppliedEvidence.kind }), { status: 422 })
+      );
+    }
 
     // ðŸ”¹ This block is exactly your old language behaviour
     const languageInstruction =
@@ -147,8 +173,10 @@ Track: ${isCompetitive ? `competitive (${competitiveExam})` : "regular"}
 Subject: ${subject}
 Chapter: ${chapter || "(chapter name not given)"}
 Topic: ${topic}
+${suppliedEvidence.usable ? `Server-verified extraction from a student-uploaded page:\n---\n${suppliedEvidence.text}\n---` : ""}
 
 Teach only the selected topic. Keep the opening concise and leave room for the student to guide the next turn. Do not mention "NeoLearn" or "AI" in the script.
+${suppliedEvidence.usable ? "Every claim about the text must be supported by the supplied passage. If the passage is partial, say what is missing." : ""}
 `.trim();
 
     const model = "gpt-4.1-mini";

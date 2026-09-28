@@ -52,6 +52,16 @@ import {
   validateClassroomJpegDataUrl,
   CLASSROOM_GROUNDING_RULES,
 } from "@/app/lib/classroomConversation.mjs";
+import {
+  inspectTextEvidence,
+  createSourceProvenance,
+  isDirectLanguageExerciseQuestion,
+  isSourceDependentLiterature,
+  shortReplyContext,
+  SOURCE_REQUIRED_CODE,
+  SOURCE_REQUIRED_MESSAGE,
+  verifySourceProvenance,
+} from "@/app/lib/sourceGrounding.mjs";
 
 // ------------------------
 // Decide model based on question complexity
@@ -129,6 +139,23 @@ if (!raw || !raw.trim()) {
     { error: "Empty request body. Send JSON in POST body." },
     { status: 400 }
   );
+}
+
+function parseGroundedImageAnswer(raw: string) {
+  const cleaned = String(raw || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  try {
+    const value = JSON.parse(cleaned);
+    const evidenceKind = ["passage", "partial_passage", "exercise_only", "unreadable", "unrelated"]
+      .includes(value?.evidenceKind) ? value.evidenceKind : "unreadable";
+    return {
+      evidenceKind,
+      answer: typeof value?.answer === "string" ? value.answer.trim() : "",
+      missing: typeof value?.missingEvidence === "string" ? value.missingEvidence.trim() : "",
+      sourceText: typeof value?.sourceText === "string" ? value.sourceText.trim().slice(0, 12_000) : "",
+    };
+  } catch {
+    return { evidenceKind: "unreadable", answer: "", missing: "", sourceText: "" };
+  }
 }
 let body: any;
 try {
@@ -236,6 +263,24 @@ const topicId = String(body?.topicId || "").trim();
     const competitiveExam = competitiveExamLabel(body?.competitiveExam || body?.exam || body?.board || board);
     const isCompetitive = isCompetitiveMode(track);
 
+    const sourceDependent = !isCompetitive && isSourceDependentLiterature({
+      subject: selectedSubjectName,
+      chapter: selectedChapterName,
+      topic: selectedTopicName,
+      question,
+    });
+    const pastedEvidence = inspectTextEvidence(question);
+    const submittedSourceContent = String(body?.sourceContent || "").trim();
+    const sourceProvenanceVerified = await verifySourceProvenance({
+      studentId: verifiedStudentId,
+      subject: selectedSubjectName,
+      chapter: selectedChapterName,
+      topic: selectedTopicName,
+      content: submittedSourceContent,
+    }, body?.sourceProvenance);
+    const retainedEvidence = inspectTextEvidence(sourceProvenanceVerified ? submittedSourceContent : "");
+    const continuation = shortReplyContext(question, conversationHistory);
+
     const isRepeatRequest =
       /\b(repeat|again|explain again|describe again|explain it again|describe this chapter|cant understand|can't understand|cannot understand|i cant understand|i can't understand|didnt get|didn't get|did'nt get|did not get|not understand|did not understand|dont understand|don't understand|i dont understand|i don't understand|confused|ok|okay|samjha nahi|samajh nahi|samajh nehi|samajh me nahi|samajh me nehi|samajh me nahi aaya|samajh me nehi aaya|samajh mein nahi|samajh mein nehi|dobara|fir se|phir se)\b/i.test(question);
 
@@ -283,8 +328,82 @@ const topicId = String(body?.topicId || "").trim();
         selectedTopicName,
         track,
         competitiveExam,
+        submittedSourceSha256: submittedSourceContent ? await sha256Text(submittedSourceContent) : null,
+        sourceProvenanceVerified,
       },
     });
+
+    // Titles and earlier model turns are never promoted to evidence. Complete
+    // the owned replay request before returning the deterministic source gate.
+    if (!validatedImage && sourceDependent && !pastedEvidence.usable && !retainedEvidence.usable) {
+      return await completeAiRouteRequest(replayReservation, NextResponse.json({
+        ok: true,
+        answer: SOURCE_REQUIRED_MESSAGE,
+        code: SOURCE_REQUIRED_CODE,
+        sourceRequired: true,
+        continuationResolved: Boolean(continuation?.requestsSource),
+      }));
+    }
+
+    if (sourceDependent && validatedImage) {
+      const groundedModel = "gpt-5-mini";
+      const groundedInput = buildClassroomProviderInput({
+        systemPrompt: `You are a textbook evidence extractor and tutor. Return only JSON with keys evidenceKind, sourceText, answer, and missingEvidence. evidenceKind must be passage, partial_passage, exercise_only, unreadable, or unrelated. sourceText must faithfully transcribe only clearly readable passage or exercise text. A title, illustration, chapter heading, or exercise questions are not evidence of unseen story facts. For passage or partial_passage, answer only from sourceText. For exercise_only, answer only a directly readable vocabulary or grammar question; never infer a story answer. For partial_passage, answer supported parts and name the exact missing page/content. Never use prior knowledge of the work.`,
+        history: [],
+        userPrompt: `Subject: ${selectedSubjectName}\nChapter: ${selectedChapterName}\nTopic: ${selectedTopicName}\nStudent question: ${question}`,
+        imageDataUrl: validatedImage.dataUrl as any,
+      });
+      const groundedResponse = await recordOpenAIUsage({
+        req,
+        studentId: verifiedStudentId,
+        studentMobile: verifiedStudentMobile,
+        feature: "teacher_math",
+        model: groundedModel,
+        providerCall: "responses.create.grounded_image",
+        requestId,
+        retryAttempt: replayReservation.attempt,
+        call: () => callClassroomProvider(openai, groundedModel, groundedInput),
+      });
+      const grounded = parseGroundedImageAnswer(String((groundedResponse as any).output_text || ""));
+      const directlyAnswerableExercise = grounded.evidenceKind === "exercise_only"
+        && isDirectLanguageExerciseQuestion(question)
+        && Boolean(grounded.answer);
+      if (directlyAnswerableExercise) {
+        return await completeAiRouteRequest(replayReservation, NextResponse.json({
+          ok: true,
+          answer: grounded.answer,
+          source: "uploaded_exercise",
+          evidenceKind: grounded.evidenceKind,
+        }));
+      }
+      if (!["passage", "partial_passage"].includes(grounded.evidenceKind) || !grounded.answer) {
+        return await completeAiRouteRequest(replayReservation, NextResponse.json({
+          ok: true,
+          answer: SOURCE_REQUIRED_MESSAGE,
+          code: SOURCE_REQUIRED_CODE,
+          sourceRequired: true,
+          evidenceKind: grounded.evidenceKind,
+        }));
+      }
+      const answer = grounded.evidenceKind === "partial_passage" && grounded.missing
+        ? `${grounded.answer}\n\nMissing source: ${grounded.missing}`
+        : grounded.answer;
+      const sourceProvenance = await createSourceProvenance({
+        studentId: verifiedStudentId,
+        subject: selectedSubjectName,
+        chapter: selectedChapterName,
+        topic: selectedTopicName,
+        content: grounded.sourceText,
+      });
+      return await completeAiRouteRequest(replayReservation, NextResponse.json({
+        ok: true,
+        answer,
+        source: "student_uploaded_passage",
+        evidenceKind: grounded.evidenceKind,
+        sourceContent: grounded.sourceText,
+        sourceProvenance,
+      }));
+    }
 
     // DIRECT TOPIC LOCK FOR REPEAT / CONFUSION QUESTIONS
     // Bypasses memory/persona/weak-topic fallback to avoid wrong old chapters.
@@ -302,6 +421,8 @@ Class: ${teacher.classId}
 Board: ${boardLabel}
 
 Student message: ${question}
+${continuation ? `The latest message is a short reply to this immediately preceding teacher turn: "${continuation.teacherTurn}". Continue that exact request naturally; do not restart or offer the same choice again.` : ""}
+${retainedEvidence.usable ? `Server-verified extraction from the student's uploaded page:\n---\n${retainedEvidence.text}\n---\nUse only this extraction for claims about the story or passage.` : ""}
 
 Rules:
 - Respond to the student's actual latest message and use the recent conversation to understand "why", "again", corrections, mistakes, interruptions, and requests for simpler or deeper explanations.
@@ -530,6 +651,8 @@ Track: ${isCompetitive ? `competitive (${competitiveExam})` : "regular"}
 Chapter: ${chapter.title}
 
 Student question: ${question}
+${continuation ? `The student is replying to the immediately preceding teacher turn: "${continuation.teacherTurn}". Continue that exact request naturally.` : ""}
+${retainedEvidence.usable ? `Server-verified extraction from the student's uploaded page:\n---\n${retainedEvidence.text}\n---\nUse only this extraction for claims about the story or passage.` : ""}
 
 Explain according to the syllabus of this class and board, focused on the given chapter.
 `.trim();

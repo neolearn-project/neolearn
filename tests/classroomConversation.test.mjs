@@ -135,7 +135,8 @@ test("route contract preserves auth/access/replay/ledger order and hashes, never
   assert.ok(authorization >= 0 && authorization < identity && identity < access && access < replay && replay < ledger && ledger < provider);
   assert.match(route, /conversationSha256: await sha256Text\(JSON\.stringify\(conversationHistory\)\)/);
   assert.match(route, /imageSha256: validatedImage\?\.sha256 \|\| null/);
-  assert.doesNotMatch(route.slice(route.indexOf("requestPayload:"), route.indexOf("// DIRECT TOPIC LOCK")), /imageDataUrl:/);
+  const replayPayload = route.slice(route.indexOf("requestPayload:"), route.indexOf("    });", route.indexOf("requestPayload:")));
+  assert.doesNotMatch(replayPayload, /imageDataUrl:/);
   assert.match(route, /imageDataUrls !== undefined \|\| body\?\.attachments !== undefined/);
   assert.match(route, /await validateClassroomJpegDataUrl\(imageDataUrl\)/);
 });

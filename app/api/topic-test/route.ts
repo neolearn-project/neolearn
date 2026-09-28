@@ -1,6 +1,13 @@
 ﻿// app/api/topic-test/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { sha256Text } from "@/app/lib/classroomConversation.mjs";
+import {
+  inspectTextEvidence,
+  isSourceDependentLiterature,
+  sourceRequiredResponse,
+  verifySourceProvenance,
+} from "@/app/lib/sourceGrounding.mjs";
 import { OwnershipError, ownershipErrorResponse, requireStudentMobile } from "@/lib/auth/ownership";
 import {
   DuplicateAiRequestError,
@@ -658,6 +665,16 @@ if (!ent.features?.topicTest) {
     const track = String(body?.track || body?.subjectType || body?.courseType || "regular");
     const competitiveExam = competitiveExamLabel(body?.competitiveExam || body?.exam || board);
     const isCompetitive = isCompetitiveMode(track);
+    const submittedSourceContent = String(body?.sourceContent || "").trim();
+    const sourceProvenanceVerified = await verifySourceProvenance({
+      studentId: identity.user.id, subject, chapter, topic, content: submittedSourceContent,
+    }, body?.sourceProvenance);
+    const suppliedEvidence = inspectTextEvidence(sourceProvenanceVerified ? submittedSourceContent : "");
+    const sourceDependent = !isCompetitive && isSourceDependentLiterature({
+      subject,
+      chapter,
+      topic,
+    });
     // New tests are always ten questions. Saved historical results remain percentages
     // and are therefore compatible with their original five-question denominator.
     const numQuestions = NEW_TOPIC_TEST_QUESTION_COUNT;
@@ -693,8 +710,16 @@ if (!ent.features?.topicTest) {
         competitiveExam,
         language,
         numQuestions,
+        submittedSourceSha256: submittedSourceContent ? await sha256Text(submittedSourceContent) : null,
+        sourceProvenanceVerified,
       },
     });
+    if (sourceDependent && !suppliedEvidence.usable) {
+      return await completeAiRouteRequest(
+        replayReservation,
+        NextResponse.json(sourceRequiredResponse({ evidenceKind: suppliedEvidence.kind }), { status: 422 })
+      );
+    }
     const routeAttempt = replayReservation.attempt;
 
     const languageInstruction =
@@ -772,8 +797,10 @@ Track: ${isCompetitive ? `competitive (${competitiveExam})` : "regular"}
 Subject: ${subject}
 Chapter: ${chapter || "(chapter name not given)"}
 Topic: ${topic}
+${suppliedEvidence.usable ? `Server-verified extraction from a student-uploaded page:\n---\n${suppliedEvidence.text}\n---` : ""}
 
 Return ONLY JSON in the exact array format described.
+${suppliedEvidence.usable ? "Use only facts established by the authoritative source passage. Do not infer missing plot facts or answers." : ""}
 `.trim();
 
     const generateQuestions = async (strictRetry: boolean) => {

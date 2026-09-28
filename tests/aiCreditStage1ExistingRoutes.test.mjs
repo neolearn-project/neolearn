@@ -11,6 +11,17 @@ import {
   validateClassroomJpegDataUrl,
   CLASSROOM_GROUNDING_RULES,
 } from "../app/lib/classroomConversation.mjs";
+import {
+  createSourceProvenance,
+  inspectTextEvidence,
+  isDirectLanguageExerciseQuestion,
+  isSourceDependentLiterature,
+  shortReplyContext,
+  sourceRequiredResponse,
+  SOURCE_REQUIRED_CODE,
+  SOURCE_REQUIRED_MESSAGE,
+  verifySourceProvenance,
+} from "../app/lib/sourceGrounding.mjs";
 
 for (const name of ["generate-lesson", "teacher-qa", "teacher-math"]) {
   test(`${name} stops unauthenticated, cross-student and denied requests before provider work`, async () => {
@@ -51,6 +62,15 @@ for (const name of ["generate-lesson", "teacher-qa", "teacher-math"]) {
       sha256Text,
       validateClassroomHistory,
       validateClassroomJpegDataUrl,
+      inspectTextEvidence,
+      createSourceProvenance,
+      isDirectLanguageExerciseQuestion,
+      isSourceDependentLiterature,
+      shortReplyContext,
+      sourceRequiredResponse,
+      SOURCE_REQUIRED_CODE,
+      SOURCE_REQUIRED_MESSAGE,
+      verifySourceProvenance,
       aiRouteInProgressResponse: () => Response.json({ ok: false }, { status: 409 }),
       aiRouteRequestHashMismatchResponse: () => Response.json({ ok: false }, { status: 409 }),
       aiRouteOwnershipUnavailableResponse: () => Response.json({ ok: false }, { status: 503 }),
