@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { neutralizeSourceText, resolvePublishedTextbookContent } from "../app/lib/textbookContent.mjs";
+import { readStoredPdfInfo } from "../app/lib/textbookUploadMetadata.mjs";
 
 function query(result){
   const q={select(){return q},eq(){return q},gte(){return q},lte(){return q},order(){return q},limit(){return Promise.resolve(result)},maybeSingle(){return Promise.resolve(result)},then(a,b){return Promise.resolve(result).then(a,b)}};return q;
@@ -54,7 +55,20 @@ test("source text is sanitized and admin routes enforce auth and bounded retry l
  assert.match(migration,/candidate must cover every topic served by each source/);
  assert.match(migration,/order by s\.id for update/);
  assert.match(ui,/Only pages inside mapped ranges need approval/);assert.match(ui,/Add topic mapping/);assert.match(ui,/draft must also map every other topic/);
+ assert.match(ui,/Verify and finalize upload/);assert.match(admin,/readStoredPdfInfo\(storedInfo\)/);assert.match(admin,/stored\.size !== expectedSize/);
  assert.match(preview,/createSignedUrl\(source\.storage_path,300\)/);assert.match(ui,/uploadToSignedUrl/);
  for(const route of [lesson,teacher,topic]){assert.match(route,/curriculumVersion/);assert.match(route,/source_text/);}
  assert.match(topic,/cannot support ten distinct questions/);
+});
+
+test("Storage info() accepts current and legacy shapes only when byte size and MIME agree",()=>{
+ const current={size:12345,contentType:"application/pdf",metadata:{size:12345,mimetype:"application/pdf"}};
+ assert.deepEqual(readStoredPdfInfo(current),{size:12345,contentType:"application/pdf"});
+ assert.deepEqual(readStoredPdfInfo({metadata:{size:"12345",contentLength:12345,mimetype:"APPLICATION/PDF; charset=binary"}}),
+  {size:12345,contentType:"application/pdf"});
+ assert.equal(readStoredPdfInfo({size:12345,metadata:{size:12346,mimetype:"application/pdf"}}),null);
+ assert.equal(readStoredPdfInfo({size:12345,contentType:"application/pdf",metadata:{mimetype:"application/octet-stream"}}),null);
+ assert.equal(readStoredPdfInfo({size:"12.5",contentType:"application/pdf"}),null);
+ assert.equal(readStoredPdfInfo({size:12345}),null);
+ assert.equal(readStoredPdfInfo({size:12345,contentType:"application/octet-stream"}).contentType,"application/octet-stream");
 });

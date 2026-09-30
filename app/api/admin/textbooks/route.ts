@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { requireAdmin } from "@/app/lib/adminAuth";
+import { readStoredPdfInfo } from "@/app/lib/textbookUploadMetadata.mjs";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
@@ -57,14 +58,29 @@ export async function PATCH(req: NextRequest) {
   if (!sourceId) return NextResponse.json({ok:false,error:"sourceId is required"},{status:400});
   const db = supabaseAdmin();
   if (action === "finalize_upload") {
-    const { data: source } = await db.from("textbook_sources").select("storage_path,byte_size,status").eq("id",sourceId).maybeSingle();
+    const { data: source, error: sourceError } = await db.from("textbook_sources").select("storage_path,byte_size,status").eq("id",sourceId).maybeSingle();
+    if (sourceError) return NextResponse.json({ok:false,error:"Could not verify upload source."},{status:500});
     if (!source || source.status !== "uploading") return NextResponse.json({ok:false,error:"Upload is not awaiting finalization."},{status:409});
-    const { data: info, error: infoError } = await db.storage.from("textbook-pdfs").info(source.storage_path);
-    const actualSize = Number((info as any)?.size); const contentType = String((info as any)?.metadata?.mimetype || (info as any)?.metadata?.contentType || "");
-    if (infoError || !Number.isSafeInteger(actualSize) || actualSize < 5 || actualSize > MAX_BYTES || actualSize !== Number(source.byte_size) || contentType !== PDF_TYPE)
+    let storedInfo: unknown;
+    let storageInfoError: unknown;
+    try {
+      const result = await db.storage.from("textbook-pdfs").info(source.storage_path);
+      storedInfo = result.data;
+      storageInfoError = result.error;
+    } catch {
+      return NextResponse.json({ok:false,error:"Could not verify the stored upload."},{status:502});
+    }
+    const stored = readStoredPdfInfo(storedInfo);
+    const expectedSize = Number(source.byte_size);
+    if (storageInfoError || !stored || !Number.isSafeInteger(expectedSize) || expectedSize < 5 ||
+        expectedSize > MAX_BYTES || stored.size < 5 || stored.size > MAX_BYTES ||
+        stored.size !== expectedSize || stored.contentType !== PDF_TYPE)
       return NextResponse.json({ok:false,error:"Stored upload is missing or does not match the declared PDF size/type."},{status:422});
-    const { error } = await db.from("textbook_sources").update({status:"queued",updated_at:new Date().toISOString()}).eq("id",sourceId).eq("status","uploading");
-    return NextResponse.json(error ? {ok:false,error:error.message}:{ok:true});
+    const { data: finalized, error } = await db.from("textbook_sources").update({status:"queued",updated_at:new Date().toISOString()})
+      .eq("id",sourceId).eq("status","uploading").select("id").maybeSingle();
+    if (error) return NextResponse.json({ok:false,error:error.message},{status:500});
+    if (!finalized) return NextResponse.json({ok:false,error:"Upload status changed before finalization; refresh and retry."},{status:409});
+    return NextResponse.json({ok:true});
   }
   if (action === "review") {
     const pageNumber = Number(body.pageNumber); const reviewedText = String(body.reviewedText||"").trim().slice(0,50000);
