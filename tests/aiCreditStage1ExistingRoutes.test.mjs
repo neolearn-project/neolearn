@@ -22,6 +22,10 @@ import {
   SOURCE_REQUIRED_MESSAGE,
   verifySourceProvenance,
 } from "../app/lib/sourceGrounding.mjs";
+import {
+  BUILT_IN_CONTENT_MISSING_MESSAGE,
+  resolveCurriculumContent,
+} from "../app/lib/curriculumContent.mjs";
 
 for (const name of ["generate-lesson", "teacher-qa", "teacher-math"]) {
   test(`${name} stops unauthenticated, cross-student and denied requests before provider work`, async () => {
@@ -71,6 +75,8 @@ for (const name of ["generate-lesson", "teacher-qa", "teacher-math"]) {
       SOURCE_REQUIRED_CODE,
       SOURCE_REQUIRED_MESSAGE,
       verifySourceProvenance,
+      BUILT_IN_CONTENT_MISSING_MESSAGE,
+      resolveCurriculumContent,
       aiRouteInProgressResponse: () => Response.json({ ok: false }, { status: 409 }),
       aiRouteRequestHashMismatchResponse: () => Response.json({ ok: false }, { status: 409 }),
       aiRouteOwnershipUnavailableResponse: () => Response.json({ ok: false }, { status: 503 }),
@@ -105,6 +111,10 @@ for (const name of ["generate-lesson", "teacher-qa", "teacher-math"]) {
         const query = { select: () => query, eq: () => query, update: () => query,
           match: async () => ({ error: null }), maybeSingle: async () => ({ data: null, error: null }),
           insert: async () => ({ error: null }) };
+        return query;
+      } }),
+      supabaseAdmin: () => ({ from: () => {
+        const query = { select: () => query, eq: () => query, maybeSingle: async () => ({ data: null, error: null }) };
         return query;
       } }),
     };

@@ -63,6 +63,12 @@ test("all literature generation paths use the source gate without changing ten-q
   assert.match(lessonRoute, /verifySourceProvenance/);
   assert.match(testRoute, /verifySourceProvenance/);
   assert.match(teacherRoute, /createSourceProvenance/);
+  assert.match(lessonRoute, /resolveCurriculumContent/);
+  assert.match(testRoute, /resolveCurriculumContent/);
+  assert.match(teacherRoute, /resolveCurriculumContent/);
+  assert.match(lessonRoute, /curriculumVersion/);
+  assert.match(testRoute, /curriculumVersion/);
+  assert.match(teacherRoute, /curriculumVersion/);
   assert.match(teacherRoute, /verifySourceProvenance/);
   assert.match(teacherRoute, /submittedSourceSha256/);
   assert.match(lessonRoute, /submittedSourceSha256/);

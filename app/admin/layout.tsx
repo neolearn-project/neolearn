@@ -40,6 +40,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               Content Studio
             </Link>
 
+            <Link href="/admin/textbooks" className="hover:underline">
+              Textbooks
+            </Link>
+
             <a
               href={VOICEDESK_DASHBOARD_URL}
               target="_blank"
