@@ -44,6 +44,8 @@ test("source text is sanitized and admin routes enforce auth and bounded retry l
  for(const route of [admin,process,preview]){assert.match(route,/requireAdmin\(req\)/);assert.ok(route.indexOf("requireAdmin(req)")<route.indexOf("supabaseAdmin()"));}
  assert.doesNotMatch(admin,/req\.formData/);assert.match(admin,/createSignedUploadUrl/);assert.match(admin,/finalize_upload/);assert.match(admin,/MAX_BYTES = 25 \* 1024 \* 1024/);
  assert.match(process,/MAX_PAGES=250/);assert.match(process,/checkpoint_textbook_page/);assert.match(process,/finalize_textbook_processing/);assert.match(migration,/processing_attempts < 5/);
+ assert.match(process,/GlobalWorkerOptions\.workerSrc=pathToFileURL\(workerPath\)\.href/);assert.match(process,/resolve\(process\.cwd\(\),"node_modules\/pdfjs-dist\/legacy\/build\/pdf\.worker\.mjs"\)/);
+ const nextConfig=await readFile(new URL("../next.config.js",import.meta.url),"utf8");assert.match(nextConfig,/serverComponentsExternalPackages:[\s\S]*"pdfjs-dist"/);assert.match(nextConfig,/outputFileTracingIncludes:[\s\S]*"\.\/node_modules\/pdfjs-dist\/legacy\/build\/pdf\.worker\.mjs"/);
  assert.match(migration,/publish_textbook_source/);assert.match(migration,/unpublish_textbook_source/);assert.match(migration,/status='unpublished'/);assert.match(admin,/version = Number/);
  assert.match(migration,/as restrictive/);assert.match(migration,/review_textbook_page/);assert.match(migration,/save_textbook_mappings/);assert.match(migration,/begin;/);assert.match(migration,/commit;/);
  const checkpoint=migration.slice(migration.indexOf("create or replace function public.checkpoint_textbook_page"),migration.indexOf("revoke all on function public.checkpoint_textbook_page"));

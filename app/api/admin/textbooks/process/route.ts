@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { createHash } from "node:crypto";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { requireAdmin } from "@/app/lib/adminAuth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -23,6 +25,8 @@ export async function POST(req:NextRequest) {
       throw new Error("Stored object is not a valid PDF up to 25 MB.");
     const sha256=createHash("sha256").update(bytes).digest("hex");
     const pdfjs=await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const workerPath=resolve(process.cwd(),"node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs");
+    pdfjs.GlobalWorkerOptions.workerSrc=pathToFileURL(workerPath).href;
     const pdf=await pdfjs.getDocument({data:bytes,useSystemFonts:true}).promise;
     if(pdf.numPages<1||pdf.numPages>MAX_PAGES)throw new Error(`PDF must contain 1-${MAX_PAGES} pages.`);
     const {data:checkpoints,error:checkpointReadError}=await db.from("textbook_processing_pages").select("page_number,review_status").eq("source_id",sourceId);

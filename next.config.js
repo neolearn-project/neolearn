@@ -8,7 +8,11 @@ const nextConfig = {
       "@rspack/core",
       "@rspack/binding",
       "@rspack/binding-win32-x64-msvc",
+      "pdfjs-dist",
     ],
+    outputFileTracingIncludes: {
+      "/api/admin/textbooks/process": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
+    },
   },
 };
 
