@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -54,7 +55,11 @@ async function unusedPort() {
 
 const pdfText = "Production route extracts this PDF text.";
 const pdfBytes = makeTextPdf(pdfText);
+const expectedByteSize = pdfBytes.byteLength;
+const expectedSha256 = createHash("sha256").update(pdfBytes).digest("hex");
+const expectInvalidFinalize = process.argv.includes("--expect-invalid-finalize");
 const checkpoints = [];
+const finalizations = [];
 const mock = createServer(async (request, response) => {
   const url = new URL(request.url, "http://127.0.0.1");
   if (url.pathname === "/rest/v1/rpc/claim_textbook_processing") {
@@ -81,6 +86,20 @@ const mock = createServer(async (request, response) => {
     return;
   }
   if (url.pathname === "/rest/v1/rpc/finalize_textbook_processing") {
+    let raw = "";
+    for await (const chunk of request) raw += chunk;
+    const params = JSON.parse(raw);
+    finalizations.push(params);
+    // Mirror the migration's finalize_textbook_processing metadata guards.
+    const valid = Number.isInteger(params.p_page_count) && params.p_page_count >= 1 && params.p_page_count <= 250
+      && Number.isInteger(params.p_byte_size) && params.p_byte_size >= 1 && params.p_byte_size <= 25 * 1024 * 1024
+      && typeof params.p_sha256 === "string" && /^[0-9a-f]{64}$/.test(params.p_sha256);
+    if (!valid) {
+      response.writeHead(400, { "content-type": "application/json" }).end(JSON.stringify({
+        code: "P0001", message: "Invalid processed PDF metadata",
+      }));
+      return;
+    }
     response.writeHead(204).end();
     return;
   }
@@ -128,12 +147,24 @@ try {
     body: JSON.stringify({ sourceId: "11111111-1111-4111-8111-111111111111" }),
   });
   const result = await response.json();
-  assert.equal(response.status, 200, JSON.stringify(result));
-  assert.equal(result.ok, true, JSON.stringify(result));
-  assert.equal(result.pageCount, 1);
+  assert.equal(finalizations.length, 1, "the route must finalize exactly once");
+  assert.equal(finalizations[0].p_page_count, 1, "finalization must report the fixture's actual page count");
+  assert.equal(finalizations[0].p_sha256, expectedSha256, "finalization must report the original PDF's SHA-256");
+  assert.match(finalizations[0].p_sha256, /^[0-9a-f]{64}$/, "finalization SHA-256 must satisfy the SQL format constraint");
+  if (expectInvalidFinalize) {
+    assert.equal(response.status, 422, JSON.stringify(result));
+    assert.match(result.error, /Invalid processed PDF metadata/);
+    assert.equal(finalizations[0].p_byte_size, 0, "pre-fix reproduction should show PDF.js detached the source buffer");
+    console.log(`PASS: reproduced SQL metadata rejection after PDF.js detached the source buffer (submitted byte size 0; original ${expectedByteSize}).`);
+  } else {
+    assert.equal(response.status, 200, JSON.stringify(result));
+    assert.equal(result.ok, true, JSON.stringify(result));
+    assert.equal(finalizations[0].p_byte_size, expectedByteSize, "finalization must preserve the exact validated original PDF byte size");
+    assert.equal(result.pageCount, 1);
+  }
   assert.equal(checkpoints.length, 1);
   assert.match(checkpoints[0].p_text, /Production route extracts this PDF text/);
-  console.log("PASS: built Next.js production route loaded its traced PDF.js worker and extracted source text from the generated PDF fixture.");
+  if (!expectInvalidFinalize) console.log("PASS: built Next.js production route loaded its traced PDF.js worker, extracted fixture text, and finalized exact SQL-valid PDF metadata.");
 } catch (error) {
   testError = error;
 } finally {

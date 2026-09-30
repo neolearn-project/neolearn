@@ -23,6 +23,9 @@ export async function POST(req:NextRequest) {
     const bytes=new Uint8Array(await downloaded.data.arrayBuffer());
     if(bytes.byteLength<5||bytes.byteLength>25*1024*1024||Buffer.from(bytes.subarray(0,5)).toString("ascii")!=="%PDF-")
       throw new Error("Stored object is not a valid PDF up to 25 MB.");
+    // PDF.js may transfer/detach the supplied ArrayBuffer. Keep the validated
+    // original size for the SQL metadata guard before handing bytes to PDF.js.
+    const originalByteLength=bytes.byteLength;
     const sha256=createHash("sha256").update(bytes).digest("hex");
     const pdfjs=await import("pdfjs-dist/legacy/build/pdf.mjs");
     const workerPath=resolve(process.cwd(),"node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs");
@@ -41,7 +44,7 @@ export async function POST(req:NextRequest) {
         p_review_status:needsOcr?"needs_ocr":"extracted",p_meta:{characterCount:text.length,itemCount:content.items.length,needsOcr}});
       if(saved.error)throw saved.error;
     }
-    const done=await db.rpc("finalize_textbook_processing",{p_source_id:sourceId,p_token:token,p_page_count:pdf.numPages,p_sha256:sha256,p_byte_size:bytes.byteLength});
+    const done=await db.rpc("finalize_textbook_processing",{p_source_id:sourceId,p_token:token,p_page_count:pdf.numPages,p_sha256:sha256,p_byte_size:originalByteLength});
     if(done.error)throw done.error;
     const {data:reviewPages}=await db.from("textbook_pages").select("page_number").eq("source_id",sourceId).eq("review_status","needs_ocr").order("page_number");
     return NextResponse.json({ok:true,pageCount:pdf.numPages,needsReview:(reviewPages||[]).map(p=>p.page_number)});
