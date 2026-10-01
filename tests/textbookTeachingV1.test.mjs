@@ -60,6 +60,7 @@ test("source text is sanitized and admin routes enforce auth and bounded retry l
  assert.match(ui,/Verify and finalize upload/);assert.match(admin,/readStoredPdfInfo\(storedInfo\)/);assert.match(admin,/stored\.size !== expectedSize/);
  assert.match(preview,/createSignedUrl\(source\.storage_path,300\)/);assert.match(ui,/uploadToSignedUrl/);
  for(const route of [lesson,teacher,topic]){assert.match(route,/curriculumVersion/);assert.match(route,/source_text/);}
+ for(const route of [lesson,teacher,topic]){assert.match(route,/content_lookup_unavailable/);assert.match(route,/retryable: true/);assert.match(route,/status: 503/);}
  assert.match(topic,/cannot support ten distinct questions/);
 });
 

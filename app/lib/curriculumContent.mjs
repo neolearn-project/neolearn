@@ -50,7 +50,8 @@ export async function resolveCurriculumContent(client, selection = {}) {
     .eq("chapter_id", chapterId)
     .eq("is_active", true)
     .maybeSingle();
-  if (topicError || !topic) return { matched: false, usable: false, reason: "topic_not_found", content: "", version: null };
+  if (topicError) return { matched: true, usable: false, reason: "content_lookup_unavailable", content: "", version: null };
+  if (!topic) return { matched: false, usable: false, reason: "topic_not_found", content: "", version: null };
 
   const { data: chapter, error: chapterError } = await client
     .from("chapters")
@@ -58,14 +59,16 @@ export async function resolveCurriculumContent(client, selection = {}) {
     .eq("id", chapterId)
     .eq("subject_id", subjectId)
     .maybeSingle();
-  if (chapterError || !chapter) return { matched: false, usable: false, reason: "chapter_not_found", content: "", version: null };
+  if (chapterError) return { matched: true, usable: false, reason: "content_lookup_unavailable", content: "", version: null };
+  if (!chapter) return { matched: false, usable: false, reason: "chapter_not_found", content: "", version: null };
 
   const { data: subject, error: subjectError } = await client
     .from("subjects")
     .select("id, board, class_number, subject_name")
     .eq("id", subjectId)
     .maybeSingle();
-  if (subjectError || !subject) return { matched: false, usable: false, reason: "subject_not_found", content: "", version: null };
+  if (subjectError) return { matched: true, usable: false, reason: "content_lookup_unavailable", content: "", version: null };
+  if (!subject) return { matched: false, usable: false, reason: "subject_not_found", content: "", version: null };
 
   let textbook = null;
   try {

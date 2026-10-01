@@ -1,7 +1,7 @@
 ﻿import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import Twilio from "twilio"; // (not used here, ignore if you don't want)
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { OwnershipError, ownershipErrorResponse, requireStudentIdentity } from "@/lib/auth/ownership";
 import { requireAiAccess } from "@/lib/access/requireAiAccess";
 import {
@@ -88,7 +88,6 @@ function getOpenAIClient() {
   return new OpenAI({ apiKey });
 }
 
-import { supabaseAdminClient } from "@/app/lib/supabaseServer";
 
 async function embedQuestion(
   client: OpenAI,
@@ -269,7 +268,7 @@ const topicId = String(body?.topicId || "").trim();
     let curriculum: Awaited<ReturnType<typeof resolveCurriculumContent>> | null = null;
     if (!isCompetitive) {
       try {
-        curriculum = await resolveCurriculumContent(supabaseAdminClient(), {
+        curriculum = await resolveCurriculumContent(supabaseAdmin(), {
           subjectId: subjectDbId || body?.subjectId,
           chapterId: chapterDbId || body?.chapterId,
           topicId: topicDbId || body?.topicId,
@@ -354,8 +353,15 @@ const topicId = String(body?.topicId || "").trim();
       },
     });
 
-    // Titles and earlier model turns are never promoted to evidence. Complete
-    // the owned replay request before returning the deterministic source gate.
+    // Let a transient lookup failure retry with the same request identity.
+    if (curriculum?.reason === "content_lookup_unavailable") {
+      await failAiRouteRequest(replayReservation);
+      return NextResponse.json({
+        ok: false,
+        error: "Textbook material could not be checked. Please retry in a moment.",
+        retryable: true,
+      }, { status: 503 });
+    }
     const textbookUnavailable = curriculum?.reason === "textbook_withdrawn" || curriculum?.reason === "textbook_coverage_incomplete";
     if (!validatedImage && (sourceDependent || textbookUnavailable) && !curriculum?.usable && !pastedEvidence.usable && !retainedEvidence.usable) {
       return await completeAiRouteRequest(replayReservation, NextResponse.json({
@@ -516,7 +522,7 @@ ${isCompetitive ? "- Use precise, compact exam-mentor language without turning t
     }
     let supabase: any = null;
 try {
-  supabase = supabaseAdminClient();
+  supabase = supabaseAdmin();
 } catch (e: any) {
   console.warn("Supabase admin not configured");
 }

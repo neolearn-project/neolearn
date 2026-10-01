@@ -64,3 +64,64 @@ test("labels and importer metadata are not substantive built-in material", async
   assert.equal(labelsOnly.usable, false);
   assert.equal(labelsOnly.reason, "labels_only");
 });
+
+test("opening and follow-up resolve the same published passage and replay identity", async () => {
+  const published = "Jahnavi could not attend school because the school was far away. The River helped her travel to school safely. ".repeat(3);
+  const records = {
+    topics: rows.topics,
+    chapters: rows.chapters,
+    subjects: rows.subjects,
+    textbook_topic_mappings: [{ page_from: 7, page_to: 7, source: {
+      id: "published-source", version: 4, sha256: "c".repeat(64), status: "published",
+      published_at: "2026-09-29", book_name: "Poorvi", edition: "2025",
+    } }],
+    textbook_pages: [{ source_id: "published-source", page_number: 7, extracted_text: published, review_status: "approved" }],
+  };
+  const client = { from(table) {
+    let filters = [];
+    const query = {
+      select() { return query; },
+      eq(key, value) { filters.push([key, value]); return query; },
+      order() { return query; },
+      gte() { return query; },
+      lte() { return query; },
+      limit() {
+        const data = records[table] || [];
+        return Promise.resolve({ data: Array.isArray(data) ? data : [], error: null });
+      },
+      maybeSingle() {
+        const row = records[table];
+        return Promise.resolve({ data: row && filters.every(([key, value]) => row[key] === value) ? row : null, error: null });
+      },
+      then(resolve, reject) {
+        const data = (records[table] || []).filter((row) => filters.every(([key, value]) => row[key] === value));
+        return Promise.resolve({ data, error: null }).then(resolve, reject);
+      },
+    };
+    return query;
+  } };
+
+  const opening = await resolveCurriculumContent(client, { subjectId: 10, chapterId: 20, topicId: 30 });
+  const followUp = await resolveCurriculumContent(client, { subjectId: 10, chapterId: 20, topicId: 30 });
+  assert.equal(opening.reason, "published_textbook");
+  assert.equal(followUp.content, opening.content);
+  assert.equal(followUp.version, opening.version);
+  assert.match(followUp.content, /Jahnavi could not attend school/);
+  assert.match(followUp.version, /^textbook:published-source:v4:/);
+});
+
+test("curriculum lookup errors stay distinct from genuinely absent material", async () => {
+  const failedClient = {
+    from() {
+      const query = {
+        select() { return query; },
+        eq() { return query; },
+        async maybeSingle() { return { data: null, error: { code: "42501", message: "lookup failed" } }; },
+      };
+      return query;
+    },
+  };
+  const failed = await resolveCurriculumContent(failedClient, { subjectId: 10, chapterId: 20, topicId: 30 });
+  assert.equal(failed.reason, "content_lookup_unavailable");
+  assert.notEqual(failed.reason, "labels_only");
+});

@@ -1,4 +1,5 @@
 // lib/supabaseAdmin.ts
+import "server-only";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 export function supabasePublic(): SupabaseClient {
@@ -15,7 +16,7 @@ export function supabasePublic(): SupabaseClient {
 }
 
 export function supabaseAdmin(): SupabaseClient {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const url = process.env.SUPABASE_URL;
   const service =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.SUPABASE_SERVICE_ROLE;

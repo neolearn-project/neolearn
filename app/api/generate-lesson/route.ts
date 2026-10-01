@@ -60,11 +60,21 @@ export async function POST(req: NextRequest) {
     const track = String(body?.track || body?.subjectType || body?.courseType || "regular");
     const competitiveExam = competitiveExamLabel(body?.competitiveExam || board);
     const isCompetitive = isCompetitiveMode(track);
-    const curriculum = isCompetitive ? null : await resolveCurriculumContent(supabaseAdmin(), {
-      subjectId: body?.subjectId,
-      chapterId: body?.chapterId,
-      topicId: body?.topicId,
-    });
+    let curriculum = null;
+    if (!isCompetitive) {
+      try {
+        curriculum = await resolveCurriculumContent(supabaseAdmin(), {
+          subjectId: body?.subjectId,
+          chapterId: body?.chapterId,
+          topicId: body?.topicId,
+        });
+      } catch {
+        return NextResponse.json({ ok: false, error: "Textbook material could not be checked. Please retry in a moment.", retryable: true }, { status: 503 });
+      }
+    }
+    if (curriculum?.reason === "content_lookup_unavailable") {
+      return NextResponse.json({ ok: false, error: "Textbook material could not be checked. Please retry in a moment.", retryable: true }, { status: 503 });
+    }
     const effectiveSubject = curriculum?.matched ? curriculum.subject : subject;
     const effectiveChapter = curriculum?.matched ? curriculum.chapter : chapter;
     const effectiveTopic = curriculum?.matched ? curriculum.topic : topic;
