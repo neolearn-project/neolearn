@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import ts from "typescript";
-import { NEW_TOPIC_TEST_QUESTION_COUNT, selectTextbookGroundedTopicQuestions, selectValidDistinctTopicQuestions, shuffleTopicTestOptions } from "../app/lib/topicTestContracts.mjs";
+import { NEW_TOPIC_TEST_QUESTION_COUNT, analyzeTextbookGroundedTopicQuestions, selectTextbookGroundedTopicQuestions, selectValidDistinctTopicQuestions, shuffleTopicTestOptions } from "../app/lib/topicTestContracts.mjs";
 
 let moduleId = 0;
 
-async function loadTopicTestRoute() {
+async function loadTopicTestRoute({ generatedQuestions, curriculum } = {}) {
   let source = await readFile(new URL("../app/api/topic-test/route.ts", import.meta.url), "utf8");
   source = source.replace(/import\s+[\s\S]*?\s+from\s+"[^"]+";/g, "");
   const replayRows = new Map();
@@ -24,7 +24,7 @@ async function loadTopicTestRoute() {
     constructor() {
       this.responses = { create: async () => {
         providerCalls += 1;
-        const questions = Array.from({ length: 10 }, (_, index) => ({
+        const questions = generatedQuestions ?? Array.from({ length: 10 }, (_, index) => ({
           id: index + 1,
           question: `How does ${distinctTopics[index]} work in this example?`,
           options: [`answer-${index + 1}`, `wrong-a-${index + 1}`, `wrong-b-${index + 1}`, `wrong-c-${index + 1}`],
@@ -43,7 +43,7 @@ async function loadTopicTestRoute() {
     sha256Text: async () => "test-sha256",
     supabaseAdmin: () => ({}),
     BUILT_IN_CONTENT_MISSING_MESSAGE: "missing",
-    resolveCurriculumContent: async () => ({ matched: false, usable: false, reason: "invalid_selection", content: "", version: null }),
+    resolveCurriculumContent: async () => curriculum || ({ matched: false, usable: false, reason: "invalid_selection", content: "", version: null }),
     inspectTextEvidence: () => ({ usable: false, kind: "none", text: "" }),
     isSourceDependentLiterature: () => false,
     sourceRequiredResponse: (value) => value,
@@ -62,14 +62,14 @@ async function loadTopicTestRoute() {
     aiRouteRequestHashMismatchResponse: () => Response.json({ ok: false }, { status: 409 }),
     beginAiRouteRequest: async ({ requestId }) => {
       const existing = replayRows.get(requestId);
-      if (existing?.complete) throw new ReplayAiRouteResponse(Response.json(existing.body));
+      if (existing?.complete) throw new ReplayAiRouteResponse(Response.json(existing.body, { status: existing.status }));
       if (existing) throw new AiRouteInProgressError();
       replayRows.set(requestId, { complete: false, body: null });
       return { id: requestId, requestId, attempt: 0 };
     },
     completeAiRouteRequest: async (reservation, response) => {
       const body = await response.clone().json();
-      replayRows.set(reservation.id, { complete: true, body });
+      replayRows.set(reservation.id, { complete: true, body, status: response.status });
       return response;
     },
     failAiRouteRequest: async () => {},
@@ -79,6 +79,7 @@ async function loadTopicTestRoute() {
     isCompetitiveMode: () => false,
     sanitizePdfSafeText: (value) => String(value || ""),
     NEW_TOPIC_TEST_QUESTION_COUNT,
+    analyzeTextbookGroundedTopicQuestions,
     selectTextbookGroundedTopicQuestions,
     selectValidDistinctTopicQuestions,
     shuffleTopicTestOptions,
@@ -134,5 +135,65 @@ test("completed Topic Test replay returns identical shuffled options without reg
     globalThis.fetch = previousFetch;
     Math.random = previousRandom;
     delete globalThis.__topicTestReplayDeps;
+  }
+});
+
+function passageQuestions() {
+  const sentences = [
+    "Maya collected shells on the beach", "She arranged the shells by size", "Maya liked stories about the sea",
+    "Maya could identify five kinds of shells", "Maya labelled each group carefully", "Her brother counted the largest shells",
+    "Maya drew the spiral patterns", "She recorded the colours in a notebook", "Maya shared the collection with her class",
+    "The class displayed the shells near the window",
+  ];
+  const passage = `${sentences.join(". ")}.`;
+  const questions = sentences.map((sentence, index) => {
+    const actor = index === 1 || index === 7 ? "She" : index === 5 ? "Her brother" : index === 9 ? "The class" : "Maya";
+    const predicate = sentence.slice(actor.length + 1);
+    const frame = "assertion";
+    const fact = { id: `f${index + 1}`, claim: sentence, evidence: `${sentence}.`, actor, actorPredicate: sentence, predicate, polarity: "positive", frame, attribution: null };
+    const question = `What does the passage say about ${predicate}?`;
+    const component = (displayText) => ({ claim: sentence, displayText, factIds: [fact.id], treatment: frame });
+    return { id: index + 1, question, options: [predicate, `Wrong ${index + 1}A`, `Wrong ${index + 1}B`, `Wrong ${index + 1}C`], correctIndex: 0, explanation: sentence, grounding: { facts: [fact], premise: component(question), answer: component(predicate), explanation: component(sentence) } };
+  });
+  return { passage, questions };
+}
+
+test("ten passage-grounded questions accept pronouns, ordinary like, and ability could, then replay identically", { concurrency: false }, async () => {
+  const previousApiKey = process.env.OPENAI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-only-topic-test-key";
+  globalThis.fetch = async () => Response.json({ ok: true, features: { topicTest: true } });
+  try {
+    const { passage, questions } = passageQuestions();
+    const { POST, getProviderCalls } = await loadTopicTestRoute({ generatedQuestions: questions, curriculum: { matched: true, usable: true, content: passage, version: "v1", topicId: "topic-1", subject: "English", chapter: "Shells", topic: "Maya's collection" } });
+    const request = () => new Request("http://localhost/api/topic-test", { method: "POST", headers: { "content-type": "application/json", "x-request-id": "grounded-ten" }, body: JSON.stringify({ mobile: "9999999999", subjectId: "s1", chapterId: "c1", topicId: "topic-1", language: "en" }) });
+    const first = await POST(request());
+    assert.equal(first.status, 200);
+    assert.equal((await first.clone().json()).questions.length, 10);
+    const replay = await POST(request());
+    assert.equal(replay.status, 200);
+    assert.deepEqual(await replay.json(), await first.json());
+    assert.equal(getProviderCalls(), 1);
+  } finally {
+    if (previousApiKey === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = previousApiKey;
+    globalThis.fetch = previousFetch; delete globalThis.__topicTestReplayDeps;
+  }
+});
+
+test("terminal topic_test_retry_required 422 is completed and replayed without another generation", { concurrency: false }, async () => {
+  const previousApiKey = process.env.OPENAI_API_KEY; const previousFetch = globalThis.fetch;
+  process.env.OPENAI_API_KEY = "test-only-topic-test-key";
+  globalThis.fetch = async () => Response.json({ ok: true, features: { topicTest: true } });
+  try {
+    const { POST, getProviderCalls } = await loadTopicTestRoute({ generatedQuestions: [] });
+    const request = () => new Request("http://localhost/api/topic-test", { method: "POST", headers: { "content-type": "application/json", "x-request-id": "terminal-422" }, body: JSON.stringify({ mobile: "9999999999", subject: "Mathematics", topic: "Fractions" }) });
+    const first = await POST(request()); const firstBody = await first.json();
+    assert.equal(first.status, 422); assert.equal(firstBody.code, "topic_test_retry_required");
+    const replay = await POST(request());
+    assert.equal(replay.status, 422); assert.deepEqual(await replay.json(), firstBody);
+    assert.equal(getProviderCalls(), 2, "the bounded initial and strict attempts are not repeated on replay");
+  } finally {
+    if (previousApiKey === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = previousApiKey;
+    globalThis.fetch = previousFetch; delete globalThis.__topicTestReplayDeps;
   }
 });
