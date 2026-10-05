@@ -21,6 +21,7 @@ const ENGLISH_EQUIVALENTS = new Map(Object.entries({
 export const TOPIC_TEST_REJECTION_CODES = Object.freeze({
   invalid_shape: "invalid_shape", duplicate: "duplicate", missing_grounding: "missing_grounding",
   evidence_missing_fields: "evidence_missing_fields",
+  evidence_unknown_excerpt: "evidence_unknown_excerpt",
   evidence_non_verbatim_quote: "evidence_non_verbatim_quote",
   evidence_actor_predicate_mismatch: "evidence_actor_predicate_mismatch",
   evidence_polarity_mismatch: "evidence_polarity_mismatch",
@@ -58,11 +59,9 @@ function hasBelief(value) { return BELIEF.test(String(value || "")) || BELIEF_IN
 function supportedProposition(fact) {
   const evidence = String(fact?.evidence || "");
   const anchors = [fact?.actorPredicate, fact?.predicate].map((value) => String(value || "")).filter(Boolean);
-  const positions = anchors.map((anchor) => normalized(evidence).indexOf(normalized(anchor))).filter((index) => index >= 0);
-  if (!positions.length) return evidence;
-  const start = Math.max(0, evidence.lastIndexOf(",", Math.min(...positions)) + 1);
-  const end = evidence.indexOf(",", Math.max(...positions));
-  return evidence.slice(start, end < 0 ? evidence.length : end).trim();
+  if (!anchors.length) return evidence;
+  const sentences = [...evidence.matchAll(/[^\r\n.!?]+(?:[.!?]+|(?=\r?\n|$))/gu)].map((match) => match[0].trim()).filter(Boolean);
+  return sentences.find((sentence) => anchors.every((anchor) => includesExactPhrase(sentence, anchor))) || evidence;
 }
 function tokens(value) { return normalized(value).match(/[\p{L}\p{N}]+/gu)?.filter((token) => (/^\p{N}+$/u.test(token) || token.length > 2) && !STOP_WORDS.has(token)).map((token) => ENGLISH_EQUIVALENTS.get(token) || token.replace(/(?<!s)s$/i, "")) || []; }
 function scripts(value) {
@@ -82,8 +81,7 @@ function actorConflict(claim, fact, passage) {
   const allowed = new Set(properNames(supportedProposition(fact)));
   if (!PRONOUN.test(fact.actor)) allowed.add(String(fact.actor).toLowerCase());
   if (PRONOUN.test(fact.actor)) {
-    const at = String(passage).indexOf(String(fact.evidence));
-    const antecedent = properNames(at < 0 ? "" : String(passage).slice(0, at)).at(-1);
+    const antecedent = properNames(precedingPronounContext(fact, passage)).at(-1);
     if (antecedent) allowed.add(antecedent);
   }
   return names.some((name) => !allowed.has(name));
@@ -91,6 +89,12 @@ function actorConflict(claim, fact, passage) {
 function precedingPronounContext(fact, passage) {
   const evidence = String(fact?.evidence || "");
   if (!/\b(?:he|she|they|it|him|her|them|his|hers|their|its)\b/i.test(evidence)) return "";
+  const proposition = supportedProposition(fact);
+  const propositionAt = evidence.indexOf(proposition);
+  if (propositionAt > 0) {
+    const localContext = evidence.slice(0, propositionAt).split(/[.!?]/).map((part) => part.trim()).filter(Boolean).at(-1);
+    if (localContext) return localContext;
+  }
   const at = String(passage).indexOf(evidence);
   if (at <= 0) return "";
   return String(passage).slice(0, at).split(/[.!?]/).map((part) => part.trim()).filter(Boolean).at(-1) || "";
@@ -98,14 +102,14 @@ function precedingPronounContext(fact, passage) {
 function claimSupported(claim, fact, passage = "") {
   // Generated fact.claim is deliberately excluded: only the verified quote and
   // its exact actor/predicate fields may support another generated statement.
-  const evidenceAt = String(passage).indexOf(String(fact.evidence || ""));
-  const antecedent = PRONOUN.test(fact.actor) && evidenceAt >= 0 ? properNames(String(passage).slice(0, evidenceAt)).at(-1) || "" : "";
   const pronounContext = precedingPronounContext(fact, passage);
+  const antecedent = PRONOUN.test(fact.actor) ? properNames(pronounContext).at(-1) || "" : "";
   const source = new Set(tokens(`${supportedProposition(fact)} ${fact.actor} ${fact.actorPredicate} ${fact.predicate} ${antecedent} ${pronounContext}`));
   const claimed = [...new Set(tokens(claim))];
   return claimed.length > 0 && claimed.every((token) => source.has(token));
 }
 function factEvidenceRejection(fact, passage) {
+  if (fact?.evidenceResolution === "unknown_excerpt") return TOPIC_TEST_REJECTION_CODES.evidence_unknown_excerpt;
   if (!fact?.claim || !fact?.evidence || !fact?.actor || !fact?.predicate || !fact?.actorPredicate || !fact?.frame || !fact?.polarity) return TOPIC_TEST_REJECTION_CODES.evidence_missing_fields;
   if (!quoteIsVerbatim(fact.evidence, passage)) return TOPIC_TEST_REJECTION_CODES.evidence_non_verbatim_quote;
   if (!includesExactPhrase(fact.evidence, fact.actor) || !includesExactPhrase(fact.evidence, fact.predicate) || !includesExactPhrase(fact.evidence, fact.actorPredicate)) return TOPIC_TEST_REJECTION_CODES.evidence_actor_predicate_mismatch;
@@ -117,6 +121,36 @@ function factEvidenceRejection(fact, passage) {
   if (fact.frame === "belief" && (!fact.attribution || !includesExactPhrase(fact.evidence, fact.attribution))) return TOPIC_TEST_REJECTION_CODES.evidence_attribution_mismatch;
   if (actorConflict(fact.claim, fact, passage) || !claimSupported(fact.claim, fact, passage)) return TOPIC_TEST_REJECTION_CODES.evidence_unsupported_claim;
   return null;
+}
+
+export function createTopicTestEvidenceExcerpts(passage) {
+  const source = String(passage || "");
+  const clauses = [...source.matchAll(/[^\r\n.!?]+(?:[.!?]+|(?=\r?\n|$))/gu)]
+    .map((match) => ({ start: match.index, end: match.index + match[0].length }))
+    .filter(({ start, end }) => source.slice(start, end).trim());
+  if (!clauses.length && source.trim()) clauses.push({ start: 0, end: source.length });
+  return clauses.map((clause, index) => {
+    const start = clauses[Math.max(0, index - 1)].start;
+    const end = clauses[Math.min(clauses.length - 1, index + 1)].end;
+    return { id: `excerpt_${String(index + 1).padStart(4, "0")}`, text: source.slice(start, end).trim() };
+  });
+}
+
+export function resolveTopicTestEvidenceExcerpts(questions, excerpts) {
+  const byId = new Map((Array.isArray(excerpts) ? excerpts : []).map((excerpt) => [String(excerpt.id), String(excerpt.text)]));
+  return (Array.isArray(questions) ? questions : []).map((question) => ({
+    ...question,
+    grounding: question?.grounding && typeof question.grounding === "object" ? {
+      ...question.grounding,
+      facts: Array.isArray(question.grounding.facts) ? question.grounding.facts.map((fact) => {
+        const excerptId = String(fact?.excerptId || "");
+        const evidence = byId.get(excerptId);
+        return evidence === undefined
+          ? { ...fact, evidence: "", evidenceResolution: "unknown_excerpt" }
+          : { ...fact, evidence, evidenceResolution: "resolved" };
+      }) : question.grounding.facts,
+    } : question?.grounding,
+  }));
 }
 function componentRejection(component, facts, passage) {
   if (!component?.claim?.trim() || !Array.isArray(component.factIds) || !component.factIds.length) return TOPIC_TEST_REJECTION_CODES.missing_grounding;

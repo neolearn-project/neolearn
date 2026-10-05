@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import ts from "typescript";
-import { NEW_TOPIC_TEST_QUESTION_COUNT, analyzeTextbookGroundedTopicQuestions, selectTextbookGroundedTopicQuestions, selectValidDistinctTopicQuestions, shuffleTopicTestOptions } from "../app/lib/topicTestContracts.mjs";
+import { NEW_TOPIC_TEST_QUESTION_COUNT, analyzeTextbookGroundedTopicQuestions, createTopicTestEvidenceExcerpts, resolveTopicTestEvidenceExcerpts, selectTextbookGroundedTopicQuestions, selectValidDistinctTopicQuestions, shuffleTopicTestOptions } from "../app/lib/topicTestContracts.mjs";
 
 let moduleId = 0;
 
@@ -80,6 +80,8 @@ async function loadTopicTestRoute({ generatedQuestions, curriculum } = {}) {
     sanitizePdfSafeText: (value) => String(value || ""),
     NEW_TOPIC_TEST_QUESTION_COUNT,
     analyzeTextbookGroundedTopicQuestions,
+    createTopicTestEvidenceExcerpts,
+    resolveTopicTestEvidenceExcerpts,
     selectTextbookGroundedTopicQuestions,
     selectValidDistinctTopicQuestions,
     shuffleTopicTestOptions,
@@ -146,11 +148,12 @@ function passageQuestions() {
     "The class displayed the shells near the window",
   ];
   const passage = `${sentences.join(". ")}.`;
+  const excerpts = createTopicTestEvidenceExcerpts(passage);
   const questions = sentences.map((sentence, index) => {
     const actor = index === 1 || index === 7 ? "She" : index === 5 ? "Her brother" : index === 9 ? "The class" : "Maya";
     const predicate = sentence.slice(actor.length + 1);
     const frame = "assertion";
-    const fact = { id: `f${index + 1}`, claim: sentence, evidence: `${sentence}.`, actor, actorPredicate: sentence, predicate, polarity: "positive", frame, attribution: null };
+    const fact = { id: `f${index + 1}`, claim: sentence, excerptId: excerpts[index].id, actor, actorPredicate: sentence, predicate, polarity: "positive", frame, attribution: null };
     const question = `What does the passage say about ${predicate}?`;
     const component = (displayText) => ({ claim: sentence, displayText, factIds: [fact.id], treatment: frame });
     return { id: index + 1, question, options: [predicate, `Wrong ${index + 1}A`, `Wrong ${index + 1}B`, `Wrong ${index + 1}C`], correctIndex: 0, explanation: sentence, grounding: { facts: [fact], premise: component(question), answer: component(predicate), explanation: component(sentence) } };

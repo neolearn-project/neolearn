@@ -4,6 +4,8 @@ import { readFile } from "node:fs/promises";
 import {
   NEW_TOPIC_TEST_QUESTION_COUNT,
   analyzeTextbookGroundedTopicQuestions,
+  createTopicTestEvidenceExcerpts,
+  resolveTopicTestEvidenceExcerpts,
   selectTextbookGroundedTopicQuestions,
   shuffleTopicTestOptions,
   scoreTopicTest,
@@ -294,14 +296,53 @@ test("evidence diagnostics expose precise first-failure codes without payload co
   assert.deepEqual(analyzeTextbookGroundedTopicQuestions([beliefItem], beliefPassage).rejectionCodes, { evidence_attribution_mismatch: 1 });
 });
 
-test("generation prompt states the validator's minimum verbatim evidence length", () => {
-  assert.match(route, /shortest exact clause of at least 12 characters/);
+test("server excerpts resolve to authoritative source text and ignore altered model quotes", () => {
+  const passage = "Maya studied shells. She did not collect the black shell. Its colour looked like coal.";
+  const excerpts = createTopicTestEvidenceExcerpts(passage);
+  assert.ok(excerpts.length >= 3);
+  assert.ok(excerpts.every((excerpt) => passage.includes(excerpt.text)));
+  assert.equal(excerpts.map((excerpt) => excerpt.text).some((text) => text.includes("She did not collect") && text.includes("Maya studied shells")), true);
+  const sourceFact = { ...fact({ claim: "She did not collect the black shell.", evidence: "altered model quote", actor: "She", actorPredicate: "She did not collect", predicate: "collect the black shell", polarity: "negative", frame: "negation" }), excerptId: excerpts[1].id };
+  const item = groundedItem({ questionText: "What did she not collect?", options: ["The black shell", "Coal", "A bridge", "Gold"], explanation: sourceFact.claim, fact: sourceFact, treatment: "negation" });
+  const [resolved] = resolveTopicTestEvidenceExcerpts([item], excerpts);
+  assert.equal(resolved.grounding.facts[0].evidence, excerpts[1].text);
+  assert.notEqual(resolved.grounding.facts[0].evidence, "altered model quote");
+  assert.equal(analyzeTextbookGroundedTopicQuestions([resolved], passage).acceptedCount, 1);
+});
+
+test("neighbouring excerpt framing does not replace framing governing the target proposition", () => {
+  const passage = "Maya did not discard any shells. She arranged the white shells by size. Their rows looked like waves.";
+  const excerpts = createTopicTestEvidenceExcerpts(passage);
+  const sourceFact = { ...fact({ claim: "She arranged the white shells by size.", evidence: "ignored", actor: "She", actorPredicate: "She arranged", predicate: "arranged the white shells by size" }), excerptId: excerpts[1].id };
+  const item = groundedItem({ questionText: "How did she arrange the white shells?", options: ["By size", "By colour", "At random", "In bags"], explanation: sourceFact.claim, fact: sourceFact });
+  const [resolved] = resolveTopicTestEvidenceExcerpts([item], excerpts);
+  assert.equal(analyzeTextbookGroundedTopicQuestions([resolved], passage).acceptedCount, 1);
+});
+
+test("unknown excerpt IDs and paraphrased actor/action fields are rejected", () => {
+  const passage = "Maya studied shells. She collected five white shells.";
+  const excerpts = createTopicTestEvidenceExcerpts(passage);
+  const sourceFact = { ...fact({ claim: "She collected five white shells.", evidence: "ignored", actor: "She", actorPredicate: "She collected", predicate: "collected five white shells" }), excerptId: "excerpt_missing" };
+  const item = groundedItem({ questionText: "What did she collect?", options: ["Five white shells", "Coal", "A bridge", "Gold"], explanation: sourceFact.claim, fact: sourceFact });
+  const [unknown] = resolveTopicTestEvidenceExcerpts([item], excerpts);
+  assert.deepEqual(analyzeTextbookGroundedTopicQuestions([unknown], passage).rejectionCodes, { evidence_unknown_excerpt: 1 });
+
+  item.grounding.facts[0] = { ...sourceFact, excerptId: excerpts[1].id, actor: "Maya", actorPredicate: "Maya gathered", predicate: "gathered five pale shells" };
+  const [paraphrased] = resolveTopicTestEvidenceExcerpts([item], excerpts);
+  assert.deepEqual(analyzeTextbookGroundedTopicQuestions([paraphrased], passage).rejectionCodes, { evidence_actor_predicate_mismatch: 1 });
+});
+
+test("generation prompt requires excerpt IDs and exact source pronouns and fields", () => {
+  assert.match(route, /reference exactly one supplied excerptId/);
+  assert.match(route, /actor, actorPredicate, and predicate must each be exact, contiguous substrings/);
+  assert.match(route, /Preserve a source pronoun as actor/);
+  assert.match(route, /<source_text>[\s\S]*<source_excerpts>/);
 });
 
 test("generation and validation use only the selected curriculum-or-upload source", () => {
   assert.match(route, /const groundingSource = curriculum\?\.usable[\s\S]*suppliedEvidence\.usable/);
   assert.match(route, /const groundingPassage = groundingSource\?\.content/);
   assert.match(route, /\$\{groundingSource \? `\$\{groundingSource\.kind\}[\s\S]*<source_text>/);
-  assert.match(route, /analyzeTextbookGroundedTopicQuestions\(candidates, groundingPassage\)/);
+  assert.match(route, /const resolvedCandidates = resolveTopicTestEvidenceExcerpts\(candidates, groundingExcerpts\);\s*const diagnostics = analyzeTextbookGroundedTopicQuestions\(resolvedCandidates, groundingPassage\)/);
   assert.doesNotMatch(route, /Trusted NeoLearn curriculum material[\s\S]*Server-verified extraction from a student-uploaded page/);
 });
