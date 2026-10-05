@@ -268,7 +268,34 @@ test("grounding diagnostics are structured aggregates and retain actor-substitut
   assert.equal(diagnostics.generatedCount, 2);
   assert.equal(diagnostics.acceptedCount, 0);
   assert.deepEqual(Object.keys(diagnostics).sort(), ["accepted", "acceptedCount", "duplicateCount", "generatedCount", "rejectionCodes"].sort());
-  assert.ok((diagnostics.rejectionCodes.actor_conflict || 0) + (diagnostics.rejectionCodes.invalid_evidence || 0) >= 1);
+  assert.equal(diagnostics.rejectionCodes.evidence_unsupported_claim, 2);
+});
+
+test("evidence diagnostics expose precise first-failure codes without payload content", () => {
+  const passage = "Rani did not cross the old bridge.";
+  const base = fact({ claim: passage, evidence: passage, actor: "Rani", actorPredicate: "Rani did not cross", predicate: "cross the old bridge", polarity: "negative", frame: "negation" });
+  const cases = [
+    [{ ...base, actor: "" }, "evidence_missing_fields"],
+    [{ ...base, evidence: "Rani did not cross a bridge." }, "evidence_non_verbatim_quote"],
+    [{ ...base, predicate: "cross the new bridge" }, "evidence_actor_predicate_mismatch"],
+    [{ ...base, polarity: "positive" }, "evidence_polarity_mismatch"],
+    [{ ...base, frame: "assertion" }, "evidence_framing_mismatch"],
+    [{ ...base, claim: "Rani did not cross the gold bridge." }, "evidence_unsupported_claim"],
+  ];
+  for (const [badFact, expectedCode] of cases) {
+    const item = groundedItem({ questionText: "What did Rani not cross?", options: ["The old bridge", "The river", "The field", "The road"], explanation: passage, fact: badFact, treatment: badFact.frame });
+    const diagnostics = analyzeTextbookGroundedTopicQuestions([item], passage);
+    assert.deepEqual(diagnostics.rejectionCodes, { [expectedCode]: 1 });
+  }
+
+  const beliefPassage = "Mina believed that the voice came from a parrot.";
+  const belief = fact({ claim: "Mina believed the voice came from a parrot.", evidence: beliefPassage, actor: "Mina", actorPredicate: "Mina believed", predicate: "voice came from a parrot", frame: "belief" });
+  const beliefItem = groundedItem({ questionText: "What did Mina believe?", options: ["The voice came from a parrot", "A dog barked", "The river spoke", "Nothing"], explanation: belief.claim, fact: belief, treatment: "belief" });
+  assert.deepEqual(analyzeTextbookGroundedTopicQuestions([beliefItem], beliefPassage).rejectionCodes, { evidence_attribution_mismatch: 1 });
+});
+
+test("generation prompt states the validator's minimum verbatim evidence length", () => {
+  assert.match(route, /shortest exact clause of at least 12 characters/);
 });
 
 test("generation and validation use only the selected curriculum-or-upload source", () => {

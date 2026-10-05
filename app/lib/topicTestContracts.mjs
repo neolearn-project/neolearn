@@ -20,7 +20,14 @@ const ENGLISH_EQUIVALENTS = new Map(Object.entries({
 
 export const TOPIC_TEST_REJECTION_CODES = Object.freeze({
   invalid_shape: "invalid_shape", duplicate: "duplicate", missing_grounding: "missing_grounding",
-  invalid_evidence: "invalid_evidence", actor_conflict: "actor_conflict",
+  evidence_missing_fields: "evidence_missing_fields",
+  evidence_non_verbatim_quote: "evidence_non_verbatim_quote",
+  evidence_actor_predicate_mismatch: "evidence_actor_predicate_mismatch",
+  evidence_polarity_mismatch: "evidence_polarity_mismatch",
+  evidence_framing_mismatch: "evidence_framing_mismatch",
+  evidence_attribution_mismatch: "evidence_attribution_mismatch",
+  evidence_unsupported_claim: "evidence_unsupported_claim",
+  actor_conflict: "actor_conflict",
   unsupported_claim: "unsupported_claim", displayed_content_mismatch: "displayed_content_mismatch",
   framing_mismatch: "framing_mismatch",
 });
@@ -98,27 +105,27 @@ function claimSupported(claim, fact, passage = "") {
   const claimed = [...new Set(tokens(claim))];
   return claimed.length > 0 && claimed.every((token) => source.has(token));
 }
-function validFactEvidence(fact, passage) {
-  if (!fact?.claim || !fact?.evidence || !fact?.actor || !fact?.predicate || !fact?.actorPredicate) return false;
-  if (!FRAMES.has(fact.frame) || !POLARITIES.has(fact.polarity) || !quoteIsVerbatim(fact.evidence, passage)) return false;
-  if (!includesExactPhrase(fact.evidence, fact.actor) || !includesExactPhrase(fact.evidence, fact.predicate) || !includesExactPhrase(fact.evidence, fact.actorPredicate)) return false;
+function factEvidenceRejection(fact, passage) {
+  if (!fact?.claim || !fact?.evidence || !fact?.actor || !fact?.predicate || !fact?.actorPredicate || !fact?.frame || !fact?.polarity) return TOPIC_TEST_REJECTION_CODES.evidence_missing_fields;
+  if (!quoteIsVerbatim(fact.evidence, passage)) return TOPIC_TEST_REJECTION_CODES.evidence_non_verbatim_quote;
+  if (!includesExactPhrase(fact.evidence, fact.actor) || !includesExactPhrase(fact.evidence, fact.predicate) || !includesExactPhrase(fact.evidence, fact.actorPredicate)) return TOPIC_TEST_REJECTION_CODES.evidence_actor_predicate_mismatch;
   const proposition = supportedProposition(fact);
   const negated = NEGATION.test(proposition), compared = hasComparison(proposition), believed = hasBelief(proposition), hypothetical = hasHypothetical(proposition);
-  if (negated !== (fact.polarity === "negative") || (negated && fact.frame !== "negation")) return false;
-  if (compared && !["comparison", "belief", "hypothetical"].includes(fact.frame)) return false;
-  if (believed && fact.frame !== "belief") return false;
-  if (hypothetical && !["hypothetical", "belief"].includes(fact.frame)) return false;
-  if (fact.frame === "negation" && !NEGATION.test(fact.claim)) return false;
-  if (fact.frame === "comparison" && !hasComparison(fact.claim)) return false;
-  if (fact.frame === "belief" && !hasBelief(fact.claim)) return false;
-  if (fact.frame === "hypothetical" && !hasHypothetical(fact.claim)) return false;
-  if (fact.frame === "belief" && (!fact.attribution || !includesExactPhrase(fact.evidence, fact.attribution))) return false;
-  return !actorConflict(fact.claim, fact, passage) && claimSupported(fact.claim, fact, passage);
+  if (!POLARITIES.has(fact.polarity) || negated !== (fact.polarity === "negative")) return TOPIC_TEST_REJECTION_CODES.evidence_polarity_mismatch;
+  if (!FRAMES.has(fact.frame) || (negated && fact.frame !== "negation") || (compared && !["comparison", "belief", "hypothetical"].includes(fact.frame)) || (believed && fact.frame !== "belief") || (hypothetical && !["hypothetical", "belief"].includes(fact.frame))) return TOPIC_TEST_REJECTION_CODES.evidence_framing_mismatch;
+  if ((fact.frame === "negation" && !NEGATION.test(fact.claim)) || (fact.frame === "comparison" && !hasComparison(fact.claim)) || (fact.frame === "belief" && !hasBelief(fact.claim)) || (fact.frame === "hypothetical" && !hasHypothetical(fact.claim))) return TOPIC_TEST_REJECTION_CODES.evidence_framing_mismatch;
+  if (fact.frame === "belief" && (!fact.attribution || !includesExactPhrase(fact.evidence, fact.attribution))) return TOPIC_TEST_REJECTION_CODES.evidence_attribution_mismatch;
+  if (actorConflict(fact.claim, fact, passage) || !claimSupported(fact.claim, fact, passage)) return TOPIC_TEST_REJECTION_CODES.evidence_unsupported_claim;
+  return null;
 }
 function componentRejection(component, facts, passage) {
   if (!component?.claim?.trim() || !Array.isArray(component.factIds) || !component.factIds.length) return TOPIC_TEST_REJECTION_CODES.missing_grounding;
   const linked = component.factIds.map((id) => facts.get(String(id)));
-  if (linked.some((fact) => !fact || !validFactEvidence(fact, passage))) return TOPIC_TEST_REJECTION_CODES.invalid_evidence;
+  if (linked.some((fact) => !fact)) return TOPIC_TEST_REJECTION_CODES.evidence_missing_fields;
+  for (const fact of linked) {
+    const rejection = factEvidenceRejection(fact, passage);
+    if (rejection) return rejection;
+  }
   const frames = new Set(linked.map((fact) => fact.frame));
   if (frames.size !== 1 || component.treatment !== linked[0].frame) return TOPIC_TEST_REJECTION_CODES.framing_mismatch;
   if (linked.some((fact) => actorConflict(component.claim, fact, passage))) return TOPIC_TEST_REJECTION_CODES.actor_conflict;
