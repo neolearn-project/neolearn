@@ -23,7 +23,9 @@ export const TOPIC_TEST_REJECTION_CODES = Object.freeze({
   evidence_missing_fields: "evidence_missing_fields",
   evidence_unknown_excerpt: "evidence_unknown_excerpt",
   evidence_non_verbatim_quote: "evidence_non_verbatim_quote",
+  evidence_actor_mismatch: "evidence_actor_mismatch",
   evidence_actor_predicate_mismatch: "evidence_actor_predicate_mismatch",
+  evidence_predicate_mismatch: "evidence_predicate_mismatch",
   evidence_polarity_mismatch: "evidence_polarity_mismatch",
   evidence_framing_mismatch: "evidence_framing_mismatch",
   evidence_attribution_mismatch: "evidence_attribution_mismatch",
@@ -112,7 +114,9 @@ function factEvidenceRejection(fact, passage) {
   if (fact?.evidenceResolution === "unknown_excerpt") return TOPIC_TEST_REJECTION_CODES.evidence_unknown_excerpt;
   if (!fact?.claim || !fact?.evidence || !fact?.actor || !fact?.predicate || !fact?.actorPredicate || !fact?.frame || !fact?.polarity) return TOPIC_TEST_REJECTION_CODES.evidence_missing_fields;
   if (!quoteIsVerbatim(fact.evidence, passage)) return TOPIC_TEST_REJECTION_CODES.evidence_non_verbatim_quote;
-  if (!includesExactPhrase(fact.evidence, fact.actor) || !includesExactPhrase(fact.evidence, fact.predicate) || !includesExactPhrase(fact.evidence, fact.actorPredicate)) return TOPIC_TEST_REJECTION_CODES.evidence_actor_predicate_mismatch;
+  if (!includesExactPhrase(fact.evidence, fact.actor)) return TOPIC_TEST_REJECTION_CODES.evidence_actor_mismatch;
+  if (!includesExactPhrase(fact.evidence, fact.actorPredicate)) return TOPIC_TEST_REJECTION_CODES.evidence_actor_predicate_mismatch;
+  if (!includesExactPhrase(fact.evidence, fact.predicate)) return TOPIC_TEST_REJECTION_CODES.evidence_predicate_mismatch;
   const proposition = supportedProposition(fact);
   const negated = NEGATION.test(proposition), compared = hasComparison(proposition), believed = hasBelief(proposition), hypothetical = hasHypothetical(proposition);
   if (!POLARITIES.has(fact.polarity) || negated !== (fact.polarity === "negative")) return TOPIC_TEST_REJECTION_CODES.evidence_polarity_mismatch;

@@ -279,7 +279,9 @@ test("evidence diagnostics expose precise first-failure codes without payload co
   const cases = [
     [{ ...base, actor: "" }, "evidence_missing_fields"],
     [{ ...base, evidence: "Rani did not cross a bridge." }, "evidence_non_verbatim_quote"],
-    [{ ...base, predicate: "cross the new bridge" }, "evidence_actor_predicate_mismatch"],
+    [{ ...base, actor: "Mina" }, "evidence_actor_mismatch"],
+    [{ ...base, actorPredicate: "Rani never crossed" }, "evidence_actor_predicate_mismatch"],
+    [{ ...base, predicate: "cross the new bridge" }, "evidence_predicate_mismatch"],
     [{ ...base, polarity: "positive" }, "evidence_polarity_mismatch"],
     [{ ...base, frame: "assertion" }, "evidence_framing_mismatch"],
     [{ ...base, claim: "Rani did not cross the gold bridge." }, "evidence_unsupported_claim"],
@@ -330,6 +332,17 @@ test("unknown excerpt IDs and paraphrased actor/action fields are rejected", () 
   item.grounding.facts[0] = { ...sourceFact, excerptId: excerpts[1].id, actor: "Maya", actorPredicate: "Maya gathered", predicate: "gathered five pale shells" };
   const [paraphrased] = resolveTopicTestEvidenceExcerpts([item], excerpts);
   assert.deepEqual(analyzeTextbookGroundedTopicQuestions([paraphrased], passage).rejectionCodes, { evidence_actor_predicate_mismatch: 1 });
+});
+
+test("PDF-style line breaks preserve exact source pronouns through excerpt resolution", () => {
+  const passage = "Maya studied shells. She\ncollected five white shells.";
+  const excerpts = createTopicTestEvidenceExcerpts(passage);
+  const excerpt = excerpts.find(({ text }) => text.includes("She\ncollected"));
+  assert.ok(excerpt);
+  const sourceFact = { ...fact({ claim: "She collected five white shells.", evidence: "ignored", actor: "She", actorPredicate: "She collected", predicate: "collected five white shells" }), excerptId: excerpt.id };
+  const item = groundedItem({ questionText: "What did she collect?", options: ["Five white shells", "Coal", "A bridge", "Gold"], explanation: sourceFact.claim, fact: sourceFact });
+  const [resolved] = resolveTopicTestEvidenceExcerpts([item], excerpts);
+  assert.equal(analyzeTextbookGroundedTopicQuestions([resolved], passage).acceptedCount, 1);
 });
 
 test("generation prompt requires excerpt IDs and exact source pronouns and fields", () => {
