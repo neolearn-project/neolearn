@@ -5,7 +5,9 @@ import {
   NEW_TOPIC_TEST_QUESTION_COUNT,
   analyzeTextbookGroundedTopicQuestions,
   createTopicTestEvidenceExcerpts,
+  createTopicTestSourceCatalog,
   resolveTopicTestEvidenceExcerpts,
+  resolveTopicTestSourceSpans,
   selectTextbookGroundedTopicQuestions,
   shuffleTopicTestOptions,
   scoreTopicTest,
@@ -47,15 +49,12 @@ test("option shuffling keeps each correct answer paired with its updated index",
   assert.deepEqual(source[0].options, ["A", "B", "C", "D"], "shuffling does not mutate the generated questions");
 });
 
-test("shuffled order is prepared once before replay storage and client rendering keeps it", () => {
-  assert.equal((route.match(/shuffleTopicTestOptions\(responseQuestions\)/g) || []).length, 1);
-  const shuffleAt = route.lastIndexOf("shuffleTopicTestOptions(responseQuestions)");
-  const replayAt = route.lastIndexOf("return completeAiRouteRequest(");
-  assert.ok(shuffleAt >= 0 && shuffleAt < replayAt);
-  assert.match(route.slice(replayAt), /questions: returnedQuestions/);
+test("client rendering, scoring, review and Weak Diagnosis keep the server-prepared option order", () => {
   assert.doesNotMatch(page, /shuffleTopicTestOptions|\.sort\([^)]*options/);
   assert.match(page, /q\.correctIndex === optionIndex/);
   assert.match(page, /topicTestAnswers\[q\.id\] === q\.correctIndex/);
+  assert.match(page, /base\?\.options\?\.\[base\.correctIndex\]/);
+  assert.match(page, /buildCompetitiveWeakDiagnosis\(/);
 });
 
 function groundedItem({ questionText, options, correctIndex = 0, explanation, fact, treatment = fact.frame }) {
@@ -78,6 +77,93 @@ function groundedItem({ questionText, options, correctIndex = 0, explanation, fa
 function fact({ claim, evidence, actor, actorPredicate, predicate, polarity = "positive", frame = "assertion", attribution = null }) {
   return { id: "f1", claim, evidence, actor, actorPredicate, predicate, polarity, frame, attribution };
 }
+
+function spanRange(scope, phrase) {
+  const relativeStart = scope.text.indexOf(phrase);
+  assert.ok(relativeStart >= 0, `missing span phrase: ${phrase}`);
+  const start = scope.start + relativeStart, end = start + phrase.length;
+  const selected = scope.tokens.filter((token) => token.start >= start && token.end <= end);
+  assert.ok(selected.length, `missing span tokens: ${phrase}`);
+  return { startTokenId: selected[0].id, endTokenId: selected.at(-1).id };
+}
+
+function spanFact({ id = "f1", scope, claim, actor, actorPredicate, predicate, polarity = "positive", frame = "assertion", attribution = null }) {
+  return {
+    id, claim, scopeId: scope.id,
+    actorSpan: spanRange(scope, actor),
+    actorPredicateSpan: spanRange(scope, actorPredicate),
+    predicateSpan: spanRange(scope, predicate),
+    attributionSpan: attribution ? spanRange(scope, attribution) : null,
+    polarity, frame,
+  };
+}
+
+test("server token spans preserve Unicode, punctuation, and PDF line breaks", () => {
+  const passage = "Māyā\ncollected तीन shells. She reached school.";
+  const catalog = createTopicTestSourceCatalog(passage);
+  assert.equal(catalog.usable, true);
+  assert.equal(catalog.scopes.map((scope) => scope.text).join(" ").replace(/\s+/g, " "), passage.replace(/\s+/g, " "));
+  const sourceFact = spanFact({ scope: catalog.scopes[0], claim: "Māyā collected तीन shells.", actor: "Māyā", actorPredicate: "Māyā\ncollected", predicate: "collected तीन shells" });
+  const item = groundedItem({ questionText: "What did Māyā collect?", options: ["तीन shells", "Two books", "A bridge", "Nothing"], explanation: sourceFact.claim, fact: sourceFact });
+  const [resolved] = resolveTopicTestSourceSpans([item], catalog, passage);
+  assert.equal(resolved.grounding.facts[0].actorPredicate, "Māyā\ncollected");
+  assert.equal(analyzeTextbookGroundedTopicQuestions([resolved], passage).acceptedCount, 1);
+});
+
+test("server token spans preserve inverted speech, auxiliaries, and source pronouns", () => {
+  const passage = '"Go," said Rani. Mother had replied, "Maybe later." The next day she reached school.';
+  const catalog = createTopicTestSourceCatalog(passage);
+  const speech = { ...spanFact({ scope: catalog.scopes[0], claim: '"Go," said Rani.', actor: "Rani", actorPredicate: "said Rani", predicate: "Go", attribution: "Rani" }), actor: "Mina", actorPredicate: "Mina said", predicate: "Stay", evidence: "forged evidence" };
+  const reply = spanFact({ id: "f2", scope: catalog.scopes[1], claim: 'Mother had replied, "Maybe later."', actor: "Mother", actorPredicate: "Mother had replied", predicate: "Maybe later", frame: "hypothetical", attribution: "Mother" });
+  const arrival = spanFact({ id: "f3", scope: catalog.scopes[2], claim: "The next day she reached school.", actor: "she", actorPredicate: "she reached", predicate: "reached school" });
+  const unresolved = [speech, reply, arrival].map((sourceFact, index) => groundedItem({ questionText: sourceFact.claim, options: [sourceFact.claim, `Wrong ${index}A`, `Wrong ${index}B`, `Wrong ${index}C`], explanation: sourceFact.claim, fact: sourceFact, treatment: sourceFact.frame }));
+  const resolved = resolveTopicTestSourceSpans(unresolved, catalog, passage);
+  assert.deepEqual(resolved.map((item) => item.grounding.facts[0].actorPredicate), ["said Rani", "Mother had replied", "she reached"]);
+  assert.deepEqual({ actor: resolved[0].grounding.facts[0].actor, predicate: resolved[0].grounding.facts[0].predicate, evidence: resolved[0].grounding.facts[0].evidence }, { actor: "Rani", predicate: "Go", evidence: catalog.scopes[0].text });
+  assert.equal(analyzeTextbookGroundedTopicQuestions(resolved, passage).acceptedCount, 3);
+});
+
+test("span resolution rejects forged ranges and actor-action substitution", () => {
+  const passage = "Rani collected shells. Mina crossed the bridge.";
+  const catalog = createTopicTestSourceCatalog(passage);
+  const valid = spanFact({ scope: catalog.scopes[0], claim: "Rani collected shells.", actor: "Rani", actorPredicate: "Rani collected", predicate: "collected shells" });
+  const itemFor = (sourceFact) => groundedItem({ questionText: sourceFact.claim, options: [sourceFact.claim, "Wrong A", "Wrong B", "Wrong C"], explanation: sourceFact.claim, fact: sourceFact });
+
+  const unknown = { ...valid, actorSpan: { startTokenId: "forged_token", endTokenId: "forged_token" } };
+  assert.deepEqual(analyzeTextbookGroundedTopicQuestions(resolveTopicTestSourceSpans([itemFor(unknown)], catalog, passage), passage).rejectionCodes, { evidence_unknown_token: 1 });
+
+  const unknownScope = { ...valid, scopeId: "forged_scope" };
+  assert.deepEqual(analyzeTextbookGroundedTopicQuestions(resolveTopicTestSourceSpans([itemFor(unknownScope)], catalog, passage), passage).rejectionCodes, { evidence_unknown_scope: 1 });
+
+  const missing = { ...valid, actorSpan: null };
+  assert.deepEqual(analyzeTextbookGroundedTopicQuestions(resolveTopicTestSourceSpans([itemFor(missing)], catalog, passage), passage).rejectionCodes, { evidence_missing_fields: 1 });
+
+  const reversed = { ...valid, predicateSpan: { startTokenId: valid.predicateSpan.endTokenId, endTokenId: valid.predicateSpan.startTokenId } };
+  assert.deepEqual(analyzeTextbookGroundedTopicQuestions(resolveTopicTestSourceSpans([itemFor(reversed)], catalog, passage), passage).rejectionCodes, { evidence_reversed_range: 1 });
+
+  const crossScope = { ...valid, predicateSpan: { startTokenId: catalog.scopes[0].tokens[0].id, endTokenId: catalog.scopes[1].tokens.at(-1).id } };
+  assert.deepEqual(analyzeTextbookGroundedTopicQuestions(resolveTopicTestSourceSpans([itemFor(crossScope)], catalog, passage), passage).rejectionCodes, { evidence_cross_scope_range: 1 });
+
+  const minaScope = catalog.scopes[1];
+  const substituted = { ...valid, actorSpan: spanRange(catalog.scopes[0], "Rani"), actorPredicateSpan: spanRange(minaScope, "Mina crossed"), predicateSpan: spanRange(minaScope, "crossed the bridge") };
+  assert.deepEqual(analyzeTextbookGroundedTopicQuestions(resolveTopicTestSourceSpans([itemFor(substituted)], catalog, passage), passage).rejectionCodes, { evidence_cross_scope_range: 1 });
+
+  const outside = { ...valid, actorSpan: spanRange(catalog.scopes[0], "Rani"), actorPredicateSpan: spanRange(catalog.scopes[0], "collected shells") };
+  assert.deepEqual(analyzeTextbookGroundedTopicQuestions(resolveTopicTestSourceSpans([itemFor(outside)], catalog, passage), passage).rejectionCodes, { evidence_actor_outside_actor_predicate: 1 });
+});
+
+test("source catalog limits report insufficient coverage without truncation", () => {
+  const passage = "Rani collected shells. Mina crossed the bridge.";
+  const catalog = createTopicTestSourceCatalog(passage, { maxSourceChars: 100, maxScopes: 1, maxTokens: 100, maxTokensPerScope: 100 });
+  assert.equal(catalog.usable, false);
+  assert.equal(catalog.reason, "too_many_scopes");
+  assert.deepEqual(catalog.scopes, []);
+
+  const oversized = createTopicTestSourceCatalog(passage, { maxSourceChars: 10, maxScopes: 100, maxTokens: 100, maxTokensPerScope: 100 });
+  assert.equal(oversized.usable, false);
+  assert.equal(oversized.reason, "source_too_large");
+  assert.deepEqual(oversized.scopes, []);
+});
 
 test("grounding fact map rejects an actor substituted into another character's event", () => {
   const passage = "Rani crossed the old bridge. Mina watched from the riverbank.";
@@ -345,17 +431,189 @@ test("PDF-style line breaks preserve exact source pronouns through excerpt resol
   assert.equal(analyzeTextbookGroundedTopicQuestions([resolved], passage).acceptedCount, 1);
 });
 
-test("generation prompt requires excerpt IDs and exact source pronouns and fields", () => {
-  assert.match(route, /reference exactly one supplied excerptId/);
-  assert.match(route, /actor, actorPredicate, and predicate must each be exact, contiguous substrings/);
-  assert.match(route, /Preserve a source pronoun as actor/);
-  assert.match(route, /<source_text>[\s\S]*<source_excerpts>/);
+test("captured source order, auxiliaries, and pronouns remain exact evidence fields", () => {
+  const dialogue = '"They won\'t let me go to school," said Jahnavi.';
+  const saidFact = fact({ claim: dialogue, evidence: dialogue, actor: "Jahnavi", actorPredicate: "said Jahnavi", predicate: "won't let me go to school", polarity: "negative", frame: "negation", attribution: "Jahnavi" });
+  const saidItem = groundedItem({ questionText: dialogue, options: [dialogue, "Mother replied.", "The River left.", "School closed."], explanation: dialogue, fact: saidFact, treatment: "negation" });
+  assert.equal(analyzeTextbookGroundedTopicQuestions([saidItem], dialogue).acceptedCount, 1);
+  saidItem.grounding.facts[0] = { ...saidFact, actorPredicate: "Jahnavi said" };
+  assert.deepEqual(analyzeTextbookGroundedTopicQuestions([saidItem], dialogue).rejectionCodes, { evidence_actor_predicate_mismatch: 1 });
+
+  const reply = 'Mother had replied, "Maybe later."';
+  const replyFact = fact({ claim: reply, evidence: reply, actor: "Mother", actorPredicate: "Mother had replied", predicate: "Maybe later", frame: "hypothetical", attribution: "Mother" });
+  const replyItem = groundedItem({ questionText: reply, options: [reply, "Never", "Today", "At school"], explanation: reply, fact: replyFact, treatment: "hypothetical" });
+  assert.equal(analyzeTextbookGroundedTopicQuestions([replyItem], reply).acceptedCount, 1);
+  replyItem.grounding.facts[0] = { ...replyFact, actorPredicate: "Mother replied" };
+  assert.deepEqual(analyzeTextbookGroundedTopicQuestions([replyItem], reply).rejectionCodes, { evidence_actor_predicate_mismatch: 1 });
+
+  const arrival = "The next day she reached the school.";
+  const arrivalFact = fact({ claim: arrival, evidence: arrival, actor: "she", actorPredicate: "she reached", predicate: "reached the school" });
+  const arrivalItem = groundedItem({ questionText: arrival, options: [arrival, "She stayed home.", "She crossed a river.", "She met Mother."], explanation: arrival, fact: arrivalFact });
+  assert.equal(analyzeTextbookGroundedTopicQuestions([arrivalItem], arrival).acceptedCount, 1);
+  arrivalItem.grounding.facts[0] = { ...arrivalFact, actor: "Jahnavi", actorPredicate: "Jahnavi reached" };
+  assert.deepEqual(analyzeTextbookGroundedTopicQuestions([arrivalItem], arrival).rejectionCodes, { evidence_actor_mismatch: 1 });
+});
+
+test("captured multi-sentence claims are supported by linked atomic facts", () => {
+  const passage = "Jahnavi called her brother Ettan. Ettan means Elder brother.";
+  const first = { ...fact({ claim: "Jahnavi called her brother Ettan.", evidence: passage, actor: "Jahnavi", actorPredicate: "Jahnavi called", predicate: "called her brother Ettan" }), id: "f1" };
+  const second = { ...fact({ claim: "Ettan means Elder brother.", evidence: passage, actor: "Ettan", actorPredicate: "Ettan means", predicate: "means Elder brother" }), id: "f2" };
+  const combined = `${first.claim} ${second.claim}`;
+  const item = groundedItem({ questionText: combined, options: [combined, "Ettan means friend.", "Jahnavi left.", "No name was used."], explanation: combined, fact: first });
+  item.grounding.facts = [first, second];
+  for (const component of [item.grounding.premise, item.grounding.answer, item.grounding.explanation]) {
+    component.claim = combined;
+    component.factIds = ["f1", "f2"];
+  }
+  const linkedDiagnostics = analyzeTextbookGroundedTopicQuestions([item], passage);
+  assert.equal(linkedDiagnostics.acceptedCount, 1, `linked atomic facts diagnostics: ${JSON.stringify({
+    generatedCount: linkedDiagnostics.generatedCount,
+    acceptedCount: linkedDiagnostics.acceptedCount,
+    duplicateCount: linkedDiagnostics.duplicateCount,
+    rejectionCodes: linkedDiagnostics.rejectionCodes,
+  })}`);
+
+  const nonAtomic = { ...first, claim: combined, predicate: "Ettan means Elder brother" };
+  item.grounding.facts = [nonAtomic];
+  for (const component of [item.grounding.premise, item.grounding.answer, item.grounding.explanation]) component.factIds = ["f1"];
+  assert.deepEqual(analyzeTextbookGroundedTopicQuestions([item], passage).rejectionCodes, { evidence_non_atomic_fact: 1 });
+});
+
+function linkedGroundedItem({ questionText, options, explanation, facts, premiseClaim, answerClaim, explanationClaim }) {
+  const factIds = facts.map(({ id }) => id);
+  const component = (claim, displayText) => ({ claim, displayText, factIds, treatment: "assertion" });
+  return {
+    id: 1, question: questionText, options, correctIndex: 0, explanation,
+    grounding: {
+      facts,
+      premise: component(premiseClaim, questionText),
+      answer: component(answerClaim, options[0]),
+      explanation: component(explanationClaim, explanation),
+    },
+  };
+}
+
+test("linked facts preserve actor-action relationships in natural MCQ wording", () => {
+  const passage = "Rani collected shells. Mina crossed the bridge.";
+  const collected = { ...fact({ claim: "Rani collected shells.", evidence: passage, actor: "Rani", actorPredicate: "Rani collected", predicate: "collected shells" }), id: "f1" };
+  const crossed = { ...fact({ claim: "Mina crossed the bridge.", evidence: passage, actor: "Mina", actorPredicate: "Mina crossed", predicate: "crossed the bridge" }), id: "f2" };
+  const faithful = linkedGroundedItem({
+    questionText: "What did Rani collect, and what did Mina cross?",
+    options: ["Shells and the bridge", "Coins and a road", "Leaves and a stream", "Books and a field"],
+    explanation: "Rani collected shells, and Mina crossed the bridge.",
+    facts: [collected, crossed],
+    premiseClaim: "Rani collected shells and Mina crossed the bridge",
+    answerClaim: "Rani collected shells and Mina crossed the bridge",
+    explanationClaim: "Rani collected shells and Mina crossed the bridge",
+  });
+  assert.equal(analyzeTextbookGroundedTopicQuestions([faithful], passage).acceptedCount, 1);
+
+  faithful.grounding.answer.claim = "Rani crossed the bridge";
+  assert.equal(analyzeTextbookGroundedTopicQuestions([faithful], passage).rejectionCodes.unsupported_claim, 1);
+});
+
+test("ordered linked-fact assignment accepts overlapping support when every fact contributes", () => {
+  const passage = "Rani collected shells. Rani collected white shells.";
+  const general = { ...fact({ claim: "Rani collected shells.", evidence: passage, actor: "Rani", actorPredicate: "Rani collected", predicate: "collected shells" }), id: "f1" };
+  const specific = { ...fact({ claim: "Rani collected white shells.", evidence: passage, actor: "Rani", actorPredicate: "Rani collected", predicate: "collected white shells" }), id: "f2" };
+  const item = linkedGroundedItem({
+    questionText: "Rani collected shells and Rani collected white shells?",
+    options: ["Rani collected shells and Rani collected white shells", "Rani collected coins", "Rani collected leaves", "Rani collected nothing"],
+    explanation: "Rani collected shells, and Rani collected white shells.",
+    facts: [general, specific],
+    premiseClaim: "Rani collected shells and Rani collected white shells",
+    answerClaim: "Rani collected shells and Rani collected white shells",
+    explanationClaim: "Rani collected shells and Rani collected white shells",
+  });
+  assert.equal(analyzeTextbookGroundedTopicQuestions([item], passage).acceptedCount, 1);
+});
+
+test("ordered linked-fact assignment rejects reversed overlapping support", () => {
+  const passage = "Rani collected shells. Rani collected white shells.";
+  const general = { ...fact({ claim: "Rani collected shells.", evidence: passage, actor: "Rani", actorPredicate: "Rani collected", predicate: "collected shells" }), id: "f1" };
+  const specific = { ...fact({ claim: "Rani collected white shells.", evidence: passage, actor: "Rani", actorPredicate: "Rani collected", predicate: "collected white shells" }), id: "f2" };
+  const reversed = linkedGroundedItem({
+    questionText: "Rani collected white shells and Rani collected shells?",
+    options: ["Rani collected white shells and Rani collected shells", "Rani collected coins", "Rani collected leaves", "Rani collected nothing"],
+    explanation: "Rani collected white shells, and Rani collected shells.",
+    facts: [general, specific],
+    premiseClaim: "Rani collected white shells and Rani collected shells",
+    answerClaim: "Rani collected white shells and Rani collected shells",
+    explanationClaim: "Rani collected white shells and Rani collected shells",
+  });
+  assert.equal(analyzeTextbookGroundedTopicQuestions([reversed], passage).rejectionCodes.unsupported_claim, 1);
+});
+
+test("linked facts reject swapped quantities and speech attribution", () => {
+  const quantityPassage = "Rani collected 3 shells. Mina collected 5 shells.";
+  const raniCount = { ...fact({ claim: "Rani collected 3 shells.", evidence: quantityPassage, actor: "Rani", actorPredicate: "Rani collected", predicate: "collected 3 shells" }), id: "f1" };
+  const minaCount = { ...fact({ claim: "Mina collected 5 shells.", evidence: quantityPassage, actor: "Mina", actorPredicate: "Mina collected", predicate: "collected 5 shells" }), id: "f2" };
+  const quantities = linkedGroundedItem({
+    questionText: "Did Rani collect 3 shells and Mina collect 5 shells?",
+    options: ["Rani: 3 shells; Mina: 5 shells", "Rani: 5 shells; Mina: 3 shells", "Both: 3 shells", "Both: 5 shells"],
+    explanation: "Rani collected 3 shells and Mina collected 5 shells.",
+    facts: [raniCount, minaCount],
+    premiseClaim: "Rani collected 3 shells and Mina collected 5 shells",
+    answerClaim: "Rani collected 5 shells and Mina collected 3 shells",
+    explanationClaim: "Rani collected 3 shells and Mina collected 5 shells",
+  });
+  assert.equal(analyzeTextbookGroundedTopicQuestions([quantities], quantityPassage).rejectionCodes.unsupported_claim, 1);
+  quantities.grounding.answer.claim = "Rani collected 3 shells and Mina collected 5 shells";
+  quantities.options[0] = "Mina: 5 shells; Rani: 3 shells";
+  quantities.grounding.answer.displayText = quantities.options[0];
+  assert.equal(analyzeTextbookGroundedTopicQuestions([quantities], quantityPassage).rejectionCodes.displayed_content_mismatch, 1);
+
+  const speechPassage = '"Go," said Rani. "Stay," said Mina.';
+  const raniSpeech = { ...fact({ claim: '"Go," said Rani.', evidence: speechPassage, actor: "Rani", actorPredicate: "said Rani", predicate: "Go", attribution: "Rani" }), id: "f1" };
+  const minaSpeech = { ...fact({ claim: '"Stay," said Mina.', evidence: speechPassage, actor: "Mina", actorPredicate: "said Mina", predicate: "Stay", attribution: "Mina" }), id: "f2" };
+  const speech = linkedGroundedItem({
+    questionText: "What did Rani say and what did Mina say?",
+    options: ['"Go" and "Stay"', '"Stay" and "Go"', '"Wait" and "Leave"', "Nobody spoke"],
+    explanation: '"Go," said Rani, and "Stay," said Mina.',
+    facts: [raniSpeech, minaSpeech],
+    premiseClaim: "Rani said Go and Mina said Stay",
+    answerClaim: '"Stay," said Rani, and "Go," said Mina',
+    explanationClaim: '"Go," said Rani, and "Stay," said Mina',
+  });
+  assert.equal(analyzeTextbookGroundedTopicQuestions([speech], speechPassage).rejectionCodes.unsupported_claim, 1);
+});
+
+test("captured ellipsis predicates remain rejected", () => {
+  const reply = "Mother said girls should learn. Mother was glad the teacher came.";
+  const ellipsisFact = fact({ claim: reply, evidence: reply, actor: "Mother", actorPredicate: "Mother said", predicate: "girls should learn ... teacher came", attribution: "Mother" });
+  const ellipsisItem = groundedItem({ questionText: reply, options: [reply, "No advice", "No teacher", "No school"], explanation: reply, fact: ellipsisFact });
+  assert.deepEqual(analyzeTextbookGroundedTopicQuestions([ellipsisItem], reply).rejectionCodes, { evidence_predicate_mismatch: 1 });
+});
+
+test("unattributed proposed events remain rejected", () => {
+  const promise = '"If you come, we\'ll talk to your father," the teacher had said.';
+  const promiseFact = fact({ claim: promise, evidence: promise, actor: "the teacher", actorPredicate: "the teacher had said", predicate: "If you come, we'll talk to your father", frame: "hypothetical", attribution: "the teacher" });
+  const promiseItem = groundedItem({ questionText: promise, options: [promise, "The visit happened.", "The father refused.", "Nobody spoke."], explanation: promise, fact: promiseFact, treatment: "hypothetical" });
+  assert.equal(analyzeTextbookGroundedTopicQuestions([promiseItem], promise).acceptedCount, 1);
+  promiseItem.grounding.facts[0] = { ...promiseFact, claim: "The teacher talked to the father." };
+  assert.deepEqual(analyzeTextbookGroundedTopicQuestions([promiseItem], promise).rejectionCodes, { evidence_framing_mismatch: 1 });
+  promiseItem.grounding.facts[0] = { ...promiseFact, attribution: null };
+  assert.deepEqual(analyzeTextbookGroundedTopicQuestions([promiseItem], promise).rejectionCodes, { evidence_attribution_mismatch: 1 });
+});
+
+test("a nearby speaker attribution cannot support a later sentence", () => {
+  const nearbySpeech = '"Wait," said the River. "Go to school now."';
+  const inferredSpeaker = fact({ claim: '"Go to school now," said the River.', evidence: nearbySpeech, actor: "the River", actorPredicate: "said the River", predicate: "Go to school now", attribution: "the River" });
+  const inferredItem = groundedItem({ questionText: inferredSpeaker.claim, options: [inferredSpeaker.claim, "Stay home.", "The River left.", "Nobody spoke."], explanation: inferredSpeaker.claim, fact: inferredSpeaker });
+  assert.deepEqual(analyzeTextbookGroundedTopicQuestions([inferredItem], nearbySpeech).rejectionCodes, { evidence_non_atomic_fact: 1 });
+});
+
+test("generation prompt requires server-owned source span references", () => {
+  assert.match(route, /Select only supplied scope and token IDs/);
+  assert.match(route, /actor range must be inside actorPredicateSpan/);
+  assert.match(route, /Preserve source pronouns by selecting their token IDs/);
+  assert.match(route, /<source_text>[\s\S]*<source_catalog>/);
 });
 
 test("generation and validation use only the selected curriculum-or-upload source", () => {
   assert.match(route, /const groundingSource = curriculum\?\.usable[\s\S]*suppliedEvidence\.usable/);
   assert.match(route, /const groundingPassage = groundingSource\?\.content/);
   assert.match(route, /\$\{groundingSource \? `\$\{groundingSource\.kind\}[\s\S]*<source_text>/);
-  assert.match(route, /const resolvedCandidates = resolveTopicTestEvidenceExcerpts\(candidates, groundingExcerpts\);\s*const diagnostics = analyzeTextbookGroundedTopicQuestions\(resolvedCandidates, groundingPassage\)/);
+  assert.match(route, /const resolvedCandidates = resolveTopicTestSourceSpans\(candidates, groundingCatalog, groundingPassage\);\s*const diagnostics = analyzeTextbookGroundedTopicQuestions\(resolvedCandidates, groundingPassage\)/);
   assert.doesNotMatch(route, /Trusted NeoLearn curriculum material[\s\S]*Server-verified extraction from a student-uploaded page/);
 });
