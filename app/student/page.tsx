@@ -41,8 +41,9 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
-import { ClientAuthError, loginAgainMessage, newStudentAiRequestId, studentAiUsageHeaders, studentAuthHeaders } from "@/app/lib/clientAuth";
+import { ClientAuthError, loginAgainMessage, newStudentAiRequestId, refreshStudentSessionIfNeeded, studentAiUsageHeaders, studentAuthHeaders } from "@/app/lib/clientAuth";
 import { readJsonResponse } from "@/app/lib/safeResponse";
+import { clearStudentSessionIfCurrent } from "@/app/lib/studentSessionRefresh.mjs";
 import { buildClassroomHistory, classroomScopeKey } from "@/app/lib/classroomConversation.mjs";
 import { NEW_TOPIC_TEST_QUESTION_COUNT } from "@/app/lib/topicTestContracts.mjs";
 
@@ -761,6 +762,32 @@ const appendSessionTranscript = useCallback((line: string) => {
     }
     router.replace("/");
   };
+
+  useEffect(() => {
+    let active = true;
+    const refreshOnResume = async () => {
+      if (document.visibilityState === "hidden") return;
+      const result = await refreshStudentSessionIfNeeded();
+      if (!active) return;
+      if (result.status === "unauthenticated") {
+        if (clearStudentSessionIfCurrent(window.localStorage, result.sessionKey)) router.replace("/");
+      } else if (result.status === "temporary_failure") {
+        console.warn("student session refresh temporarily unavailable");
+      }
+    };
+    const onVisibilityChange = () => { if (document.visibilityState === "visible") void refreshOnResume(); };
+    const onPageShow = () => { void refreshOnResume(); };
+    void refreshOnResume();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pageshow", onPageShow);
+    window.addEventListener("focus", onPageShow);
+    return () => {
+      active = false;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("focus", onPageShow);
+    };
+  }, [router]);
 const printSession = () => {
   if (typeof window === "undefined") return;
   window.print();

@@ -21,8 +21,21 @@ async function authenticatedUser(req: Request) {
   if (!token) throw new OwnershipError("Authentication required.", 401);
 
   const admin = supabaseAdmin();
-  const { data, error } = await admin.auth.getUser(token);
-  if (error || !data.user) {
+  let authResult;
+  try {
+    authResult = await admin.auth.getUser(token);
+  } catch {
+    throw new OwnershipError("Unable to verify session right now.", 503);
+  }
+  const { data, error } = authResult;
+  if (error) {
+    const status = Number((error as any)?.status || 0);
+    if (status !== 400 && status !== 401 && status !== 403) {
+      throw new OwnershipError("Unable to verify session right now.", 503);
+    }
+    throw new OwnershipError("Invalid or expired session.", 401);
+  }
+  if (!data.user) {
     throw new OwnershipError("Invalid or expired session.", 401);
   }
 

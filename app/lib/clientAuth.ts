@@ -1,6 +1,8 @@
 import { supabaseBrowser } from "@/app/lib/supabaseBrowser";
+import { createStudentSessionRefreshDeduper, currentStudentSessionKey, fetchStudentSessionRefresh, refreshStoredStudentSession } from "@/app/lib/studentSessionRefresh.mjs";
 
 const STUDENT_STORAGE_KEY = "neolearnStudent";
+const studentRefreshDeduper = createStudentSessionRefreshDeduper();
 
 export class ClientAuthError extends Error {
   constructor() {
@@ -37,6 +39,17 @@ export function studentAuthHeaders(json = false): Record<string, string> {
     ...(json ? { "Content-Type": "application/json" } : {}),
     Authorization: `Bearer ${token}`,
   };
+}
+
+export function refreshStudentSessionIfNeeded() {
+  if (typeof window === "undefined") {
+    return Promise.resolve({ status: "unauthenticated", reason: "no_window" });
+  }
+  const sessionKey = currentStudentSessionKey(window.localStorage);
+  return studentRefreshDeduper.run(sessionKey, () => refreshStoredStudentSession({
+    storage: window.localStorage,
+    refresh: (refreshToken: string) => fetchStudentSessionRefresh({ fetchImpl: fetch, refreshToken }),
+  }));
 }
 
 export function newStudentAiRequestId(prefix = "ai") {
