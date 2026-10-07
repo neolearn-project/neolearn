@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { requireAdmin } from "@/app/lib/adminAuth";
 import { readStoredPdfInfo } from "@/app/lib/textbookUploadMetadata.mjs";
+import { generateTextbookMappingSuggestions, normalizeHeading, suggestionIdentityMatches } from "@/app/lib/textbookMappingSuggestions.mjs";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
@@ -38,14 +39,10 @@ export async function POST(req: NextRequest) {
       !fileName || fileType !== PDF_TYPE || !Number.isSafeInteger(fileSize) || fileSize < 5 || fileSize > MAX_BYTES)
     return NextResponse.json({ok:false,error:"Complete valid book metadata."},{status:400});
   const db = supabaseAdmin(); const sourceId = randomUUID();
-  const { data: prior } = await db.from("textbook_sources").select("version").eq("board",fields.board).eq("class_number",classNumber)
-    .eq("subject",fields.subject).eq("book_name",fields.bookName).eq("edition",fields.edition).order("version",{ascending:false}).limit(1);
-  const version = Number(prior?.[0]?.version || 0) + 1;
   const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g,"_").slice(-120) || "textbook.pdf";
   const path = `${sourceId}/${safeName}`;
-  const row = { id:sourceId, board:fields.board, class_number:classNumber, subject:fields.subject, book_name:fields.bookName,
-    edition:fields.edition, file_name:fileName, storage_path:path, byte_size:fileSize, sha256:null, version, status:"uploading" };
-  const { data, error } = await db.from("textbook_sources").insert(row).select().single();
+  const { data, error } = await db.rpc("create_textbook_source",{p_id:sourceId,p_board:fields.board,p_class_number:classNumber,
+    p_subject:fields.subject,p_book_name:fields.bookName,p_edition:fields.edition,p_file_name:fileName,p_storage_path:path,p_byte_size:fileSize});
   if (error) return NextResponse.json({ok:false,error:error.message},{status:500});
   const signed = await db.storage.from("textbook-pdfs").createSignedUploadUrl(path, { upsert:false });
   if (signed.error) return NextResponse.json({ok:false,error:signed.error.message},{status:500});
@@ -91,8 +88,38 @@ export async function PATCH(req: NextRequest) {
   }
   if (action === "save_mappings") {
     const mappings = Array.isArray(body.mappings) ? body.mappings : [];
-    const { error } = await db.rpc("save_textbook_mappings",{p_source_id:sourceId,p_mappings:mappings});
+    if (body.suggestionSource) {
+      const { data: source } = await db.from("textbook_sources").select("id,version,sha256,processing_revision,board,class_number,subject,book_name,edition,status").eq("id",sourceId).maybeSingle();
+      if (!source) return NextResponse.json({ok:false,error:"Suggestion source no longer exists."},{status:409});
+      const { data: latest } = await db.from("textbook_sources").select("version").eq("board",source.board).eq("class_number",source.class_number)
+        .eq("subject",source.subject).eq("book_name",source.book_name).eq("edition",source.edition).order("version",{ascending:false}).limit(1);
+      if (source.status !== "review" || !suggestionIdentityMatches(body.suggestionSource,source,latest?.[0]?.version))
+        return NextResponse.json({ok:false,error:"These suggestions are stale because the processed source changed or a replacement version exists. Regenerate them before saving."},{status:409});
+    }
+    const rpcArgs = body.suggestionSource
+      ? {p_source_id:sourceId,p_mappings:mappings,p_expected_version:Number(body.suggestionSource.version),p_expected_sha256:String(body.suggestionSource.sha256||""),p_expected_processing_revision:Number(body.suggestionSource.processingRevision)}
+      : {p_source_id:sourceId,p_mappings:mappings};
+    const { error } = await db.rpc("save_textbook_mappings",rpcArgs);
     return NextResponse.json(error ? {ok:false,error:error.message}:{ok:true});
+  }
+  if (action === "suggest_mappings") {
+    const [{ data: source, error: sourceError }, { data: pages, error: pagesError }] = await Promise.all([
+      db.from("textbook_sources").select("id,version,sha256,processing_revision,board,class_number,subject,book_name,edition,status").eq("id",sourceId).maybeSingle(),
+      db.from("textbook_pages").select("page_number,extracted_text,extraction_meta").eq("source_id",sourceId).order("page_number"),
+    ]);
+    if (sourceError || pagesError) return NextResponse.json({ok:false,error:"Could not load the processed source."},{status:500});
+    if (!source || source.status !== "review" || !source.sha256) return NextResponse.json({ok:false,error:"Suggestions are available only after processing a review draft."},{status:409});
+    const { data: latest } = await db.from("textbook_sources").select("version").eq("board",source.board).eq("class_number",source.class_number)
+      .eq("subject",source.subject).eq("book_name",source.book_name).eq("edition",source.edition).order("version",{ascending:false}).limit(1);
+    if (!suggestionIdentityMatches(body.expectedSource,source,latest?.[0]?.version))
+      return NextResponse.json({ok:false,error:"The processed source identity changed. Refresh this source before generating suggestions; existing unsaved work was not changed."},{status:409});
+    const { data: candidates, error: catalogError } = await db.from("subjects")
+      .select("id,board,class_number,subject_name,chapters(id,chapter_name,topics(id,topic_name,is_active))").eq("class_number",source.class_number);
+    if (catalogError) return NextResponse.json({ok:false,error:"Could not load the curriculum catalog."},{status:500});
+    const matchingSubjects = (candidates || []).filter(candidate => normalizeHeading(candidate.board) === normalizeHeading(source.board) && normalizeHeading(candidate.subject_name) === normalizeHeading(source.subject));
+    if (matchingSubjects.length !== 1) return NextResponse.json({ok:false,error:"The selected board, class, and subject do not resolve to one existing curriculum subject."},{status:422});
+    const result = generateTextbookMappingSuggestions({source,pages:(pages||[]).map(page=>({pageNumber:page.page_number,text:page.extracted_text,layoutPreserved:page.extraction_meta?.layoutPreserved===true})),subject:matchingSubjects[0]});
+    return NextResponse.json({ok:true,...result});
   }
   if (action === "publish") {
     const {error}=await db.rpc("publish_textbook_source",{p_source_id:sourceId});

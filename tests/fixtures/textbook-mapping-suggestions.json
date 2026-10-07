@@ -1,0 +1,30 @@
+{
+  "source": { "id": "source-v2", "version": 2, "processing_revision": 4, "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+  "subject": {
+    "id": 10,
+    "board": "CBSE",
+    "class_number": 7,
+    "subject_name": "English",
+    "chapters": [
+      { "id": 20, "chapter_name": "Learning Together", "topics": [
+        { "id": 30, "topic_name": "The Day the River Spoke", "is_active": true },
+        { "id": 31, "topic_name": "Try Again", "is_active": true },
+        { "id": 32, "topic_name": "Only in the Catalog", "is_active": true }
+      ]},
+      { "id": 21, "chapter_name": "Next Chapter", "topics": [
+        { "id": 33, "topic_name": "Shared One", "is_active": true },
+        { "id": 34, "topic_name": "Shared Two", "is_active": true },
+        { "id": 35, "topic_name": "Repeated", "is_active": true },
+        { "id": 36, "topic_name": "Repeated", "is_active": true }
+      ]}
+    ]
+  },
+  "pages": [
+    { "pageNumber": 1, "layoutPreserved": true, "text": "CONTENTS\nThe Day the River Spoke ........ 4\nTry Again ........ 7" },
+    { "pageNumber": 2, "layoutPreserved": true, "text": "The introduction mentions The Day the River Spoke while discussing this book." },
+    { "pageNumber": 4, "layoutPreserved": true, "text": "CHAPTER 1: LEARNING TOGETHER\nThe Day the River Spoke\nOpening text" },
+    { "pageNumber": 7, "layoutPreserved": true, "text": "2. TRY—AGAIN\nMore lesson text" },
+    { "pageNumber": 10, "layoutPreserved": true, "text": "CHAPTER 2: NEXT CHAPTER\nShared One\nShared Two\nIntroductory text" },
+    { "pageNumber": 12, "layoutPreserved": true, "text": "Appendix" }
+  ]
+}

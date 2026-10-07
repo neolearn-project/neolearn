@@ -38,10 +38,11 @@ export async function POST(req:NextRequest) {
     for(let n=1;n<=pdf.numPages;n++){
       if(complete.has(n))continue;
       const page=await pdf.getPage(n); const content=await page.getTextContent();
-      const text=content.items.map((item:any)=>typeof item.str==="string"?item.str:"").join(" ").replace(/\s+/g," ").trim().slice(0,MAX_TEXT_PER_PAGE);
+      const rawText=content.items.map((item:any)=>typeof item.str==="string"?`${item.str}${item.hasEOL?"\n":" "}`:"").join("");
+      const text=rawText.split(/\r?\n/).map(line=>line.replace(/[\t ]+/g," ").trim()).filter(Boolean).join("\n").slice(0,MAX_TEXT_PER_PAGE);
       const needsOcr=text.length<40;
       const saved=await db.rpc("checkpoint_textbook_page",{p_source_id:sourceId,p_token:token,p_page_number:n,p_text:text,
-        p_review_status:needsOcr?"needs_ocr":"extracted",p_meta:{characterCount:text.length,itemCount:content.items.length,needsOcr}});
+        p_review_status:needsOcr?"needs_ocr":"extracted",p_meta:{characterCount:text.length,itemCount:content.items.length,lineCount:text?text.split("\n").length:0,layoutPreserved:true,needsOcr}});
       if(saved.error)throw saved.error;
     }
     const done=await db.rpc("finalize_textbook_processing",{p_source_id:sourceId,p_token:token,p_page_count:pdf.numPages,p_sha256:sha256,p_byte_size:originalByteLength});
