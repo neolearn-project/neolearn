@@ -9,6 +9,19 @@ export const TEXTBOOK_AI_MAPPING_SAFETY_TOKENS = 8_000;
 
 const integer = value => typeof value === "number" && Number.isSafeInteger(value) ? value : null;
 const utf8Bytes = value => new TextEncoder().encode(String(value)).length;
+const VALIDATION_CODES=new Set(["OUTPUT_CONTRACT","CURRICULUM_RELATIONSHIP","DUPLICATE_TOPIC","PAGE_RANGE","EVIDENCE_COUNT","EVIDENCE_QUOTE","PROPOSAL_TEXT","UNRESOLVED_TOPIC","TOPIC_COVERAGE"]);
+const VALIDATION_MESSAGES={OUTPUT_CONTRACT:"AI mapping output does not match the required contract.",CURRICULUM_RELATIONSHIP:"AI mapping returned an invalid curriculum relationship.",DUPLICATE_TOPIC:"AI mapping returned a duplicate topic.",PAGE_RANGE:"AI mapping returned an invalid PDF page range.",EVIDENCE_COUNT:"AI mapping must include bounded verbatim page evidence.",EVIDENCE_QUOTE:"AI mapping evidence is not a verbatim substring of its cited PDF page.",PROPOSAL_TEXT:"AI mapping returned invalid proposal text.",UNRESOLVED_TOPIC:"AI mapping returned an invalid or duplicate unresolved topic.",TOPIC_COVERAGE:"AI mapping omitted one or more active curriculum topics."};
+
+export class TextbookAiMappingValidationError extends Error {
+  constructor(rejectionCode,counts={}) {const safeCode=VALIDATION_CODES.has(rejectionCode)?rejectionCode:"OUTPUT_CONTRACT";super(VALIDATION_MESSAGES[safeCode]);this.name="TextbookAiMappingValidationError";this.rejectionCode=safeCode;this.counts=counts;}
+}
+
+export function textbookAiMappingOutputCounts(raw) {
+  const proposals=Array.isArray(raw?.proposals)?raw.proposals:[];
+  return {proposalCount:proposals.length,unresolvedCount:Array.isArray(raw?.unresolvedTopicIds)?raw.unresolvedTopicIds.length:0,evidenceCount:proposals.reduce((total,item)=>total+(Array.isArray(item?.evidence)?item.evidence.length:0),0)};
+}
+
+const invalidOutput=(code,raw)=>{throw new TextbookAiMappingValidationError(code,textbookAiMappingOutputCounts(raw))};
 
 export function activeCatalog(subject) {
   const catalog={
@@ -51,7 +64,7 @@ export function textbookAiMappingInstructions() {
 }
 
 export function validateTextbookAiMapping(raw, { source, pages, subject }) {
-  if (!raw || typeof raw !== "object" || !Array.isArray(raw.proposals) || !Array.isArray(raw.unresolvedTopicIds)) throw new Error("AI mapping output does not match the required contract.");
+  if (!raw || typeof raw !== "object" || !Array.isArray(raw.proposals) || !Array.isArray(raw.unresolvedTopicIds)) invalidOutput("OUTPUT_CONTRACT",raw);
   const catalog = activeCatalog(subject), chapters = new Map(catalog.chapters.map(c=>[c.id,c]));
   const topics = new Map(catalog.chapters.flatMap(c=>c.topics.map(t=>[t.id,{...t,chapterId:c.id,chapterName:c.name}])));
   const pageTexts = new Map((pages||[]).map(p=>[integer(p.page_number ?? p.pageNumber),String(p.extracted_text ?? p.text ?? "")]));
@@ -59,17 +72,17 @@ export function validateTextbookAiMapping(raw, { source, pages, subject }) {
   for (const item of raw.proposals) {
     const subjectId=integer(item?.subjectId),chapterId=integer(item?.chapterId),topicId=integer(item?.topicId),pageFrom=integer(item?.pageFrom),pageTo=integer(item?.pageTo);
     const topic=topics.get(topicId),chapter=chapters.get(chapterId);
-    if (subjectId!==catalog.id || !chapter || !topic || topic.chapterId!==chapterId) throw new Error("AI mapping returned an invalid curriculum relationship.");
-    if (seen.has(topicId)) throw new Error("AI mapping returned a duplicate topic."); seen.add(topicId);
-    if (integer(source?.page_count)===null || pageFrom===null || pageTo===null || pageFrom<1 || pageFrom>pageTo || pageTo>source.page_count) throw new Error("AI mapping returned an invalid PDF page range.");
-    if (!Array.isArray(item.evidence) || item.evidence.length<1 || item.evidence.length>5) throw new Error("AI mapping must include bounded verbatim page evidence.");
-    const evidence=item.evidence.map(value=>{const pageNumber=integer(value?.pageNumber),text=String(value?.text||"").trim();if(pageNumber===null||pageNumber<pageFrom||pageNumber>pageTo||!text||text.length>1000||!pageTexts.get(pageNumber)?.includes(text))throw new Error("AI mapping evidence is not a verbatim substring of its cited PDF page.");return {pageNumber,text}});
+    if (subjectId!==catalog.id || !chapter || !topic || topic.chapterId!==chapterId) invalidOutput("CURRICULUM_RELATIONSHIP",raw);
+    if (seen.has(topicId)) invalidOutput("DUPLICATE_TOPIC",raw); seen.add(topicId);
+    if (integer(source?.page_count)===null || pageFrom===null || pageTo===null || pageFrom<1 || pageFrom>pageTo || pageTo>source.page_count) invalidOutput("PAGE_RANGE",raw);
+    if (!Array.isArray(item.evidence) || item.evidence.length<1 || item.evidence.length>5) invalidOutput("EVIDENCE_COUNT",raw);
+    const evidence=item.evidence.map(value=>{const pageNumber=integer(value?.pageNumber),text=String(value?.text||"").trim();if(pageNumber===null||pageNumber<pageFrom||pageNumber>pageTo||!text||text.length>1000||!pageTexts.get(pageNumber)?.includes(text))invalidOutput("EVIDENCE_QUOTE",raw);return {pageNumber,text}});
     const lessonTitle=String(item.lessonTitle||"").trim(),sectionTitle=String(item.sectionTitle||"").trim(),reason=String(item.reason||"").trim();
-    if (!lessonTitle || !sectionTitle || !reason || lessonTitle.length>300 || sectionTitle.length>300 || reason.length>1000) throw new Error("AI mapping returned invalid proposal text.");
+    if (!lessonTitle || !sectionTitle || !reason || lessonTitle.length>300 || sectionTitle.length>300 || reason.length>1000) invalidOutput("PROPOSAL_TEXT",raw);
     proposals.push({subjectId,subjectName:catalog.name,chapterId,chapterName:chapter.name,topicId,topicName:topic.name,pageFrom,pageTo,lessonTitle,sectionTitle,evidence,matchingHeading:evidence[0].text,reason,matchKind:"ai"});
   }
   const unresolved=[];
-  for (const value of raw.unresolvedTopicIds) {const topicId=integer(value),topic=topics.get(topicId);if(!topic||seen.has(topicId))throw new Error("AI mapping returned an invalid or duplicate unresolved topic.");seen.add(topicId);unresolved.push({chapterId:topic.chapterId,chapterName:topic.chapterName,topicId,topicName:topic.name,reason:"AI did not find sufficient verbatim page evidence for this curriculum topic."});}
-  if (seen.size!==topics.size) throw new Error("AI mapping omitted one or more active curriculum topics.");
+  for (const value of raw.unresolvedTopicIds) {const topicId=integer(value),topic=topics.get(topicId);if(!topic||seen.has(topicId))invalidOutput("UNRESOLVED_TOPIC",raw);seen.add(topicId);unresolved.push({chapterId:topic.chapterId,chapterName:topic.chapterName,topicId,topicName:topic.name,reason:"AI did not find sufficient verbatim page evidence for this curriculum topic."});}
+  if (seen.size!==topics.size) invalidOutput("TOPIC_COVERAGE",raw);
   return { suggestions:proposals, unresolved };
 }

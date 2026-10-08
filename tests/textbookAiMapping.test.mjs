@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildTextbookAiMappingInput,catalogFingerprint,validateTextbookAiMapping } from "../app/lib/textbookAiMapping.mjs";
+import { readFile } from "node:fs/promises";
+import { buildTextbookAiMappingInput,catalogFingerprint,TextbookAiMappingValidationError,textbookAiMappingOutputCounts,validateTextbookAiMapping } from "../app/lib/textbookAiMapping.mjs";
 
 const source={id:"s",page_count:2,board:"CBSE",class_number:7,subject:"Science",book_name:"Book",edition:"2026"};
 const pages=[{page_number:1,extracted_text:"Lesson One\nMatter is made of particles."},{page_number:2,extracted_text:"Changes of state happen with heat."}];
@@ -39,4 +40,18 @@ test("AI mapping rejects negative, zero, fractional, and string-coerced IDs and 
 test("complete input is rejected against a conservative token budget before any provider call",()=>{
  const oversized=[{page_number:1,extracted_text:"x".repeat(400_000)},{page_number:2,extracted_text:"ok"}];
  assert.throws(()=>buildTextbookAiMappingInput({source,pages:oversized,subject}),/token budget/);
+});
+
+test("proposal validation exposes only allowlisted rejection codes and structural counts",()=>{
+ const raw={proposals:[{lessonTitle:"Lesson One",sectionTitle:"Particles",subjectId:1,chapterId:2,topicId:3,pageFrom:0,pageTo:2,evidence:[{pageNumber:1,text:"Matter is made of particles."}],reason:"bad range"}],unresolvedTopicIds:[]};
+ assert.deepEqual(textbookAiMappingOutputCounts(raw),{proposalCount:1,unresolvedCount:0,evidenceCount:1});
+ assert.throws(()=>validateTextbookAiMapping(raw,{source,pages,subject}),error=>error instanceof TextbookAiMappingValidationError&&error.rejectionCode==="PAGE_RANGE"&&error.counts.proposalCount===1);
+});
+
+test("admin diagnostics distinguish safe failure stages and UI displays the returned code",async()=>{
+ const [route,ui]=await Promise.all([readFile(new URL("../app/api/admin/textbooks/route.ts",import.meta.url),"utf8"),readFile(new URL("../app/admin/textbooks/page.tsx",import.meta.url),"utf8")]);
+ for(const code of ["AI_MAPPING_PROVIDER_FAILED","AI_MAPPING_OUTPUT_INCOMPLETE","AI_MAPPING_JSON_INVALID","AI_MAPPING_PROPOSAL_INVALID","AI_MAPPING_FINALIZE_RPC","AI_MAPPING_FINALIZE_STALE"])assert.match(route,new RegExp(code));
+ assert.match(route,/console\.error\("admin textbook AI mapping failure",\{stage,errorCode:code/);
+ assert.doesNotMatch(route,/console\.error\([^\n]*(?:providerInput|outputText|response|claimError|storeError|error\b)/);
+ assert.match(ui,/d\.errorCode[\s\S]*\[\$\{d\.errorCode\}\]/);
 });
