@@ -13,7 +13,7 @@ const docker=(args)=>spawnSync("docker",args,{encoding:"utf8"});
 function assertSucceeded(result,description){assert.equal(result.error,undefined,`${description}: ${result.error?.message||"spawn failed"}`);assert.equal(result.status,0,`${description}: ${result.stderr||result.stdout}`);return result.stdout;}
 const psql=(container,args=[])=>docker(["exec",container,"psql","-X","-U","postgres","-d",database,"-v","ON_ERROR_STOP=1",...args]);
 
-function concurrentPsql(container,marker,sql){return new Promise(resolve=>{const child=spawn("docker",["exec",container,"psql","-X","-A","-t","-U","postgres","-d",database,"-v","ON_ERROR_STOP=1","-c",`set application_name='${marker}';set statement_timeout='20s';set lock_timeout='15s';${sql}`],{stdio:["ignore","pipe","pipe"]});let stdout="",stderr="";child.stdout.setEncoding("utf8").on("data",chunk=>{stdout+=chunk});child.stderr.setEncoding("utf8").on("data",chunk=>{stderr+=chunk});child.on("error",error=>resolve({error,stdout,stderr,status:null}));child.on("close",status=>resolve({stdout,stderr,status}))})}
+function concurrentPsql(container,marker,sql){return new Promise(resolve=>{const child=spawn("docker",["exec",container,"psql","-X","-q","-A","-t","-U","postgres","-d",database,"-v","ON_ERROR_STOP=1","-c",`set application_name='${marker}';set statement_timeout='20s';set lock_timeout='15s';${sql}`],{stdio:["ignore","pipe","pipe"]});let stdout="",stderr="";child.stdout.setEncoding("utf8").on("data",chunk=>{stdout+=chunk});child.stderr.setEncoding("utf8").on("data",chunk=>{stderr+=chunk});child.on("error",error=>resolve({error,stdout,stderr,status:null}));child.on("close",status=>resolve({stdout,stderr,status}))})}
 
 function holdBookLock(container){return new Promise((resolve,reject)=>{const child=spawn("docker",["exec","-i",container,"psql","-X","-A","-t","-U","postgres","-d",database,"-v","ON_ERROR_STOP=1"],{stdio:["pipe","pipe","pipe"]});let stdout="",stderr="";const timeout=setTimeout(()=>reject(new Error(`book-lock barrier timed out: ${stderr||stdout}`)),10000);child.stdout.setEncoding("utf8").on("data",chunk=>{stdout+=chunk;if(stdout.includes("TEXTBOOK_LOCK_READY")){clearTimeout(timeout);resolve({child,stdout:()=>stdout,stderr:()=>stderr})}});child.stderr.setEncoding("utf8").on("data",chunk=>{stderr+=chunk});child.on("error",error=>{clearTimeout(timeout);reject(error)});child.stdin.write("begin;\nselect public.lock_textbook_book_identity('CBSE',8,'Science','Concurrency Book','2026');\nselect 'TEXTBOOK_LOCK_READY';\n")})}
 
@@ -26,17 +26,28 @@ test("textbook mapping migrations and concurrency on disposable PostgreSQL 17",{
   let barrier;
   try{
     assertSucceeded(docker(["run","--detach","--name",container,"-e","POSTGRES_USER=postgres","-e","POSTGRES_PASSWORD=fixture-password","-e",`POSTGRES_DB=${database}`,"--mount",`type=bind,source=${repository},target=/workspace,readonly`,image]),`start ${image} container`);
-    let ready=false;for(let attempt=0;attempt<80;attempt+=1){if(docker(["exec",container,"pg_isready","-U","postgres","-d",database]).status===0){ready=true;break}await new Promise(resolve=>setTimeout(resolve,250))}assert.equal(ready,true,"PostgreSQL did not become ready");
+    let ready=false;for(let attempt=0;attempt<80;attempt+=1){const probe=docker(["exec",container,"psql","-X","-h","127.0.0.1","-U","postgres","-d",database,"-v","ON_ERROR_STOP=1","-A","-t","-c","select 1"]);if(probe.status===0&&probe.stdout.trim()==="1"){ready=true;break}await new Promise(resolve=>setTimeout(resolve,250))}const startupLogs=ready?"":docker(["logs",container]);assert.equal(ready,true,`PostgreSQL did not become ready over TCP or answer SQL against ${database}.\n${startupLogs.stderr||startupLogs.stdout||startupLogs.error?.message||"No container startup logs were available."}`);
     const version=assertSucceeded(psql(container,["-A","-t","-c","show server_version"]),"read PostgreSQL version").trim();assert.match(version,/^17\./);t.diagnostic(`PostgreSQL server version: ${version} (${image})`);
 
     assertSucceeded(psql(container,["-f","/workspace/tests/postgres/textbookMapping.prerequisites.sql"]),"load isolated prerequisites");
     assertSucceeded(psql(container,["-f","/workspace/supabase/migrations/20260929_textbook_teaching_v1.sql"]),"apply textbook teaching migration");
     assertSucceeded(psql(container,["-f","/workspace/supabase/migrations/20261007_textbook_mapping_suggestion_identity.sql"]),"apply suggestion identity migration");
+    assertSucceeded(psql(container,["-f","/workspace/supabase/migrations/20261008_textbook_ai_mapping_proposals.sql"]),"apply AI mapping proposal migration");
     assertSucceeded(psql(container,["-f","/workspace/tests/postgres/textbookMapping.behavior.sql"]),"verify textbook mapping behavior");
+    assertSucceeded(psql(container,["-f","/workspace/tests/postgres/textbookAiMapping.behavior.sql"]),"verify AI mapping claim/cache behavior");
+    const aiMarker=`textbook_ai_claim_${randomBytes(6).toString("hex")}`;
+    const aiClaimSql=(token)=>`select outcome from public.claim_textbook_ai_mapping('30000000-0000-0000-0000-000000000001',1,repeat('c',64),1,2,public.textbook_catalog_fingerprint(2),'gpt-5-mini','concurrent-fixture','${token}',120)`;
+    const [aiClaimA,aiClaimB]=await Promise.all([
+      concurrentPsql(container,aiMarker,aiClaimSql("22222222-2222-4222-8222-222222222222")),
+      concurrentPsql(container,aiMarker,aiClaimSql("33333333-3333-4333-8333-333333333333")),
+    ]);
+    assertSucceeded(aiClaimA,"first concurrent AI claim");assertSucceeded(aiClaimB,"second concurrent AI claim");
+    assert.deepEqual([aiClaimA.stdout.trim(),aiClaimB.stdout.trim()].sort(),["claimed","in_progress"],"exactly one concurrent request owns the provider claim");
     const deniedCalls=[
       "select public.lock_textbook_book_identity('DENIED',1,'Denied','Denied','Denied')",
       "select public.create_textbook_source('ffffffff-ffff-ffff-ffff-ffffffffffff','DENIED',1,'Denied','Denied','Denied','denied.pdf','denied/denied.pdf',10)",
       "select public.save_textbook_mappings('10000000-0000-0000-0000-000000000001','[]'::jsonb,1,repeat('a',64),2)",
+      "select public.claim_textbook_ai_mapping('30000000-0000-0000-0000-000000000001',1,repeat('c',64),1,2,repeat('a',64),'gpt-5-mini','denied','44444444-4444-4444-8444-444444444444',120)",
     ];
     for(const role of ["anon","authenticated"])for(const call of deniedCalls){const denied=psql(container,["-c",`set role ${role};${call}`]);assert.notEqual(denied.status,0,`${role} unexpectedly called ${call}`);assert.match(denied.stderr,/permission denied for function/i)}
 

@@ -237,6 +237,13 @@ test("real production ledger lifecycle owns, reserves, calls once, completes, an
   assert.deepEqual(db.events, ["owned", "reserve_ai_credit_shadow", "provider", "completed", "settle_ai_credit_shadow"]);
 });
 
+test("admin non-billable usage writes and completes the ledger without wallet RPCs", async () => {
+  const db = lifecycleDb();globalThis.__aiCreditTestDb = db;const ledger = await loadProductionLedgerForTest();
+  await ledger.recordOpenAIUsage({req:new Request("https://example.test"),studentId:"admin",feature:"admin_textbook_mapping",model:"gpt-5-mini",providerCall:"responses.create",requestId:"admin-map",authoritativeBilling:false,call:async()=>({id:"admin-response",usage:{input_tokens:5,output_tokens:2,total_tokens:7}})});
+  assert.deepEqual(db.events,["owned","completed"]);
+  assert.equal([...db.rows.values()][0].metadata.authoritative_billing,false);
+});
+
 test("real production lifecycle rejects duplicate ownership before provider and releases failures once", async () => {
   const db = lifecycleDb();
   globalThis.__aiCreditTestDb = db;

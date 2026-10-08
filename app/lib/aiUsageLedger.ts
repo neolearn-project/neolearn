@@ -124,7 +124,9 @@ export async function beginAiUsageLedger(args: BeginArgs) {
     }
 
     const ledgerId = data?.id as string;
-    const shadowReservation = ledgerId ? await shadowCredits.reserve(ledgerId) : null;
+    // Administrative/non-billable calls remain observable in the usage ledger but
+    // must never reserve or settle a student's wallet.
+    const shadowReservation = ledgerId && args.authoritativeBilling !== false ? await shadowCredits.reserve(ledgerId) : null;
     return {
       id: ledgerId,
       requestId,

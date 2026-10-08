@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
+import OpenAI from "openai";
 import { requireAdmin } from "@/app/lib/adminAuth";
 import { readStoredPdfInfo } from "@/app/lib/textbookUploadMetadata.mjs";
 import { generateTextbookMappingSuggestions, normalizeHeading, suggestionIdentityMatches } from "@/app/lib/textbookMappingSuggestions.mjs";
+import { recordOpenAIUsage, resolveAiRequestId } from "@/app/lib/aiUsageLedger";
+import { buildTextbookAiMappingInput, catalogFingerprint, TEXTBOOK_AI_MAPPING_CONTRACT, TEXTBOOK_AI_MAPPING_MAX_OUTPUT_TOKENS, TEXTBOOK_AI_MAPPING_MODEL, TEXTBOOK_AI_MAPPING_TIMEOUT_MS, textbookAiMappingInstructions, validateTextbookAiMapping } from "@/app/lib/textbookAiMapping.mjs";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
@@ -97,7 +100,7 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ok:false,error:"These suggestions are stale because the processed source changed or a replacement version exists. Regenerate them before saving."},{status:409});
     }
     const rpcArgs = body.suggestionSource
-      ? {p_source_id:sourceId,p_mappings:mappings,p_expected_version:Number(body.suggestionSource.version),p_expected_sha256:String(body.suggestionSource.sha256||""),p_expected_processing_revision:Number(body.suggestionSource.processingRevision)}
+      ? {p_source_id:sourceId,p_mappings:mappings,p_expected_version:Number(body.suggestionSource.version),p_expected_sha256:String(body.suggestionSource.sha256||""),p_expected_processing_revision:Number(body.suggestionSource.processingRevision),...(body.suggestionSource.catalogFingerprint?{p_expected_subject_id:Number(body.suggestionSource.subjectId),p_expected_catalog_fingerprint:String(body.suggestionSource.catalogFingerprint)}:{})}
       : {p_source_id:sourceId,p_mappings:mappings};
     const { error } = await db.rpc("save_textbook_mappings",rpcArgs);
     return NextResponse.json(error ? {ok:false,error:error.message}:{ok:true});
@@ -120,6 +123,49 @@ export async function PATCH(req: NextRequest) {
     if (matchingSubjects.length !== 1) return NextResponse.json({ok:false,error:"The selected board, class, and subject do not resolve to one existing curriculum subject."},{status:422});
     const result = generateTextbookMappingSuggestions({source,pages:(pages||[]).map(page=>({pageNumber:page.page_number,text:page.extracted_text,layoutPreserved:page.extraction_meta?.layoutPreserved===true})),subject:matchingSubjects[0]});
     return NextResponse.json({ok:true,...result});
+  }
+  if (action === "ai_suggest_mappings") {
+    const [{ data: source, error: sourceError }, { data: pages, error: pagesError }] = await Promise.all([
+      db.from("textbook_sources").select("id,version,sha256,processing_revision,page_count,board,class_number,subject,book_name,edition,status").eq("id",sourceId).maybeSingle(),
+      db.from("textbook_pages").select("page_number,extracted_text").eq("source_id",sourceId).order("page_number"),
+    ]);
+    if (sourceError || pagesError) return NextResponse.json({ok:false,error:"Could not load the complete processed source."},{status:500});
+    if (!source || source.status !== "review" || !source.sha256) return NextResponse.json({ok:false,error:"AI suggestions are available only after processing a review draft."},{status:409});
+    const { data: latest } = await db.from("textbook_sources").select("version").eq("board",source.board).eq("class_number",source.class_number)
+      .eq("subject",source.subject).eq("book_name",source.book_name).eq("edition",source.edition).order("version",{ascending:false}).limit(1);
+    if (!suggestionIdentityMatches(body.expectedSource,source,latest?.[0]?.version)) return NextResponse.json({ok:false,error:"The processed source identity changed. Refresh before requesting AI suggestions; existing unsaved work was not changed."},{status:409});
+    const { data: candidates, error: catalogError } = await db.from("subjects").select("id,board,class_number,subject_name,chapters(id,chapter_name,topics(id,topic_name,is_active))").eq("class_number",source.class_number);
+    if (catalogError) return NextResponse.json({ok:false,error:"Could not load the curriculum catalog."},{status:500});
+    const matching=(candidates||[]).filter(candidate=>normalizeHeading(candidate.board)===normalizeHeading(source.board)&&normalizeHeading(candidate.subject_name)===normalizeHeading(source.subject));
+    if (matching.length!==1) return NextResponse.json({ok:false,error:"The selected board, class, and subject do not resolve to one existing curriculum subject."},{status:422});
+    let providerInput:string;
+    try { providerInput=buildTextbookAiMappingInput({source,pages,subject:matching[0]}); }
+    catch(error:any){return NextResponse.json({ok:false,error:error?.message||"The complete PDF could not be prepared."},{status:422})}
+    const fingerprint=catalogFingerprint(matching[0]),claimToken=randomUUID();
+    const { data: claim, error: claimError }=await db.rpc("claim_textbook_ai_mapping",{p_source_id:source.id,p_source_version:source.version,p_source_sha256:source.sha256,p_processing_revision:source.processing_revision,p_subject_id:matching[0].id,p_catalog_fingerprint:fingerprint,p_model:TEXTBOOK_AI_MAPPING_MODEL,p_contract_version:TEXTBOOK_AI_MAPPING_CONTRACT,p_claim_token:claimToken,p_claim_ttl_seconds:120});
+    if (claimError) {const stale=/stale/i.test(claimError.message||"");return NextResponse.json({ok:false,error:stale?"The source or curriculum catalog changed before the AI attempt could be claimed.":"AI mapping persistence is unavailable; apply the pending textbook AI mapping migration."},{status:stale?409:503})}
+    const claimed=Array.isArray(claim)?claim[0]:claim;
+    const aiSourceIdentity={sourceId:source.id,version:source.version,sha256:source.sha256,processingRevision:source.processing_revision,subjectId:matching[0].id,catalogFingerprint:fingerprint};
+    if (claimed?.outcome==="cached") return NextResponse.json({ok:true,sourceIdentity:aiSourceIdentity,suggestions:claimed.proposals||[],unresolved:claimed.unresolved||[],cache:"hit"});
+    if (claimed?.outcome!=="claimed") return NextResponse.json({ok:false,error:"An AI mapping attempt for this exact source and catalog is already in progress."},{status:409});
+    const apiKey=process.env.OPENAI_API_KEY||process.env.NEOLEARN_OPENAI_API_KEY;
+    if (!apiKey) {await db.rpc("fail_textbook_ai_mapping",{p_source_id:source.id,p_claim_token:claimToken,p_error_message:"AI provider is not configured"});return NextResponse.json({ok:false,error:"AI provider is not configured."},{status:503})}
+    try {
+      const client=new OpenAI({apiKey,maxRetries:0,timeout:TEXTBOOK_AI_MAPPING_TIMEOUT_MS});
+      const requestId=resolveAiRequestId(req,body,"admin_textbook_mapping");
+      const response:any=await recordOpenAIUsage({req,studentId:"admin",feature:"admin_textbook_mapping",model:TEXTBOOK_AI_MAPPING_MODEL,providerCall:"responses.create",requestId,retryAttempt:0,authoritativeBilling:false,
+        metadata:{source_id:source.id,source_version:source.version,processing_revision:source.processing_revision,catalog_fingerprint:fingerprint,contract_version:TEXTBOOK_AI_MAPPING_CONTRACT,billable_to_student:false},
+        call:()=>client.responses.create({model:TEXTBOOK_AI_MAPPING_MODEL,max_output_tokens:TEXTBOOK_AI_MAPPING_MAX_OUTPUT_TOKENS,input:[{role:"system",content:textbookAiMappingInstructions()},{role:"user",content:providerInput}]},{timeout:TEXTBOOK_AI_MAPPING_TIMEOUT_MS,maxRetries:0})});
+      const parsed=JSON.parse(String(response.output_text||""));
+      const validated=validateTextbookAiMapping(parsed,{source,pages,subject:matching[0]});
+      const {data:stored,error:storeError}=await db.rpc("finalize_textbook_ai_mapping",{p_source_id:source.id,p_claim_token:claimToken,p_proposals:validated.suggestions,p_unresolved:validated.unresolved});
+      if(storeError||stored!==true)throw new Error("AI mapping result became stale before it could be saved.");
+      return NextResponse.json({ok:true,sourceIdentity:aiSourceIdentity,...validated,cache:"miss"});
+    } catch(error:any) {
+      await db.rpc("fail_textbook_ai_mapping",{p_source_id:source.id,p_claim_token:claimToken,p_error_message:String(error?.message||"AI mapping failed")});
+      const timeout=error?.name==="AbortError"||error?.code==="ETIMEDOUT"||/timed?\s*out/i.test(String(error?.message||""));
+      return NextResponse.json({ok:false,error:timeout?"The single AI mapping call timed out. It was not retried.":"AI mapping failed validation or became stale; no proposals were saved."},{status:timeout?504:422});
+    }
   }
   if (action === "publish") {
     const {error}=await db.rpc("publish_textbook_source",{p_source_id:sourceId});
