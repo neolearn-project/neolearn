@@ -9,6 +9,7 @@ import {
   shortReplyContext,
   verifySourceProvenance,
 } from "../app/lib/sourceGrounding.mjs";
+import { CLASSROOM_GROUNDING_RULES } from "../app/lib/classroomConversation.mjs";
 
 const teacherRoute = await readFile(new URL("../app/api/teacher-math/route.ts", import.meta.url), "utf8");
 const lessonRoute = await readFile(new URL("../app/api/generate-lesson/route.ts", import.meta.url), "utf8");
@@ -77,4 +78,17 @@ test("all literature generation paths use the source gate without changing ten-q
   assert.match(page, /setGroundedSourceContent\(""\)/);
   assert.match(page, /setGroundedSourceProvenance\(""\)/);
   assert.match(page, /lessonRes\.status === 422[\s\S]*failure\?\.error/);
+});
+
+test("literature prompts preserve supported titles, structural labels, chronology, and distinct assessment", () => {
+  for (const prompt of [lessonRoute, teacherRoute, testRoute, CLASSROOM_GROUNDING_RULES]) {
+    assert.match(prompt, /selected source explicitly supports/i);
+    assert.match(prompt, /unit or chapter name|curriculum unit or chapter name/i);
+    assert.match(prompt, /scene, act, stanza/i);
+    assert.match(prompt, /sequence versus causation|sequence and causation/i);
+    assert.match(prompt, /never invent (?:a )?(?:motive|reason|one)/i);
+  }
+  assert.match(testRoute, /different (?:source )?fact(?:s)? or skill(?:s)?/i);
+  assert.match(testRoute, /not rephrase the same question|rephrased or reversed version/i);
+  assert.match(testRoute, /duplicate_question/);
 });

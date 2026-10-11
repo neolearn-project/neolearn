@@ -13,6 +13,7 @@ async function loadTopicTestRoute({ generatedQuestions, generatedRounds, curricu
   const ledgerCalls = [];
   let providerCalls = 0;
   let generationCalls = 0;
+  let activeProviderCall = "";
 
   class ReplayAiRouteResponse extends Error {
     constructor(response) { super("replay"); this.response = response; }
@@ -26,10 +27,10 @@ async function loadTopicTestRoute({ generatedQuestions, generatedRounds, curricu
     constructor() {
       this.responses = { create: async (request) => {
         providerCalls += 1;
-        const reviewing = String(request?.input?.[0]?.content || "").includes("independently review passage-grounded MCQs");
+        const reviewing = activeProviderCall === "responses.create.topic_test_review";
         if (reviewing) {
           if (reviewerFailure) throw new Error("offline reviewer failure");
-          const user = String(request?.input?.[1]?.content || "");
+          const user = String(request?.input?.find((message) => message?.role === "user")?.content || "");
           const match = user.match(/<candidates>\n([\s\S]*?)\n<\/candidates>/);
           const candidates = match ? JSON.parse(match[1]) : [];
           const reviews = candidates.map((candidate) => ({ id: candidate.id, decision: "accept", reasonCode: "accepted", candidate: reviewTransform ? reviewTransform(candidate) : candidate }));
@@ -66,7 +67,12 @@ async function loadTopicTestRoute({ generatedQuestions, generatedRounds, curricu
     duplicateAiRequestResponse: () => Response.json({ ok: false }, { status: 409 }),
     recordOpenAIUsage: async ({ call, providerCall, retryAttempt, metadata }) => {
       ledgerCalls.push({ providerCall, retryAttempt, metadata });
-      return call();
+      activeProviderCall = providerCall;
+      try {
+        return await call();
+      } finally {
+        activeProviderCall = "";
+      }
     },
     resolveAiRequestId: (request) => request.headers.get("x-request-id"),
     AiRouteInProgressError,
