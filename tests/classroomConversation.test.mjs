@@ -176,10 +176,20 @@ test("image sends use server chat even in realtime; loading, retries, and errors
   assert.match(page, /if \(!answer\)[\s\S]*couldn't answer that\. Please try again/);
 });
 
-test("opening lesson is short and waits; provider failure no longer becomes a fake lesson", () => {
-  assert.match(lessonRoute, /about 2-4 simple sentences/);
-  assert.match(lessonRoute, /Then stop and wait/);
-  assert.doesNotMatch(lessonRoute, /Use 5–8 short sentences|Give 2 or 3 small numerical examples|Short Summary/);
+test("opening lesson teaches the selected topic before handing off; provider failure does not become a fake lesson", () => {
+  assert.match(lessonRoute, /not merely a greeting/);
+  assert.match(lessonRoute, /topic's main ideas/);
+  assert.match(lessonRoute, /one or two relevant examples/);
+  assert.match(lessonRoute, /short recap of the taught ideas[\s\S]*only after that recap[\s\S]*optional conversational invitation/i);
+  assert.match(lessonRoute, /Adapt the length and depth to the topic/);
+  assert.match(lessonRoute, /Do not pad[\s\S]*unrelated content from the wider chapter/);
+  assert.match(lessonRoute, /use only the verified selected curriculum material/i);
+  assert.match(lessonRoute, /If coverage is partial, explain only what the source supports/i);
+  assert.match(lessonRoute, /name the work only when the verified selected source explicitly identifies its title/i);
+  assert.match(lessonRoute, /poem's opening line as its title[\s\S]*otherwise omit the work title/i);
+  assert.match(lessonRoute, /scene, act, stanza[\s\S]*selected source explicitly supports[\s\S]*omit uncertain labels/i);
+  assert.match(lessonRoute, /Preserve who said, believed, observed, or did[\s\S]*scientific explanations accurate/i);
+  assert.doesNotMatch(lessonRoute, /max_output_tokens|max_tokens/);
   assert.doesNotMatch(page, /I will explain it step by step in very simple/);
   assert.match(page, /I couldn't prepare this lesson\. Please try again\./);
   assert.match(page, /Retry lesson/);
@@ -191,6 +201,14 @@ test("grounding contract continues short replies without inventing textbook fact
   assert.match(CLASSROOM_GROUNDING_RULES, /title is navigation context, not evidence/i);
   assert.match(CLASSROOM_GROUNDING_RULES, /answer every part supported/i);
   assert.match(CLASSROOM_GROUNDING_RULES, /cropped, blurred, or unreadable/i);
+  assert.match(CLASSROOM_GROUNDING_RULES, /accepts an offer to read or recite[\s\S]*verified source lines first/i);
+  assert.match(CLASSROOM_GROUNDING_RULES, /wording, punctuation, and line breaks exactly/i);
+  assert.match(CLASSROOM_GROUNDING_RULES, /textbook headers, footers[\s\S]*extraction debris/i);
+  assert.match(CLASSROOM_GROUNDING_RULES, /generic reading instructions[\s\S]*annotated or paraphrased lines/i);
+  assert.match(CLASSROOM_GROUNDING_RULES, /absent, incomplete, garbled, or uncertain[\s\S]*Never guess, reconstruct, complete, or repair/i);
   assert.match(mathRoute, /CLASSROOM_GROUNDING_RULES/);
+  assert.match(mathRoute, /read, recite, or see original text[\s\S]*relevant verified source lines first/i);
+  assert.match(mathRoute, /exact wording, punctuation, and line breaks[\s\S]*guidance afterward/i);
+  assert.match(mathRoute, /poem's opening line as its title[\s\S]*omit an unverified title/i);
   assert.match(page, /includeAudio: false/);
 });

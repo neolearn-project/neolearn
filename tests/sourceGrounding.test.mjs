@@ -36,6 +36,8 @@ test("short replies bind only to the immediately preceding teacher turn", () => 
   assert.equal(shortReplyContext("continue", history)?.teacherTurn, "Would you like a number-line example?");
   assert.equal(shortReplyContext("okay", [...history, { role: "user", content: "Wait" }]), null);
   assert.equal(shortReplyContext("Please explain thirds", history), null);
+  const readingOffer = [{ role: "assistant", content: "Would you like me to read the verified lines aloud?" }];
+  assert.equal(shortReplyContext("Yes", readingOffer)?.teacherTurn, readingOffer[0].content);
 });
 
 test("source provenance is server-signed and bound to student, topic, and exact content", async () => {
@@ -82,7 +84,7 @@ test("all literature generation paths use the source gate without changing ten-q
 
 test("literature prompts preserve supported titles, structural labels, chronology, and distinct assessment", () => {
   for (const prompt of [lessonRoute, teacherRoute, testRoute, CLASSROOM_GROUNDING_RULES]) {
-    assert.match(prompt, /selected source explicitly supports/i);
+    assert.match(prompt, /(?:selected source explicitly (?:identifies|supports)|verified selected source explicitly identifies)/i);
     assert.match(prompt, /unit or chapter name|curriculum unit or chapter name/i);
     assert.match(prompt, /scene, act, stanza/i);
     assert.match(prompt, /sequence versus causation|sequence and causation/i);
@@ -94,4 +96,13 @@ test("literature prompts preserve supported titles, structural labels, chronolog
   assert.match(testRoute, /duplicate_question/);
   assert.match(testRoute, /what happened before or afterward/i);
   assert.match(testRoute, /do not ask why|unsupported why question/i);
+});
+
+test("literature prompts do not promote opening lines to titles", () => {
+  for (const prompt of [lessonRoute, teacherRoute, CLASSROOM_GROUNDING_RULES]) {
+    assert.match(prompt, /title only when[\s\S]*explicitly identifies|only when[\s\S]*explicitly identifies its title/i);
+    assert.match(prompt, /poem's opening line as its title/i);
+    assert.match(prompt, /omit (?:an unverified title|it|the work title)/i);
+    assert.match(prompt, /scene, act, stanza[\s\S]*(?:explicitly supported|explicitly supports)[\s\S]*omit/i);
+  }
 });

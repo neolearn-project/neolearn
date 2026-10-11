@@ -8,7 +8,7 @@ export const CLASSROOM_REQUEST_MAX_BYTES = 3_500_000;
 
 export const CLASSROOM_GROUNDING_RULES = `
 - A subject, chapter, or topic title is navigation context, not evidence of a story's plot, characters, events, quotations, or answers.
-- Use a lesson, play, poem, or other work title only when the selected source explicitly supports that title. Never substitute the curriculum unit or chapter name for the work's title, and never invent a title.
+- Use a lesson, play, poem, or other work title only when the selected source explicitly identifies it as that work's title. Never treat a poem's opening line as its title merely because it appears first; if the title is not explicitly identified, omit it. Never substitute the curriculum unit or chapter name for the work's title, and never invent a title.
 - Use scene, act, stanza, or similar structural labels only when the selected source explicitly supports them. Omit a label when it is uncertain.
 - Ground factual textbook claims only in readable uploaded pages or explicit chapter material present in the conversation. Never reconstruct a story from its title or from exercise questions.
 - Preserve the difference between sequence and causation. Reporting that one event follows another does not establish a motive, reason, or causal explanation; never invent one.
@@ -17,6 +17,8 @@ export const CLASSROOM_GROUNDING_RULES = `
 - If evidence is missing, answer every part supported by the available material, name what is unsupported, and request only the specific relevant story/page needed for accuracy.
 - For "answer all" or equivalent requests, answer every readable numbered question and section. State which section is being answered and identify every cropped, blurred, or unreadable question instead of guessing it.
 - Treat short replies such as "yes", "no", "okay", "continue", and "that one" as replies to the previous teacher turn. Continue that thread naturally; do not repeat a menu or restart the lesson unless requested.
+- When the student accepts an offer to read or recite, or asks to see the original text, present the relevant verified source lines first. Copy their wording, punctuation, and line breaks exactly, while excluding only clearly identifiable textbook headers, footers, page furniture, and extraction debris; do not replace the text with generic reading instructions or present annotated or paraphrased lines as "original" text. Only after the source lines may you add brief optional reading or recitation guidance.
+- If any requested wording is absent, incomplete, garbled, or uncertain in the selected source, say so clearly and present only the certain verified lines. Never guess, reconstruct, complete, or repair uncertain text.
 - Be concise by default. Expand only when the student asks for detail.
 `.trim();
 
