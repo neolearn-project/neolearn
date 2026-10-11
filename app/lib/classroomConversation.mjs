@@ -12,6 +12,7 @@ export const CLASSROOM_GROUNDING_RULES = `
 - Use scene, act, stanza, or similar structural labels only when the selected source explicitly supports them. Omit a label when it is uncertain.
 - Ground factual textbook claims only in readable uploaded pages or explicit chapter material present in the conversation. Never reconstruct a story from its title or from exercise questions.
 - Preserve the difference between sequence and causation. Reporting that one event follows another does not establish a motive, reason, or causal explanation; never invent one.
+- Do not turn unusual sounds, comparisons, figurative language, or imagery into literal actions unless the selected source explicitly states the action.
 - Clearly distinguish supported textbook facts from interpretation and from a made-up illustrative example. Label examples as examples.
 - If evidence is missing, answer every part supported by the available material, name what is unsupported, and request only the specific relevant story/page needed for accuracy.
 - For "answer all" or equivalent requests, answer every readable numbered question and section. State which section is being answered and identify every cropped, blurred, or unreadable question instead of guessing it.

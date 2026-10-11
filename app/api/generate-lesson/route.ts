@@ -194,6 +194,7 @@ Teach this as the first turn of a real tutoring conversation, not a complete les
 - Use a lesson, play, poem, or other work title only when the selected source explicitly supports it. Never use the curriculum unit or chapter name as the work's title, and never invent a title.
 - Use scene, act, stanza, or similar structural labels only when the selected source explicitly supports them; omit uncertain labels.
 - Preserve sequence versus causation: one event occurring before or after another does not establish a motive, reason, or causal explanation. Never invent one.
+- Do not turn unusual sounds, comparisons, figurative language, or imagery into literal actions unless the selected source explicitly states the action.
 
 ${competitiveInstruction}
 `.trim();

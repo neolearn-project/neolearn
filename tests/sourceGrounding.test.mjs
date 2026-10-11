@@ -87,8 +87,11 @@ test("literature prompts preserve supported titles, structural labels, chronolog
     assert.match(prompt, /scene, act, stanza/i);
     assert.match(prompt, /sequence versus causation|sequence and causation/i);
     assert.match(prompt, /never invent (?:a )?(?:motive|reason|one)/i);
+    assert.match(prompt, /unusual sounds[\s\S]*comparisons[\s\S]*imagery[\s\S]*literal actions/i);
   }
   assert.match(testRoute, /different (?:source )?fact(?:s)? or skill(?:s)?/i);
   assert.match(testRoute, /not rephrase the same question|rephrased or reversed version/i);
   assert.match(testRoute, /duplicate_question/);
+  assert.match(testRoute, /what happened before or afterward/i);
+  assert.match(testRoute, /do not ask why|unsupported why question/i);
 });
