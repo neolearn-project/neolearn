@@ -46,10 +46,23 @@ import { readJsonResponse } from "@/app/lib/safeResponse";
 import { clearStudentSessionIfCurrent } from "@/app/lib/studentSessionRefresh.mjs";
 import { buildClassroomHistory, classroomScopeKey } from "@/app/lib/classroomConversation.mjs";
 import { NEW_TOPIC_TEST_QUESTION_COUNT } from "@/app/lib/topicTestContracts.mjs";
+import {
+  DEFAULT_STUDENT_APPEARANCE,
+  normalizeStudentAppearance,
+  readStudentAppearance,
+  resolveStudentAppearanceTheme,
+  writeStudentAppearance,
+} from "@/app/lib/studentAppearance.mjs";
 
 type ClassId = "6" | "7" | "8" | "9" | "10" | "11" | "12";
 
 type NoteType = "full_exam_notes" | "quick_revision" | "important_qna" | "mcq_only";
+
+type StudentAppearance = {
+  mode: "light" | "dark" | "system";
+  accent: "default" | "teal" | "violet";
+  readingSize: "normal" | "large" | "extra-large";
+};
 
 interface StudentInfo {
   name: string;
@@ -635,6 +648,11 @@ const [focusFullscreenActive, setFocusFullscreenActive] = useState(false);
 const [studentProfileOpen, setStudentProfileOpen] = useState(false);
 const [studentMenuOpen, setStudentMenuOpen] = useState(false);
 const [settingsNoticeOpen, setSettingsNoticeOpen] = useState(false);
+const [appearance, setAppearance] = useState<StudentAppearance>(
+  DEFAULT_STUDENT_APPEARANCE as StudentAppearance
+);
+const [appearanceReady, setAppearanceReady] = useState(false);
+const [systemPrefersDark, setSystemPrefersDark] = useState(false);
 const studentHeaderActionsRef = useRef<HTMLDivElement | null>(null);
 const [startFlowOpen, setStartFlowOpen] = useState(false);
 const [guidedStartPendingTopicId, setGuidedStartPendingTopicId] = useState<number | null>(null);
@@ -647,6 +665,31 @@ const [trialLimitNotice, setTrialLimitNotice] = useState<{
 useEffect(() => {
   if (activeTab !== "classroom") setFocusFullscreenActive(false);
 }, [activeTab]);
+
+useEffect(() => {
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  const syncSystemTheme = () => setSystemPrefersDark(media.matches);
+  syncSystemTheme();
+  let storage: Storage | null = null;
+  try {
+    storage = window.localStorage;
+  } catch {
+    storage = null;
+  }
+  setAppearance(readStudentAppearance(storage) as StudentAppearance);
+  setAppearanceReady(true);
+  media.addEventListener?.("change", syncSystemTheme);
+  return () => media.removeEventListener?.("change", syncSystemTheme);
+}, []);
+
+useEffect(() => {
+  if (!appearanceReady) return;
+  try {
+    writeStudentAppearance(window.localStorage, appearance);
+  } catch {
+    // Storage may be disabled; the in-memory preference still applies safely.
+  }
+}, [appearance, appearanceReady]);
 
 useEffect(() => {
   if (!studentProfileOpen && !studentMenuOpen && !settingsNoticeOpen) return;
@@ -2478,11 +2521,24 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
     (student as any).avatarUrl ||
     (student as any).profilePhotoUrl ||
     "";
+  const resolvedAppearanceTheme = resolveStudentAppearanceTheme(
+    appearance.mode,
+    systemPrefersDark
+  );
+  const updateAppearance = (patch: Partial<StudentAppearance>) => {
+    setAppearance((current) =>
+      normalizeStudentAppearance({ ...current, ...patch }) as StudentAppearance
+    );
+  };
 
   return (
   <div className={`neo-student-shell fixed inset-0 flex flex-col bg-slate-100 ${
     activeTab === "classroom" ? "is-live-class-active" : ""
-  } ${focusFullscreenActive ? "is-focus-fullscreen" : ""}`}>
+  } ${focusFullscreenActive ? "is-focus-fullscreen" : ""}`}
+    data-appearance-theme={resolvedAppearanceTheme}
+    data-appearance-accent={appearance.accent}
+    data-reading-size={appearance.readingSize}
+  >
     {/* Top bar */}
     <header className="neo-student-header shrink-0 border-b border-slate-200 bg-white px-4 py-3 shadow-sm md:px-6">
       <div className="flex items-center justify-between">
@@ -2493,7 +2549,6 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
               alt="NeoLearn logo"
               className="neo-top-logo-image"
             />
-            <span className="neo-top-logo-word">NeoLearn</span>
           </div>
         </div>
 
@@ -2593,7 +2648,7 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
                   setSettingsNoticeOpen(true);
                 }}
               >
-                Settings
+                Appearance
               </button>
               <button
                 type="button"
@@ -2609,10 +2664,45 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
 
           {settingsNoticeOpen && (
             <div className="neo-student-menu neo-settings-notice">
-              <strong>Settings</strong>
-              <p>Settings coming soon.</p>
-              <button type="button" onClick={() => setSettingsNoticeOpen(false)}>
-                Close
+              <strong>Appearance</strong>
+              <label className="neo-appearance-field">
+                <span>Mode</span>
+                <select
+                  aria-label="Appearance mode"
+                  value={appearance.mode}
+                  onChange={(event) => updateAppearance({ mode: event.target.value as StudentAppearance["mode"] })}
+                >
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                  <option value="system">System</option>
+                </select>
+              </label>
+              <label className="neo-appearance-field">
+                <span>Accent</span>
+                <select
+                  aria-label="Appearance accent"
+                  value={appearance.accent}
+                  onChange={(event) => updateAppearance({ accent: event.target.value as StudentAppearance["accent"] })}
+                >
+                  <option value="default">Ocean blue</option>
+                  <option value="teal">Teal</option>
+                  <option value="violet">Violet</option>
+                </select>
+              </label>
+              <label className="neo-appearance-field">
+                <span>Reading size</span>
+                <select
+                  aria-label="Reading size"
+                  value={appearance.readingSize}
+                  onChange={(event) => updateAppearance({ readingSize: event.target.value as StudentAppearance["readingSize"] })}
+                >
+                  <option value="normal">Normal</option>
+                  <option value="large">Large</option>
+                  <option value="extra-large">Extra Large</option>
+                </select>
+              </label>
+              <button className="neo-appearance-close" type="button" onClick={() => setSettingsNoticeOpen(false)}>
+                Done
               </button>
             </div>
           )}
@@ -6208,11 +6298,12 @@ useEffect(() => {
 
   const clampLiveToolsPosition = useCallback((position: { x: number; y: number }) => {
     if (typeof window === "undefined") return position;
-    const size = 48;
+    const triggerWidth = 112;
+    const triggerHeight = 48;
     const margin = 10;
     const topLimit = margin;
-    const bottomLimit = Math.max(topLimit, window.innerHeight - size - margin);
-    const rightLimit = Math.max(margin, window.innerWidth - size - margin);
+    const bottomLimit = Math.max(topLimit, window.innerHeight - triggerHeight - margin);
+    const rightLimit = Math.max(margin, window.innerWidth - triggerWidth - margin);
     return {
       x: Math.min(Math.max(position.x, margin), rightLimit),
       y: Math.min(Math.max(position.y, topLimit), bottomLimit),
@@ -6300,8 +6391,8 @@ useEffect(() => {
 
   const livePaletteStyle = (() => {
     if (!liveToolsPosition || typeof window === "undefined") return undefined;
-    const paletteWidth = 190;
-    const paletteHeight = 190;
+    const paletteWidth = Math.min(216, window.innerWidth - 20);
+    const paletteHeight = Math.min(384, window.innerHeight - 20);
     const margin = 10;
     const left = liveToolsPosition.x > window.innerWidth / 2
       ? liveToolsPosition.x - paletteWidth - 12
@@ -6325,7 +6416,7 @@ useEffect(() => {
       {liveActionDrawerOpen && (
         <button
           type="button"
-          aria-label="Close class actions"
+          aria-label="Close"
           className="neo-live-action-backdrop hidden lg:hidden"
           onClick={() => setLiveActionDrawerOpen(false)}
         />
@@ -6333,7 +6424,7 @@ useEffect(() => {
 
       <button
         type="button"
-        aria-label={liveActionDrawerOpen ? "Close class actions" : "Open class actions"}
+        aria-label={liveActionDrawerOpen ? "Close" : "Class tools"}
         className={`neo-live-action-trigger hidden lg:hidden ${liveActionDrawerOpen ? "is-open" : ""}`}
         style={
           liveToolsPosition
@@ -6350,6 +6441,7 @@ useEffect(() => {
         }}
       >
         {liveActionDrawerOpen ? <X className="h-5 w-5" /> : <SlidersHorizontal className="h-5 w-5" />}
+        <span>{liveActionDrawerOpen ? "Close" : "Class tools"}</span>
       </button>
 
       <aside
@@ -6357,44 +6449,57 @@ useEffect(() => {
         style={livePaletteStyle}
         aria-label="Live class tools"
       >
-        <button ref={startLessonButtonRef} type="button" title="Start" aria-label="Start" data-mission-action="start-lesson" onClick={() => { setLiveActionDrawerOpen(false); if (!isStartingLesson) void handleStartLessonClick(); }} disabled={isStartingLesson} className={highlightStartLessonButton ? "is-highlighted" : ""}>
+        <button ref={startLessonButtonRef} type="button" title="Start lesson" aria-label="Start lesson" data-mission-action="start-lesson" onClick={() => { setLiveActionDrawerOpen(false); if (!isStartingLesson) void handleStartLessonClick(); }} disabled={isStartingLesson} className={highlightStartLessonButton ? "is-highlighted" : ""}>
           <Play className="h-4 w-4" />
+          <span>Start lesson</span>
         </button>
-        <button ref={topicTestButtonRef} type="button" title="Test" aria-label="Test" data-mission-action="topic-test" onClick={() => { setLiveActionDrawerOpen(false); handleStartTopicTest(); }} disabled={isLoadingTest || !currentTopic} className={highlightTopicTestButton ? "is-highlighted" : ""}>
+        <button ref={topicTestButtonRef} type="button" title="Topic test" aria-label="Topic test" data-mission-action="topic-test" onClick={() => { setLiveActionDrawerOpen(false); handleStartTopicTest(); }} disabled={isLoadingTest || !currentTopic} className={highlightTopicTestButton ? "is-highlighted" : ""}>
           <ClipboardCheck className="h-4 w-4" />
+          <span>Topic test</span>
         </button>
-        <button type="button" title="Save" aria-label="Save" onClick={() => { setLiveActionDrawerOpen(false); handleEndClassClick(); }}>
+        <button type="button" title="End class and save" aria-label="End class and save" onClick={() => { setLiveActionDrawerOpen(false); handleEndClassClick(); }}>
           <Save className="h-4 w-4" />
+          <span>End &amp; save</span>
         </button>
-        <button type="button" title="Topic" aria-label="Topic" onClick={() => { setLiveActionDrawerOpen(false); onOpenStartFlow(); }}>
+        <button type="button" title="Change topic" aria-label="Change topic" onClick={() => { setLiveActionDrawerOpen(false); onOpenStartFlow(); }}>
           <RotateCcw className="h-4 w-4" />
+          <span>Change topic</span>
         </button>
-        <button type="button" title="Notes" aria-label="Notes" onClick={() => { setLiveActionDrawerOpen(false); goTab("gallery"); }}>
+        <button type="button" title="Open notes" aria-label="Open notes" onClick={() => { setLiveActionDrawerOpen(false); goTab("gallery"); }}>
           <FileText className="h-4 w-4" />
+          <span>Notes</span>
         </button>
-        <button type="button" title="Upload" aria-label="Upload" onClick={() => { setLiveActionDrawerOpen(false); uploadInputRef.current?.click(); }}>
+        <button type="button" title="Upload question" aria-label="Upload question" onClick={() => { setLiveActionDrawerOpen(false); uploadInputRef.current?.click(); }}>
           <Upload className="h-4 w-4" />
+          <span>Upload question</span>
         </button>
-        <button type="button" title="Camera" aria-label="Camera" onClick={() => { setLiveActionDrawerOpen(false); void openCamera(); }}>
+        <button type="button" title="Open camera" aria-label="Open camera" onClick={() => { setLiveActionDrawerOpen(false); void openCamera(); }}>
           <Camera className="h-4 w-4" />
+          <span>Camera</span>
         </button>
-        <button type="button" title="Board" aria-label="Board" onClick={() => { setLiveActionDrawerOpen(false); setBoardFullscreen(false); setBoardOpen(true); }}>
+        <button type="button" title="Open board" aria-label="Open board" onClick={() => { setLiveActionDrawerOpen(false); setBoardFullscreen(false); setBoardOpen(true); }}>
           <Monitor className="h-4 w-4" />
+          <span>Open board</span>
         </button>
-        <button type="button" title="Progress" aria-label="Progress" onClick={() => { setLiveActionDrawerOpen(false); goTab("progress"); }}>
+        <button type="button" title="View progress" aria-label="View progress" onClick={() => { setLiveActionDrawerOpen(false); goTab("progress"); }}>
           <Target className="h-4 w-4" />
+          <span>Progress</span>
         </button>
-        <button type="button" title="Gallery" aria-label="Gallery" onClick={() => { setLiveActionDrawerOpen(false); goTab("gallery"); }}>
+        <button type="button" title="Open gallery" aria-label="Open gallery" onClick={() => { setLiveActionDrawerOpen(false); goTab("gallery"); }}>
           <History className="h-4 w-4" />
+          <span>Gallery</span>
         </button>
-        <button type="button" title="Link Parent" aria-label="Link Parent" onClick={() => { setLiveActionDrawerOpen(false); onOpenParentLink(); }}>
+        <button type="button" title="Link parent" aria-label="Link parent" onClick={() => { setLiveActionDrawerOpen(false); onOpenParentLink(); }}>
           <UserPlus className="h-4 w-4" />
+          <span>Link parent</span>
         </button>
-        <button type="button" title="Fullscreen Chat" aria-label="Fullscreen Chat" onClick={() => setClassroomFullscreen((value) => !value)}>
+        <button type="button" title={classroomFullscreen ? "Exit chat fullscreen" : "Enter chat fullscreen"} aria-label={classroomFullscreen ? "Exit chat fullscreen" : "Enter chat fullscreen"} onClick={() => setClassroomFullscreen((value) => !value)}>
           {classroomFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          <span>{classroomFullscreen ? "Exit fullscreen" : "Chat fullscreen"}</span>
         </button>
-        <button type="button" title="Fullscreen Board" aria-label="Fullscreen Board" onClick={() => { setBoardOpen(true); setBoardFullscreen(true); }}>
+        <button type="button" title="Board fullscreen" aria-label="Board fullscreen" onClick={() => { setBoardOpen(true); setBoardFullscreen(true); }}>
           <Monitor className="h-4 w-4" />
+          <span>Board fullscreen</span>
         </button>
       </aside>
     </>
@@ -7058,7 +7163,7 @@ useEffect(() => {
 
       {isTopicTestOpen && topicTest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-3">
-          <div className="max-h-[88vh] w-full max-w-3xl overflow-y-auto rounded-[28px] bg-white p-5 shadow-2xl">
+          <div className="neo-topic-test-modal max-h-[88vh] w-full max-w-3xl overflow-y-auto rounded-[28px] bg-white p-5 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-slate-900">
@@ -7079,7 +7184,7 @@ useEffect(() => {
               <button
                 type="button"
                 onClick={() => setIsTopicTestOpen(false)}
-                className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700"
+                className="neo-topic-test-close shrink-0 rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700"
               >
                 Close
               </button>
@@ -7088,7 +7193,7 @@ useEffect(() => {
             <div className="space-y-4">
               {topicTest.map((q, index) => (
                 <div key={q.id} className="rounded-2xl border border-slate-200 p-4">
-                  <div className="mb-3 text-sm font-semibold text-slate-800">
+                    <div className="neo-topic-test-question mb-3 text-sm font-semibold text-slate-800">
                     <div className="mb-1 flex flex-wrap items-center gap-2">
                       <span>Q{index + 1}.</span>
                       {q.difficulty && (
@@ -7121,7 +7226,7 @@ useEffect(() => {
                               [q.id]: optionIndex,
                             }))
                           }
-                          className={`w-full rounded-2xl border px-4 py-3 text-left text-sm transition-colors ${
+                          className={`neo-topic-test-option w-full rounded-2xl border px-4 py-3 text-left text-sm transition-colors ${
                             showCorrectAnswer
                               ? "border-emerald-500 bg-emerald-50 text-emerald-800"
                               : isWrongSelection
@@ -7161,7 +7266,7 @@ useEffect(() => {
                   </div>
 
                   {topicTestResult && q.explanation && (
-                    <div className="mt-3 rounded-2xl bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-700">
+                    <div className="neo-topic-test-explanation mt-3 rounded-2xl bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-700">
                       <span className="font-semibold text-slate-900">
                         Explanation:
                       </span>{" "}
@@ -7257,7 +7362,7 @@ useEffect(() => {
 
       {isCameraOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-3">
-          <div className="w-full max-w-3xl rounded-[28px] bg-white p-4 shadow-2xl">
+          <div className="neo-student-modal w-full max-w-3xl rounded-[28px] bg-white p-4 shadow-2xl">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold">Capture question image</h3>
 

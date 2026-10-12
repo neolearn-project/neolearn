@@ -21,6 +21,421 @@ body {
   margin: 0;
 }
 
+/* Student-only appearance preferences. A final cascade guard below lets explicit
+   choices win over legacy responsive classroom themes without affecting admin. */
+.neo-student-shell {
+  --neo-appearance-accent: #2563eb;
+  --neo-appearance-accent-strong: #1d4ed8;
+  --neo-appearance-accent-soft: #eff6ff;
+  --neo-appearance-accent-fill: #2563eb;
+  --neo-reading-body: 0.875rem;
+  --neo-reading-small: 0.75rem;
+  --neo-reading-leading: 1.75;
+}
+
+.neo-student-shell[data-appearance-accent="teal"] {
+  --neo-appearance-accent: #0f766e;
+  --neo-appearance-accent-strong: #115e59;
+  --neo-appearance-accent-soft: #f0fdfa;
+  --neo-appearance-accent-fill: #0f766e;
+}
+
+.neo-student-shell[data-appearance-accent="violet"] {
+  --neo-appearance-accent: #7c3aed;
+  --neo-appearance-accent-strong: #6d28d9;
+  --neo-appearance-accent-soft: #f5f3ff;
+  --neo-appearance-accent-fill: #7c3aed;
+}
+
+.neo-student-shell[data-reading-size="large"] {
+  --neo-reading-body: 1rem;
+  --neo-reading-small: 0.875rem;
+  --neo-reading-leading: 1.8;
+}
+
+.neo-student-shell[data-reading-size="extra-large"] {
+  --neo-reading-body: 1.125rem;
+  --neo-reading-small: 1rem;
+  --neo-reading-leading: 1.85;
+}
+
+.neo-student-shell :focus-visible {
+  outline: 3px solid var(--neo-appearance-accent) !important;
+  outline-offset: 2px !important;
+}
+
+.neo-student-shell .neo-settings-notice {
+  width: min(17rem, calc(100vw - 1.5rem));
+  padding: 0.55rem;
+}
+
+.neo-student-shell .neo-appearance-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(7.25rem, 1.15fr);
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 2.4rem;
+  padding: 0.3rem 0.55rem;
+  color: inherit;
+  font-size: 0.75rem !important;
+  font-weight: 750;
+}
+
+.neo-student-shell .neo-appearance-field select {
+  width: 100%;
+  min-height: 2rem;
+  border: 1px solid #94a3b8;
+  border-radius: 0.65rem;
+  padding: 0.3rem 1.65rem 0.3rem 0.5rem;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.75rem !important;
+  font-weight: 700;
+}
+
+.neo-student-shell .neo-appearance-close {
+  margin-top: 0.35rem;
+  color: var(--neo-appearance-accent) !important;
+  font-size: 0.75rem !important;
+}
+
+.neo-student-shell[data-appearance-accent]:not([data-appearance-accent="default"]) .bg-blue-600,
+.neo-student-shell[data-appearance-accent]:not([data-appearance-accent="default"]) .neo-chat-bubble-student {
+  background: var(--neo-appearance-accent-fill) !important;
+  color: #ffffff !important;
+}
+
+.neo-student-shell[data-appearance-accent]:not([data-appearance-accent="default"]) .text-blue-600,
+.neo-student-shell[data-appearance-accent]:not([data-appearance-accent="default"]) .text-blue-700,
+.neo-student-shell[data-appearance-accent]:not([data-appearance-accent="default"]) .text-blue-800 {
+  color: var(--neo-appearance-accent-strong) !important;
+}
+
+.neo-student-shell[data-appearance-accent]:not([data-appearance-accent="default"]) .border-blue-200,
+.neo-student-shell[data-appearance-accent]:not([data-appearance-accent="default"]) .border-blue-500 {
+  border-color: var(--neo-appearance-accent) !important;
+}
+
+.neo-student-shell[data-appearance-accent]:not([data-appearance-accent="default"]) .bg-blue-50 {
+  background: var(--neo-appearance-accent-soft) !important;
+}
+
+.neo-student-shell[data-reading-size]:not([data-reading-size="normal"]) .neo-dashboard p,
+.neo-student-shell[data-reading-size]:not([data-reading-size="normal"]) .neo-dashboard li,
+.neo-student-shell[data-reading-size]:not([data-reading-size="normal"]) .neo-chat-bubble > div:first-child,
+.neo-student-shell[data-reading-size]:not([data-reading-size="normal"]) .neo-topic-test-modal > div,
+.neo-student-shell[data-reading-size]:not([data-reading-size="normal"]) .neo-start-modal p,
+.neo-student-shell[data-reading-size]:not([data-reading-size="normal"]) .neo-start-modal li,
+.neo-student-shell[data-reading-size]:not([data-reading-size="normal"]) .neo-student-modal p {
+  font-size: var(--neo-reading-body) !important;
+  line-height: var(--neo-reading-leading) !important;
+  overflow-wrap: anywhere;
+}
+
+.neo-student-shell[data-reading-size]:not([data-reading-size="normal"]) .neo-dashboard .line-clamp-2,
+.neo-student-shell[data-reading-size]:not([data-reading-size="normal"]) .neo-topic-test-question,
+.neo-student-shell[data-reading-size]:not([data-reading-size="normal"]) .neo-topic-test-option,
+.neo-student-shell[data-reading-size]:not([data-reading-size="normal"]) .neo-topic-test-explanation,
+.neo-student-shell[data-reading-size]:not([data-reading-size="normal"]) .neo-start-modal .grid button {
+  font-size: var(--neo-reading-body) !important;
+  line-height: var(--neo-reading-leading) !important;
+  overflow-wrap: anywhere;
+}
+
+.neo-student-shell[data-reading-size]:not([data-reading-size="normal"]) .neo-dashboard .line-clamp-2 {
+  display: block !important;
+  overflow: visible !important;
+  -webkit-line-clamp: unset !important;
+}
+
+.neo-student-shell[data-reading-size]:not([data-reading-size="normal"]) .neo-topic-test-modal .text-xs,
+.neo-student-shell[data-reading-size]:not([data-reading-size="normal"]) .neo-topic-test-modal .text-\[11px\] {
+  font-size: var(--neo-reading-small) !important;
+  line-height: 1.65 !important;
+}
+
+.neo-student-shell[data-reading-size]:not([data-reading-size="normal"]) .neo-topic-test-modal button,
+.neo-student-shell[data-reading-size]:not([data-reading-size="normal"]) .neo-chat-bubble,
+.neo-student-shell[data-reading-size]:not([data-reading-size="normal"]) .neo-start-modal,
+.neo-student-shell[data-reading-size]:not([data-reading-size="normal"]) .neo-student-modal {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.neo-student-shell[data-reading-size]:not([data-reading-size="normal"]) .neo-chat-bubble > div:first-child {
+  white-space: pre-wrap;
+}
+
+.neo-student-shell[data-appearance-theme="light"],
+.neo-student-shell[data-appearance-theme="light"].is-live-class-active {
+  color-scheme: light;
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+.neo-student-shell[data-appearance-theme="light"]::before,
+.neo-student-shell[data-appearance-theme="light"]::after {
+  display: none !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"],
+.neo-student-shell[data-appearance-theme="dark"].is-live-class-active {
+  color-scheme: dark;
+  background: #020617 !important;
+  color: #e2e8f0 !important;
+  --neo-appearance-accent: #60a5fa;
+  --neo-appearance-accent-strong: #93c5fd;
+  --neo-appearance-accent-soft: #172554;
+  --neo-appearance-accent-fill: #1d4ed8;
+}
+
+.neo-student-shell[data-appearance-theme="dark"][data-appearance-accent="teal"] {
+  --neo-appearance-accent: #2dd4bf;
+  --neo-appearance-accent-strong: #5eead4;
+  --neo-appearance-accent-soft: #134e4a;
+  --neo-appearance-accent-fill: #0f766e;
+}
+
+.neo-student-shell[data-appearance-theme="dark"][data-appearance-accent="violet"] {
+  --neo-appearance-accent: #a78bfa;
+  --neo-appearance-accent-strong: #c4b5fd;
+  --neo-appearance-accent-soft: #2e1065;
+  --neo-appearance-accent-fill: #6d28d9;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .neo-student-header,
+.neo-student-shell[data-appearance-theme="dark"] .neo-student-tabs,
+.neo-student-shell[data-appearance-theme="dark"] .neo-student-menu,
+.neo-student-shell[data-appearance-theme="dark"] .neo-dashboard,
+.neo-student-shell[data-appearance-theme="dark"] .neo-student-tab-panel,
+.neo-student-shell[data-appearance-theme="dark"] .neo-classroom,
+.neo-student-shell[data-appearance-theme="dark"] .neo-classroom aside,
+.neo-student-shell[data-appearance-theme="dark"] .neo-conversation-header,
+.neo-student-shell[data-appearance-theme="dark"] .neo-chat-panel,
+.neo-student-shell[data-appearance-theme="dark"] .neo-composer,
+.neo-student-shell[data-appearance-theme="dark"] .neo-start-modal,
+.neo-student-shell[data-appearance-theme="dark"] .neo-topic-test-modal,
+.neo-student-shell[data-appearance-theme="dark"] .neo-student-modal,
+.neo-student-shell[data-appearance-theme="dark"] .bg-white,
+.neo-student-shell[data-appearance-theme="dark"] .bg-slate-50,
+.neo-student-shell[data-appearance-theme="dark"] .bg-slate-100 {
+  border-color: #334155 !important;
+  background: #0f172a !important;
+  color: #e2e8f0 !important;
+  box-shadow: none !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .neo-dashboard-hero,
+.neo-student-shell[data-appearance-theme="dark"] .neo-action-card,
+.neo-student-shell[data-appearance-theme="dark"] .neo-today-learning-card,
+.neo-student-shell[data-appearance-theme="dark"] .neo-chat-bubble-teacher {
+  border-color: #334155 !important;
+  background: #111c31 !important;
+  color: #f1f5f9 !important;
+  text-shadow: none !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .text-slate-950,
+.neo-student-shell[data-appearance-theme="dark"] .text-slate-900,
+.neo-student-shell[data-appearance-theme="dark"] .text-slate-800,
+.neo-student-shell[data-appearance-theme="dark"] .text-slate-700,
+.neo-student-shell[data-appearance-theme="dark"] .font-bold,
+.neo-student-shell[data-appearance-theme="dark"] .font-semibold {
+  color: #f1f5f9 !important;
+  text-shadow: none !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .text-slate-600,
+.neo-student-shell[data-appearance-theme="dark"] .text-slate-500,
+.neo-student-shell[data-appearance-theme="dark"] .text-slate-400,
+.neo-student-shell[data-appearance-theme="dark"] .neo-student-profile-copy small,
+.neo-student-shell[data-appearance-theme="dark"] .neo-settings-notice p {
+  color: #cbd5e1 !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] input,
+.neo-student-shell[data-appearance-theme="dark"] textarea,
+.neo-student-shell[data-appearance-theme="dark"] select,
+.neo-student-shell[data-appearance-theme="dark"] .neo-appearance-field select {
+  border-color: #64748b !important;
+  background: #111827 !important;
+  color: #f8fafc !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .border-slate-100,
+.neo-student-shell[data-appearance-theme="dark"] .border-slate-200,
+.neo-student-shell[data-appearance-theme="dark"] .border-slate-300 {
+  border-color: #475569 !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .bg-emerald-50 {
+  background: #052e2b !important;
+  color: #a7f3d0 !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .text-emerald-700,
+.neo-student-shell[data-appearance-theme="dark"] .text-emerald-800 {
+  color: #a7f3d0 !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .bg-red-50 {
+  background: #450a0a !important;
+  color: #fecaca !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .text-red-700,
+.neo-student-shell[data-appearance-theme="dark"] .text-red-800 {
+  color: #fecaca !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .bg-amber-50 {
+  background: #422006 !important;
+  color: #fde68a !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .text-amber-800,
+.neo-student-shell[data-appearance-theme="dark"] .text-amber-900 {
+  color: #fde68a !important;
+}
+
+@media (max-width: 420px) {
+  .neo-student-shell .neo-settings-notice {
+    right: -0.25rem;
+  }
+
+  .neo-student-shell .neo-appearance-field {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+}
+
+/* Compact labelled classroom tools. */
+@media (max-width: 1023px) {
+  .neo-live-action-trigger {
+    width: 7rem !important;
+    min-width: 7rem !important;
+    height: 2.75rem !important;
+    padding: 0 0.7rem !important;
+    gap: 0.45rem;
+    justify-content: center;
+    font-size: 0.78rem !important;
+    font-weight: 800 !important;
+    white-space: nowrap;
+  }
+
+  .neo-live-action-trigger.is-open {
+    width: 5.5rem !important;
+    min-width: 5.5rem !important;
+  }
+
+  .neo-live-action-trigger svg,
+  .neo-live-icon-palette button svg {
+    flex: 0 0 auto;
+  }
+
+  .neo-live-icon-palette {
+    display: grid !important;
+    position: fixed;
+    z-index: 81;
+    width: min(13.5rem, calc(100vw - 1.25rem)) !important;
+    max-width: calc(100vw - 1.25rem) !important;
+    height: auto !important;
+    max-height: min(22rem, calc(100dvh - 1.25rem));
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-auto-flow: row !important;
+    align-content: start;
+    gap: 0.35rem !important;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 0.5rem !important;
+    border: 1px solid;
+    border-radius: 1rem !important;
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.96);
+    transform-origin: center;
+    transition: opacity 150ms ease, transform 150ms ease;
+    overscroll-behavior: contain;
+  }
+
+  .neo-live-icon-palette.is-open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1);
+  }
+
+  .neo-live-icon-palette button {
+    position: static;
+    display: flex !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0;
+    height: auto !important;
+    min-height: 2.35rem;
+    flex: 0 0 auto !important;
+    grid-column: 1 / -1 !important;
+    align-items: center;
+    justify-content: flex-start !important;
+    gap: 0.45rem;
+    border-radius: 0.75rem !important;
+    padding: 0.45rem 0.55rem !important;
+    font-size: 0.7rem !important;
+    font-weight: 750 !important;
+    line-height: 1.2;
+    text-align: left;
+  }
+
+  .neo-live-icon-palette button span {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: normal;
+    white-space: nowrap;
+  }
+
+  .neo-student-shell[data-appearance-theme] .neo-live-icon-palette button {
+    box-shadow: none !important;
+  }
+
+  .neo-student-shell[data-appearance-theme="light"] .neo-live-icon-palette {
+    border-color: #cbd5e1 !important;
+    background: #f8fafc !important;
+    color: #0f172a !important;
+    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.18) !important;
+  }
+
+  .neo-student-shell[data-appearance-theme="light"] .neo-live-action-trigger {
+    border-color: #bfdbfe !important;
+    background: rgba(255, 255, 255, 0.96) !important;
+    color: #1d4ed8 !important;
+  }
+
+  .neo-student-shell[data-appearance-theme="light"] .neo-live-action-trigger.is-open {
+    background: var(--neo-appearance-accent-fill) !important;
+    color: #ffffff !important;
+  }
+
+  .neo-student-shell[data-appearance-theme="dark"] .neo-live-icon-palette {
+    border-color: #475569 !important;
+    background: #0f172a !important;
+    color: #f8fafc !important;
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42) !important;
+  }
+
+  .neo-student-shell[data-appearance-theme="dark"] .neo-live-action-trigger {
+    border-color: #475569 !important;
+    background: rgba(15, 23, 42, 0.96) !important;
+    color: #e2e8f0 !important;
+  }
+
+  .neo-student-shell[data-appearance-theme="dark"] .neo-live-action-trigger.is-open {
+    border-color: var(--neo-appearance-accent) !important;
+    background: var(--neo-appearance-accent-fill) !important;
+    color: #ffffff !important;
+  }
+}
+
 .neo-card-rail {
   scrollbar-width: thin;
   scrollbar-color: #bfdbfe transparent;
@@ -2957,98 +3372,6 @@ body {
     text-align: left;
   }
 
-  .neo-live-icon-palette {
-    display: grid !important;
-    position: fixed;
-    z-index: 81;
-    width: 10.25rem;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 0.42rem;
-    border: 1px solid rgba(219, 234, 254, 0.78);
-    border-radius: 1.25rem;
-    padding: 0.55rem;
-    background: rgba(255, 255, 255, 0.72);
-    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.18);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    opacity: 0;
-    pointer-events: none;
-    transform: scale(0.94);
-    transition: opacity 150ms ease, transform 150ms ease;
-  }
-
-  .neo-live-icon-palette.is-open {
-    opacity: 1;
-    pointer-events: auto;
-    transform: scale(1);
-  }
-
-  .neo-live-icon-palette button {
-    display: flex;
-    width: 2.35rem;
-    height: 2.35rem;
-    align-items: center;
-    justify-content: center;
-    border-radius: 999px;
-    background: linear-gradient(135deg, #eff6ff, #e0f2fe);
-    color: #1d4ed8;
-    box-shadow: 0 8px 16px rgba(30, 64, 175, 0.1);
-  }
-
-  .neo-live-icon-palette button:nth-child(1) {
-    background: linear-gradient(135deg, #2563eb, #06b6d4);
-    color: white;
-  }
-
-  .neo-live-icon-palette button:nth-child(2) {
-    background: linear-gradient(135deg, #7c3aed, #ec4899);
-    color: white;
-  }
-
-  .neo-live-icon-palette button:nth-child(3) {
-    background: linear-gradient(135deg, #fee2e2, #fff1f2);
-    color: #be123c;
-  }
-
-  .neo-live-icon-palette button:nth-child(4) {
-    background: linear-gradient(135deg, #fef3c7, #fdba74);
-    color: #9a3412;
-  }
-
-  .neo-live-icon-palette button:nth-child(5) {
-    background: linear-gradient(135deg, #dcfce7, #bbf7d0);
-    color: #166534;
-  }
-
-  .neo-live-icon-palette button:nth-child(6) {
-    background: linear-gradient(135deg, #134e4a, #0f766e);
-    color: white;
-  }
-
-  .neo-live-icon-palette button:nth-child(7) {
-    background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
-    color: #3730a3;
-  }
-
-  .neo-live-icon-palette button:nth-child(8) {
-    background: linear-gradient(135deg, #fce7f3, #fbcfe8);
-    color: #be185d;
-  }
-
-  .neo-live-icon-palette button:nth-child(9) {
-    background: linear-gradient(135deg, #cffafe, #67e8f9);
-    color: #155e75;
-  }
-
-  .neo-live-icon-palette button:nth-child(10) {
-    background: linear-gradient(135deg, #111827, #334155);
-    color: white;
-  }
-
-  .neo-live-icon-palette button:disabled {
-    opacity: 0.46;
-  }
-
   .neo-classroom.is-live-minimal .neo-composer-mic {
     min-width: 2.6rem;
     padding-right: 0;
@@ -3221,44 +3544,6 @@ body {
     color: white;
   }
 
-  .neo-live-icon-palette {
-    display: grid !important;
-    position: fixed;
-    z-index: 81;
-    width: 10.25rem;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 0.42rem;
-    border: 1px solid rgba(219, 234, 254, 0.78);
-    border-radius: 1.25rem;
-    padding: 0.55rem;
-    background: rgba(255, 255, 255, 0.72);
-    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.18);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    opacity: 0;
-    pointer-events: none;
-    transform: scale(0.94);
-    transition: opacity 150ms ease, transform 150ms ease;
-  }
-
-  .neo-live-icon-palette.is-open {
-    opacity: 1;
-    pointer-events: auto;
-    transform: scale(1);
-  }
-
-  .neo-live-icon-palette button {
-    display: flex;
-    width: 2.35rem;
-    height: 2.35rem;
-    align-items: center;
-    justify-content: center;
-    border-radius: 999px;
-    background: linear-gradient(135deg, #eff6ff, #e0f2fe);
-    color: #1d4ed8;
-    box-shadow: 0 8px 16px rgba(30, 64, 175, 0.1);
-  }
-
   .neo-smart-board-mobile {
     display: flex;
     flex-direction: column;
@@ -3282,56 +3567,6 @@ body {
     height: auto !important;
     min-height: 0;
   }
-}
-
-.neo-live-icon-palette button:nth-child(1) {
-  background: linear-gradient(135deg, #2563eb, #06b6d4);
-  color: white;
-}
-
-.neo-live-icon-palette button:nth-child(2) {
-  background: linear-gradient(135deg, #7c3aed, #ec4899);
-  color: white;
-}
-
-.neo-live-icon-palette button:nth-child(3) {
-  background: linear-gradient(135deg, #fee2e2, #fff1f2);
-  color: #be123c;
-}
-
-.neo-live-icon-palette button:nth-child(4) {
-  background: linear-gradient(135deg, #fef3c7, #fdba74);
-  color: #9a3412;
-}
-
-.neo-live-icon-palette button:nth-child(5) {
-  background: linear-gradient(135deg, #dcfce7, #bbf7d0);
-  color: #166534;
-}
-
-.neo-live-icon-palette button:nth-child(6) {
-  background: linear-gradient(135deg, #134e4a, #0f766e);
-  color: white;
-}
-
-.neo-live-icon-palette button:nth-child(7) {
-  background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
-  color: #3730a3;
-}
-
-.neo-live-icon-palette button:nth-child(8) {
-  background: linear-gradient(135deg, #fce7f3, #fbcfe8);
-  color: #be185d;
-}
-
-.neo-live-icon-palette button:nth-child(9) {
-  background: linear-gradient(135deg, #cffafe, #67e8f9);
-  color: #155e75;
-}
-
-.neo-live-icon-palette button:nth-child(10) {
-  background: linear-gradient(135deg, #111827, #334155);
-  color: white;
 }
 
 .neo-live-action-trigger {
@@ -3368,125 +3603,6 @@ body {
   color: #ffffff !important;
   transform: scale(1.03);
 }
-
-.neo-live-icon-palette {
-  display: block !important;
-  width: 11.875rem !important;
-  height: 11.875rem !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  padding: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  pointer-events: none;
-  transform: scale(0.92) translateY(0.25rem) !important;
-  transform-origin: center;
-  transition: opacity 160ms ease, transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
-}
-
-.neo-live-icon-palette.is-open {
-  pointer-events: auto;
-  transform: scale(1) translateY(0) !important;
-}
-
-.neo-live-icon-palette.is-left-of-trigger {
-  transform-origin: right center;
-}
-
-.neo-live-icon-palette.is-right-of-trigger {
-  transform-origin: left center;
-}
-
-.neo-live-icon-palette button {
-  position: absolute;
-  width: 2.5rem !important;
-  height: 2.5rem !important;
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  border-radius: 999px !important;
-  background:
-    radial-gradient(circle at 30% 16%, rgba(255, 255, 255, 0.16), transparent 32%),
-    linear-gradient(145deg, rgba(15, 23, 42, 0.8), rgba(2, 6, 23, 0.66)) !important;
-  color: rgba(226, 232, 240, 0.94) !important;
-  box-shadow:
-    0 12px 28px rgba(2, 6, 23, 0.26),
-    0 0 0 1px rgba(255, 255, 255, 0.05) inset !important;
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  opacity: 0;
-  transform: translateY(0.45rem) scale(0.72);
-  transition:
-    opacity 160ms ease,
-    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    border-color 160ms ease,
-    color 160ms ease,
-    box-shadow 160ms ease;
-}
-
-.neo-live-icon-palette.is-open button {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
-.neo-live-icon-palette button:hover,
-.neo-live-icon-palette button:focus-visible {
-  border-color: rgba(129, 140, 248, 0.56);
-  color: #ffffff !important;
-  box-shadow:
-    0 14px 30px rgba(2, 6, 23, 0.3),
-    0 0 24px rgba(99, 102, 241, 0.24),
-    0 0 0 1px rgba(255, 255, 255, 0.08) inset !important;
-  outline: none;
-  transform: translateY(-0.08rem) scale(1.04) !important;
-}
-
-.neo-live-icon-palette button:disabled {
-  opacity: 0.38 !important;
-  cursor: not-allowed;
-}
-
-.neo-live-icon-palette button::after {
-  content: attr(title);
-  position: absolute;
-  right: 50%;
-  bottom: calc(100% + 0.35rem);
-  transform: translateX(50%) translateY(0.2rem);
-  max-width: 5.75rem;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 999px;
-  padding: 0.22rem 0.45rem;
-  background: rgba(2, 6, 23, 0.76);
-  color: rgba(248, 250, 252, 0.92);
-  font-size: 0.62rem;
-  font-weight: 750;
-  line-height: 1;
-  white-space: nowrap;
-  box-shadow: 0 10px 22px rgba(2, 6, 23, 0.24);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 140ms ease, transform 140ms ease;
-}
-
-.neo-live-icon-palette button:hover::after,
-.neo-live-icon-palette button:focus-visible::after {
-  opacity: 1;
-  transform: translateX(50%) translateY(0);
-}
-
-.neo-live-icon-palette button:nth-child(1) { left: 0; top: 0; transition-delay: 10ms; }
-.neo-live-icon-palette button:nth-child(2) { left: 3rem; top: 0; transition-delay: 22ms; }
-.neo-live-icon-palette button:nth-child(3) { left: 6rem; top: 0; transition-delay: 34ms; }
-.neo-live-icon-palette button:nth-child(4) { left: 9rem; top: 0; transition-delay: 46ms; }
-.neo-live-icon-palette button:nth-child(5) { left: 0; top: 3rem; transition-delay: 58ms; }
-.neo-live-icon-palette button:nth-child(6) { left: 3rem; top: 3rem; transition-delay: 70ms; }
-.neo-live-icon-palette button:nth-child(7) { left: 6rem; top: 3rem; transition-delay: 82ms; }
-.neo-live-icon-palette button:nth-child(8) { left: 9rem; top: 3rem; transition-delay: 94ms; }
-.neo-live-icon-palette button:nth-child(9) { left: 0; top: 6rem; transition-delay: 106ms; }
-.neo-live-icon-palette button:nth-child(10) { left: 3rem; top: 6rem; transition-delay: 118ms; }
-.neo-live-icon-palette button:nth-child(11) { left: 6rem; top: 6rem; transition-delay: 130ms; }
-.neo-live-icon-palette button:nth-child(12) { left: 9rem; top: 6rem; transition-delay: 142ms; }
-.neo-live-icon-palette button:nth-child(13) { left: 4.5rem; top: 9rem; transition-delay: 154ms; }
 
 .neo-student-shell.is-live-class-active {
   background:
@@ -3991,27 +4107,6 @@ body {
   background: linear-gradient(135deg, #06b6d4, #3b82f6 52%, #7c5cff) !important;
 }
 
-.neo-live-icon-palette button {
-  border-color: rgba(89, 230, 255, 0.2) !important;
-  background:
-    radial-gradient(circle at 30% 16%, rgba(255, 255, 255, 0.16), transparent 32%),
-    linear-gradient(145deg, rgba(13, 24, 50, 0.88), rgba(3, 7, 18, 0.78)) !important;
-  color: #dff6ff !important;
-  box-shadow:
-    0 14px 34px rgba(0, 0, 0, 0.36),
-    0 0 22px rgba(89, 230, 255, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
-}
-
-.neo-live-icon-palette button:hover,
-.neo-live-icon-palette button:focus-visible {
-  border-color: rgba(89, 230, 255, 0.55) !important;
-  box-shadow:
-    0 16px 36px rgba(0, 0, 0, 0.38),
-    0 0 30px rgba(89, 230, 255, 0.22),
-    0 0 18px rgba(124, 92, 255, 0.18) !important;
-}
-
 .neo-classroom .neo-mobile-class-drawer {
   border-color: rgba(89, 230, 255, 0.16) !important;
   background:
@@ -4494,29 +4589,6 @@ body {
 .neo-composer-plus-menu button:hover {
   border-color: rgba(89, 230, 255, 0.2) !important;
   background: rgba(89, 230, 255, 0.08) !important;
-}
-
-.neo-live-icon-palette.is-open button::after {
-  top: calc(100% + 0.15rem);
-  right: auto;
-  bottom: auto;
-  left: 50%;
-  width: 3.6rem;
-  max-width: 3.6rem;
-  padding: 0.16rem 0.22rem;
-  color: #eaf6ff;
-  font-size: 0.5rem;
-  line-height: 0.62rem;
-  text-align: center;
-  white-space: normal;
-  opacity: 0;
-  transform: translateX(-50%) translateY(0);
-}
-
-.neo-live-icon-palette.is-open button:hover::after,
-.neo-live-icon-palette.is-open button:focus-visible::after,
-.neo-live-icon-palette.is-open button:active::after {
-  opacity: 1;
 }
 
 @media (max-width: 767px) {
@@ -5375,7 +5447,7 @@ body {
 /* Header logo: keep the original asset crisp and undistorted in all views. */
 .neo-top-logo,
 .neo-student-shell.is-live-class-active .neo-top-logo {
-  width: 9rem !important;
+  width: 10.75rem !important;
   height: 2.25rem !important;
   flex: 0 0 auto !important;
   overflow: visible !important;
@@ -5400,23 +5472,19 @@ body {
   image-rendering: auto;
 }
 
-.neo-top-logo-word {
-  display: none;
-}
-
 @media (min-width: 768px) {
   .neo-top-logo,
   .neo-student-shell.is-live-class-active .neo-top-logo {
-    width: 11.75rem !important;
-    height: 3rem !important;
+    width: 10.75rem !important;
+    height: 2.25rem !important;
   }
 }
 
 @media (max-width: 767px) {
   .neo-top-logo,
   .neo-student-shell.is-live-class-active .neo-top-logo {
-    width: 7.65rem !important;
-    max-width: 7.65rem !important;
+    width: 8rem !important;
+    max-width: 8rem !important;
     height: 2rem !important;
   }
 }
@@ -5581,10 +5649,10 @@ body {
 @media (max-width: 767px) {
   .neo-student-shell.is-live-class-active .neo-top-logo {
     display: inline-flex !important;
-    width: 7.75rem !important;
-    max-width: 7.75rem !important;
+    width: 8rem !important;
+    max-width: 8rem !important;
     height: 2rem !important;
-    flex: 0 0 7.75rem !important;
+    flex: 0 0 8rem !important;
     align-items: center !important;
     justify-content: flex-start !important;
     gap: 0.35rem !important;
@@ -5598,24 +5666,13 @@ body {
 
   .neo-student-shell.is-live-class-active .neo-top-logo-image {
     display: block !important;
-    width: 1.65rem !important;
-    min-width: 1.65rem !important;
-    max-width: 1.65rem !important;
-    height: 1.65rem !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: 100% !important;
     object-fit: contain !important;
-    object-position: center !important;
+    object-position: left center !important;
     filter: drop-shadow(0 0 10px rgba(89, 230, 255, 0.18)) !important;
-  }
-
-  .neo-student-shell.is-live-class-active .neo-top-logo-word {
-    display: inline-block !important;
-    color: #f8fbff !important;
-    font-size: 1.02rem !important;
-    font-weight: 900 !important;
-    line-height: 1 !important;
-    letter-spacing: 0 !important;
-    text-shadow: 0 0 16px rgba(89, 230, 255, 0.24);
-    white-space: nowrap !important;
   }
 
   .neo-conversation-copy > div:last-child,
@@ -5674,5 +5731,317 @@ body {
 
   .neo-open-board-desktop-label {
     display: none !important;
+  }
+}
+
+/* Appearance cascade guard: intentionally last. */
+.neo-student-shell[data-appearance-theme="light"],
+.neo-student-shell[data-appearance-theme="light"].is-live-class-active,
+.neo-student-shell[data-appearance-theme="light"].is-live-class-active:not(.is-focus-fullscreen) {
+  color-scheme: light !important;
+  background: #f1f5f9 !important;
+  color: #312e81 !important;
+}
+
+.neo-student-shell[data-appearance-theme="light"] .neo-student-header,
+.neo-student-shell[data-appearance-theme="light"] .neo-student-tabs,
+.neo-student-shell[data-appearance-theme="light"] .neo-student-menu,
+.neo-student-shell[data-appearance-theme="light"] .neo-dashboard,
+.neo-student-shell[data-appearance-theme="light"] .neo-student-tab-panel,
+.neo-student-shell[data-appearance-theme="light"] .neo-classroom,
+.neo-student-shell[data-appearance-theme="light"] .neo-conversation-header,
+.neo-student-shell[data-appearance-theme="light"] .neo-chat-panel,
+.neo-student-shell[data-appearance-theme="light"] .neo-composer,
+.neo-student-shell[data-appearance-theme="light"] .neo-start-modal,
+.neo-student-shell[data-appearance-theme="light"] .neo-topic-test-modal,
+.neo-student-shell[data-appearance-theme="light"] .neo-student-modal {
+  border-color: #e2e8f0 !important;
+  background: #ffffff !important;
+  color: #312e81 !important;
+  text-shadow: none !important;
+}
+
+.neo-student-shell[data-appearance-theme="light"] .text-slate-950,
+.neo-student-shell[data-appearance-theme="light"] .text-slate-900,
+.neo-student-shell[data-appearance-theme="light"] .text-slate-800,
+.neo-student-shell[data-appearance-theme="light"] .text-slate-700,
+.neo-student-shell[data-appearance-theme="light"] .text-slate-600,
+.neo-student-shell[data-appearance-theme="light"] .text-slate-500,
+.neo-student-shell[data-appearance-theme="light"] .text-slate-400,
+.neo-student-shell[data-appearance-theme="light"] .text-gray-700,
+.neo-student-shell[data-appearance-theme="light"] .text-gray-600,
+.neo-student-shell[data-appearance-theme="light"] .text-gray-500 {
+  color: #312e81 !important;
+  text-shadow: none !important;
+}
+
+.neo-student-shell[data-appearance-theme="light"] .neo-classroom .neo-mobile-class-drawer {
+  border-color: #e2e8f0 !important;
+  background: #f8fafc !important;
+  color: #312e81 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.neo-student-shell[data-appearance-theme="light"] .neo-classroom .neo-mobile-class-drawer .bg-white {
+  border-color: #e2e8f0 !important;
+  background: #ffffff !important;
+  color: #312e81 !important;
+}
+
+.neo-student-shell[data-appearance-theme="light"] .neo-classroom .neo-mobile-class-drawer .bg-slate-50 {
+  border-color: #e2e8f0 !important;
+  background: #f8fafc !important;
+  color: #312e81 !important;
+}
+
+.neo-student-shell[data-appearance-theme="light"] .neo-classroom .neo-mobile-class-drawer .text-slate-900,
+.neo-student-shell[data-appearance-theme="light"] .neo-classroom .neo-mobile-class-drawer .text-slate-800,
+.neo-student-shell[data-appearance-theme="light"] .neo-classroom .neo-mobile-class-drawer .text-slate-700 {
+  color: #312e81 !important;
+  text-shadow: none !important;
+}
+
+.neo-student-shell[data-appearance-theme="light"] .neo-classroom .neo-mobile-class-drawer .text-slate-600,
+.neo-student-shell[data-appearance-theme="light"] .neo-classroom .neo-mobile-class-drawer .text-slate-500,
+.neo-student-shell[data-appearance-theme="light"] .neo-classroom .neo-mobile-class-drawer .text-slate-400 {
+  color: #312e81 !important;
+}
+
+.neo-student-shell[data-appearance-theme="light"] .neo-settings-notice strong {
+  color: #312e81 !important;
+}
+
+.neo-student-shell[data-appearance-theme="light"] .neo-chat-bubble-teacher {
+  border-color: #e2e8f0 !important;
+  background: #f8fafc !important;
+  color: #312e81 !important;
+  box-shadow: none !important;
+}
+
+.neo-student-shell[data-appearance-theme="light"] .neo-chat-bubble-student {
+  border-color: var(--neo-appearance-accent) !important;
+  background: var(--neo-appearance-accent-fill) !important;
+  color: #ffffff !important;
+}
+
+.neo-student-shell[data-appearance-theme="light"] .neo-chat-bubble.bg-red-50 {
+  border-color: #fca5a5 !important;
+  background: #fef2f2 !important;
+  color: #991b1b !important;
+}
+
+.neo-student-shell[data-appearance-theme="light"] .neo-top-logo-word {
+  color: #0f172a !important;
+  text-shadow: none !important;
+}
+
+.neo-student-shell[data-appearance-theme="light"] .neo-student-profile-capsule,
+.neo-student-shell[data-appearance-theme="light"] .neo-student-menu-button,
+.neo-student-shell[data-appearance-theme="light"] .neo-conversation-controls select,
+.neo-student-shell[data-appearance-theme="light"] .neo-secondary-control-chip,
+.neo-student-shell[data-appearance-theme="light"] .neo-classroom-menu-button,
+.neo-student-shell[data-appearance-theme="light"] .neo-composer-action,
+.neo-student-shell[data-appearance-theme="light"] .neo-composer-input {
+  border-color: #cbd5e1 !important;
+  background: #ffffff !important;
+  color: #334155 !important;
+  box-shadow: none !important;
+  color-scheme: light !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"],
+.neo-student-shell[data-appearance-theme="dark"].is-live-class-active,
+.neo-student-shell[data-appearance-theme="dark"].is-live-class-active:not(.is-focus-fullscreen) {
+  color-scheme: dark !important;
+  background: #020617 !important;
+  color: #e2e8f0 !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .neo-student-header,
+.neo-student-shell[data-appearance-theme="dark"] .neo-student-tabs,
+.neo-student-shell[data-appearance-theme="dark"] .neo-student-menu,
+.neo-student-shell[data-appearance-theme="dark"] .neo-dashboard,
+.neo-student-shell[data-appearance-theme="dark"] .neo-student-tab-panel,
+.neo-student-shell[data-appearance-theme="dark"] .neo-classroom,
+.neo-student-shell[data-appearance-theme="dark"] .neo-classroom aside,
+.neo-student-shell[data-appearance-theme="dark"] .neo-conversation-header,
+.neo-student-shell[data-appearance-theme="dark"] .neo-chat-panel,
+.neo-student-shell[data-appearance-theme="dark"] .neo-composer,
+.neo-student-shell[data-appearance-theme="dark"] .neo-start-modal,
+.neo-student-shell[data-appearance-theme="dark"] .neo-topic-test-modal,
+.neo-student-shell[data-appearance-theme="dark"] .neo-student-modal {
+  border-color: #334155 !important;
+  background: #0f172a !important;
+  color: #e2e8f0 !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .neo-top-logo-word,
+.neo-student-shell[data-appearance-theme="dark"] .neo-settings-notice strong,
+.neo-student-shell[data-appearance-theme="dark"] .neo-student-menu a,
+.neo-student-shell[data-appearance-theme="dark"] .neo-student-menu button {
+  color: #f8fafc !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .neo-student-profile-capsule,
+.neo-student-shell[data-appearance-theme="dark"] .neo-student-menu-button,
+.neo-student-shell[data-appearance-theme="dark"] .neo-conversation-controls select,
+.neo-student-shell[data-appearance-theme="dark"] .neo-secondary-control-chip,
+.neo-student-shell[data-appearance-theme="dark"] .neo-classroom-menu-button,
+.neo-student-shell[data-appearance-theme="dark"] .neo-composer-action,
+.neo-student-shell[data-appearance-theme="dark"] .neo-composer-input {
+  border-color: #64748b !important;
+  background: #111827 !important;
+  color: #f8fafc !important;
+  box-shadow: none !important;
+  color-scheme: dark !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .neo-topic-test-option .bg-emerald-100 {
+  background: #14532d !important;
+  color: #d1fae5 !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .neo-topic-test-option .bg-red-100 {
+  background: #7f1d1d !important;
+  color: #fee2e2 !important;
+}
+
+/* Focused appearance contrast/layout repairs. */
+.neo-student-shell .neo-settings-notice {
+  width: min(19rem, calc(100vw - 1rem)) !important;
+  max-width: calc(100vw - 1rem) !important;
+}
+
+.neo-student-shell .neo-appearance-field {
+  grid-template-columns: minmax(5.5rem, 0.8fr) minmax(9rem, 1.2fr);
+}
+
+.neo-student-shell .neo-appearance-field select {
+  min-width: 0;
+  padding-right: 1.9rem;
+  text-overflow: clip;
+}
+
+.neo-student-shell[data-reading-size="extra-large"] .neo-topic-test-modal .neo-topic-test-close {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+.neo-student-shell[data-appearance-theme="light"] .neo-top-logo-image,
+.neo-student-shell[data-appearance-theme="light"] .neo-top-logo img {
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .neo-top-logo-image,
+.neo-student-shell[data-appearance-theme="dark"] .neo-top-logo img {
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .neo-top-logo {
+  background: rgba(255, 255, 255, 0.94) !important;
+  border-radius: 0.35rem !important;
+}
+
+.neo-student-shell[data-appearance-theme="light"] .neo-student-tabs button:not(.bg-blue-600),
+.neo-student-shell[data-appearance-theme="light"] .neo-mobile-bottom-nav button:not(.is-active) {
+  border-color: #cbd5e1 !important;
+  background: #ffffff !important;
+  color: #334155 !important;
+}
+
+.neo-student-shell[data-appearance-theme="light"] .neo-student-tabs button:not(.bg-blue-600):hover,
+.neo-student-shell[data-appearance-theme="light"] .neo-mobile-bottom-nav button:not(.is-active):hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .neo-student-tabs button:not(.bg-blue-600),
+.neo-student-shell[data-appearance-theme="dark"] .neo-mobile-bottom-nav button:not(.is-active) {
+  border-color: #475569 !important;
+  background: #111827 !important;
+  color: #cbd5e1 !important;
+  text-shadow: none !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .neo-student-tabs button:not(.bg-blue-600):hover,
+.neo-student-shell[data-appearance-theme="dark"] .neo-mobile-bottom-nav button:not(.is-active):hover {
+  border-color: #64748b !important;
+  background: #1e293b !important;
+  color: #ffffff !important;
+}
+
+.neo-student-shell[data-appearance-theme] .neo-student-tabs button.bg-blue-600,
+.neo-student-shell[data-appearance-theme] .neo-mobile-bottom-nav button.is-active,
+.neo-student-shell[data-appearance-theme] .neo-classroom aside .bg-blue-600,
+.neo-student-shell[data-appearance-theme] .neo-classroom aside .bg-blue-50 {
+  border-color: var(--neo-appearance-accent) !important;
+  background: var(--neo-appearance-accent-fill) !important;
+  color: #ffffff !important;
+  text-shadow: none !important;
+}
+
+.neo-student-shell[data-appearance-theme] .neo-student-tabs button.bg-blue-600:hover,
+.neo-student-shell[data-appearance-theme] .neo-mobile-bottom-nav button.is-active:hover,
+.neo-student-shell[data-appearance-theme] .neo-classroom aside .bg-blue-600:hover,
+.neo-student-shell[data-appearance-theme] .neo-classroom aside .bg-blue-50:hover {
+  background: color-mix(in srgb, var(--neo-appearance-accent-fill), white 12%) !important;
+  color: #ffffff !important;
+}
+
+.neo-student-shell[data-appearance-theme="light"] .neo-classroom aside button:not(.bg-blue-600):not(.bg-blue-50) {
+  border-color: #cbd5e1 !important;
+  background: #ffffff !important;
+  color: #334155 !important;
+}
+
+.neo-student-shell[data-appearance-theme="light"] .neo-classroom aside button:not(.bg-blue-600):not(.bg-blue-50):hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .neo-classroom aside button:not(.bg-blue-600):not(.bg-blue-50) {
+  border-color: #475569 !important;
+  background: #111827 !important;
+  color: #e2e8f0 !important;
+  text-shadow: none !important;
+}
+
+.neo-student-shell[data-appearance-theme="dark"] .neo-classroom aside button:not(.bg-blue-600):not(.bg-blue-50):hover {
+  border-color: #64748b !important;
+  background: #1e293b !important;
+  color: #ffffff !important;
+}
+
+.neo-student-shell[data-appearance-theme] .neo-student-tabs button:disabled,
+.neo-student-shell[data-appearance-theme] .neo-mobile-bottom-nav button:disabled,
+.neo-student-shell[data-appearance-theme] .neo-classroom aside button:disabled {
+  border-color: #475569 !important;
+  background: #1e293b !important;
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 420px) {
+  .neo-student-shell .neo-settings-notice {
+    right: 0 !important;
+    width: min(18rem, calc(100vw - 0.75rem)) !important;
+    max-width: calc(100vw - 0.75rem) !important;
+  }
+
+  .neo-student-shell .neo-appearance-field {
+    grid-template-columns: 1fr;
+  }
+
+  .neo-student-shell .neo-appearance-field select {
+    width: 100%;
+    min-width: 0;
   }
 }
