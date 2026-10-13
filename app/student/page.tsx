@@ -5236,6 +5236,12 @@ function ClassroomView(props: {
   const startLessonButtonRef = useRef<HTMLButtonElement | null>(null);
   const [highlightTopicTestButton, setHighlightTopicTestButton] = useState(false);
   const [highlightStartLessonButton, setHighlightStartLessonButton] = useState(false);
+  const [textbookOpen, setTextbookOpen] = useState(false);
+  const [textbookLoading, setTextbookLoading] = useState(false);
+  const [textbookMessage, setTextbookMessage] = useState<string | null>(null);
+  const [textbookChoices, setTextbookChoices] = useState<
+    Array<{ title: string; edition?: string | null; page: number; url: string }>
+  >([]);
 
   const [selectedImage, setSelectedImage] = useState<{ name: string; dataUrl: string } | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
@@ -5250,6 +5256,52 @@ function ClassroomView(props: {
     setSelectedImage(null);
     setAttachmentError(null);
   }, [conversationScopeKey]);
+
+  useEffect(() => {
+    setTextbookOpen(false);
+    setTextbookLoading(false);
+    setTextbookMessage(null);
+    setTextbookChoices([]);
+  }, [conversationScopeKey]);
+
+  const handleViewTextbook = async () => {
+    setLiveActionDrawerOpen(false);
+    setTextbookOpen(true);
+    setTextbookLoading(true);
+    setTextbookMessage(null);
+    setTextbookChoices([]);
+    if (!currentSubject || !currentChapter) {
+      setTextbookLoading(false);
+      setTextbookMessage("Select a subject and chapter first.");
+      return;
+    }
+
+    try {
+      const params = new URLSearchParams({
+        subjectId: String(currentSubject.id),
+        chapterId: String(currentChapter.id),
+      });
+      if (currentTopic) params.set("topicId", String(currentTopic.id));
+      const response = await fetch(`/api/student/textbooks?${params.toString()}`, {
+        cache: "no-store",
+        headers: studentAuthHeaders(),
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.ok) {
+        setTextbookMessage(loginAgainMessage(response.status, data?.error || "Textbooks are unavailable."));
+        return;
+      }
+      const choices = Array.isArray(data.books) ? data.books : [];
+      setTextbookChoices(choices);
+      if (!choices.length) {
+        setTextbookMessage(data.message || "No eligible textbook is available for this chapter.");
+      }
+    } catch {
+      setTextbookMessage("Textbooks are temporarily unavailable. Please try again.");
+    } finally {
+      setTextbookLoading(false);
+    }
+  };
 
   const handleImageFiles = async (fileList: FileList | null) => {
     setAttachmentError(null);
@@ -6457,6 +6509,10 @@ useEffect(() => {
           <ClipboardCheck className="h-4 w-4" />
           <span>Topic test</span>
         </button>
+        <button type="button" title="View textbook" aria-label="View textbook" onClick={() => void handleViewTextbook()} disabled={!currentSubject || !currentChapter}>
+          <BookOpen className="h-4 w-4" />
+          <span>View Textbook</span>
+        </button>
         <button type="button" title="End class and save" aria-label="End class and save" onClick={() => { setLiveActionDrawerOpen(false); handleEndClassClick(); }}>
           <Save className="h-4 w-4" />
           <span>End &amp; save</span>
@@ -6577,6 +6633,16 @@ useEffect(() => {
           Quick menu
         </div>
         <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => void handleViewTextbook()}
+            disabled={!currentSubject || !currentChapter}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <BookOpen className="h-4 w-4" />
+            View Textbook
+          </button>
+
           <button
             type="button"
             onClick={() => goTab("progress")}
@@ -6711,6 +6777,52 @@ useEffect(() => {
 
   return (
     <>
+      {textbookOpen && (
+        <div className="neo-student-modal fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="textbook-dialog-title">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 id="textbook-dialog-title" className="text-lg font-bold text-slate-900">View Textbook</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {currentSubject?.subject_name} · {currentChapter?.chapter_name}
+                </p>
+              </div>
+              <button type="button" aria-label="Close textbook chooser" onClick={() => setTextbookOpen(false)} className="rounded-xl border border-slate-200 p-2 text-slate-600">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {textbookLoading && (
+                <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Checking published textbooks...
+                </div>
+              )}
+              {!textbookLoading && textbookMessage && (
+                <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">{textbookMessage}</p>
+              )}
+              {!textbookLoading && textbookChoices.map((book, index) => (
+                <a
+                  key={`${book.title}-${book.edition || ""}-${index}`}
+                  href={`${book.url}#page=${Math.max(1, Number(book.page) || 1)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex w-full items-center justify-between gap-3 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-left text-blue-800 hover:bg-blue-100"
+                >
+                  <span>
+                    <strong className="block text-sm">{book.title || "Textbook"}</strong>
+                    <span className="text-xs">{book.edition ? `${book.edition} · ` : ""}Open near page {Math.max(1, Number(book.page) || 1)}</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0" />
+                </a>
+              ))}
+              {!textbookLoading && textbookChoices.length > 0 && (
+                <p className="text-xs text-slate-500">If your browser cannot preview PDFs, it will open or download the original file instead.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       <div className={`neo-classroom relative flex h-full min-h-0 w-full overflow-hidden rounded-[28px] border border-slate-200 bg-slate-50 ${
         classroomFullscreen ? "is-classroom-fullscreen" : ""
       } ${isClassLive ? "is-live-minimal" : ""}`}>
