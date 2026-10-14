@@ -5,17 +5,20 @@ import { requireAdmin } from "@/app/lib/adminAuth";
 import { readStoredPdfInfo } from "@/app/lib/textbookUploadMetadata.mjs";
 import { generateTextbookMappingSuggestions, normalizeHeading, suggestionIdentityMatches } from "@/app/lib/textbookMappingSuggestions.mjs";
 import { recordOpenAIUsage, resolveAiRequestId } from "@/app/lib/aiUsageLedger";
-import { buildTextbookAiMappingInput, catalogFingerprint, TEXTBOOK_AI_MAPPING_CONTRACT, TEXTBOOK_AI_MAPPING_MAX_OUTPUT_TOKENS, TEXTBOOK_AI_MAPPING_MODEL, TEXTBOOK_AI_MAPPING_TIMEOUT_MS, textbookAiMappingInstructions, textbookAiMappingOutputCounts, TextbookAiMappingValidationError, validateTextbookAiMapping } from "@/app/lib/textbookAiMapping.mjs";
+import { buildTextbookAiMappingInput, catalogFingerprint, TEXTBOOK_AI_MAPPING_CONTRACT, TEXTBOOK_AI_MAPPING_MAX_OUTPUT_TOKENS, TEXTBOOK_AI_MAPPING_MODEL, TEXTBOOK_AI_MAPPING_TIMEOUT_MS, textbookAiMappingIncompleteDiagnostics, textbookAiMappingInstructions, textbookAiMappingOutputCounts, TextbookAiMappingValidationError, validateTextbookAiMapping } from "@/app/lib/textbookAiMapping.mjs";
+import { captureLocalTextbookAiEvidenceFailure } from "@/app/lib/textbookAiMappingCapture.mjs";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 const MAX_BYTES = 25 * 1024 * 1024;
 const PDF_TYPE = "application/pdf";
-const AI_MAPPING_REJECTION_CODES=new Set(["OUTPUT_CONTRACT","CURRICULUM_RELATIONSHIP","DUPLICATE_TOPIC","PAGE_RANGE","EVIDENCE_COUNT","EVIDENCE_QUOTE","PROPOSAL_TEXT","UNRESOLVED_TOPIC","TOPIC_COVERAGE"]);
+const AI_MAPPING_REJECTION_CODES=new Set(["OUTPUT_CONTRACT","CURRICULUM_RELATIONSHIP","DUPLICATE_TOPIC","PAGE_RANGE","EVIDENCE_COUNT","EVIDENCE_ID_UNKNOWN","EVIDENCE_ID_DUPLICATE","EVIDENCE_ID_RANGE","EVIDENCE_BLOCK_EMPTY","PROPOSAL_TEXT","UNRESOLVED_TOPIC"]);
 function aiMappingFailure(code:string,stage:string,message:string,status:number,rejectionCode?:string,counts?:Record<string,unknown>){
-  const safeCounts=Object.fromEntries(Object.entries(counts||{}).filter(([key,value])=>["proposalCount","unresolvedCount","evidenceCount"].includes(key)&&typeof value==="number"&&Number.isSafeInteger(value)&&value>=0));
+  const safeCounts=Object.fromEntries(Object.entries(counts||{}).filter(([key,value])=>["proposalCount","unresolvedCount","evidenceCount","configuredOutputTokenLimit","returnedOutputTokenCount"].includes(key)&&((typeof value==="number"&&Number.isSafeInteger(value)&&value>=0)||(["returnedOutputTokenCount"].includes(key)&&value===null))));
+  const providerStatus=["completed","incomplete","failed","cancelled","in_progress","queued","unknown"].includes(String(counts?.providerStatus))?String(counts?.providerStatus):undefined;
+  const incompleteReason=["max_output_tokens","content_filter","unknown"].includes(String(counts?.incompleteReason))?String(counts?.incompleteReason):undefined;
   const safeRejection=rejectionCode&&AI_MAPPING_REJECTION_CODES.has(rejectionCode)?rejectionCode:undefined;
-  console.error("admin textbook AI mapping failure",{stage,errorCode:code,...(safeRejection?{rejectionCode:safeRejection}:{}),...safeCounts});
+  console.error("admin textbook AI mapping failure",{stage,errorCode:code,...(safeRejection?{rejectionCode:safeRejection}:{}),...(providerStatus?{providerStatus}:{}),...(incompleteReason?{incompleteReason}:{}),...safeCounts});
   return NextResponse.json({ok:false,error:message,errorCode:code},{status});
 }
 
@@ -171,11 +174,11 @@ export async function PATCH(req: NextRequest) {
       return aiMappingFailure(timeout?"AI_MAPPING_PROVIDER_TIMEOUT":"AI_MAPPING_PROVIDER_FAILED","provider",timeout?"The single AI mapping call timed out. It was not retried.":"The AI provider call failed. No proposals were saved.",timeout?504:502);
     }
     const outputText=typeof response?.output_text==="string"?response.output_text:"";
-    if(response?.status==="incomplete"||!outputText.trim()){await failClaim("AI_MAPPING_OUTPUT_INCOMPLETE");return aiMappingFailure("AI_MAPPING_OUTPUT_INCOMPLETE","output","The AI provider returned incomplete output. No proposals were saved.",422)}
+    if(response?.status==="incomplete"||!outputText.trim()){await failClaim("AI_MAPPING_OUTPUT_INCOMPLETE");return aiMappingFailure("AI_MAPPING_OUTPUT_INCOMPLETE","output","The AI provider returned incomplete output. No proposals were saved.",422,undefined,textbookAiMappingIncompleteDiagnostics(response))}
     let parsed:any;
     try{parsed=JSON.parse(outputText)}catch{await failClaim("AI_MAPPING_JSON_INVALID");return aiMappingFailure("AI_MAPPING_JSON_INVALID","json","The AI provider returned invalid JSON. No proposals were saved.",422)}
     let validated:any;
-    try{validated=validateTextbookAiMapping(parsed,{source,pages,subject:matching[0]})}catch(error){await failClaim("AI_MAPPING_PROPOSAL_INVALID");const validation=error instanceof TextbookAiMappingValidationError?error:null;return aiMappingFailure("AI_MAPPING_PROPOSAL_INVALID","validation","The AI proposals failed validation. No proposals were saved.",422,validation?.rejectionCode,validation?.counts||textbookAiMappingOutputCounts(parsed))}
+    try{validated=validateTextbookAiMapping(parsed,{source,pages,subject:matching[0]})}catch(error){await failClaim("AI_MAPPING_PROPOSAL_INVALID");const validation=error instanceof TextbookAiMappingValidationError?error:null;if(validation&&(validation.rejectionCode.startsWith("EVIDENCE_")||["DUPLICATE_TOPIC","UNRESOLVED_TOPIC"].includes(validation.rejectionCode))){try{await captureLocalTextbookAiEvidenceFailure({source,pages,proposals:parsed,rejectionCode:validation.rejectionCode})}catch{console.error("admin textbook AI mapping failure",{stage:"capture",errorCode:"LOCAL_CAPTURE_FAILED"})}}return aiMappingFailure("AI_MAPPING_PROPOSAL_INVALID","validation","The AI proposals failed validation. No proposals were saved.",422,validation?.rejectionCode,validation?.counts||textbookAiMappingOutputCounts(parsed))}
     const {data:stored,error:storeError}=await db.rpc("finalize_textbook_ai_mapping",{p_source_id:source.id,p_claim_token:claimToken,p_proposals:validated.suggestions,p_unresolved:validated.unresolved});
     if(storeError){await failClaim("AI_MAPPING_FINALIZE_RPC");return aiMappingFailure("AI_MAPPING_FINALIZE_RPC","finalize","The validated AI proposals could not be persisted.",503)}
     if(stored!==true){await failClaim("AI_MAPPING_FINALIZE_STALE");return aiMappingFailure("AI_MAPPING_FINALIZE_STALE","finalize","The source or curriculum changed before AI proposals could be persisted.",409)}
