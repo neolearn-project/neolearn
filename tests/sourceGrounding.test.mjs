@@ -98,6 +98,12 @@ test("literature prompts preserve supported titles, structural labels, chronolog
   assert.match(testRoute, /do not ask why|unsupported why question/i);
 });
 
+test("Topic Test generation and review reject semantic duplicates that test the same fact", () => {
+  assert.match(testRoute, /Every question must assess a different source fact or skill[\s\S]*Different wording, reversed wording, or a different distractor set does not make a question distinct/i);
+  assert.match(testRoute, /Questions must assess different facts or skills, not rephrase the same question/i);
+  assert.match(testRoute, /each accepted question must assess a different source fact or skill; treat a rephrased or reversed version of the same question as duplicate_question/i);
+});
+
 test("literature prompts do not promote opening lines to titles", () => {
   for (const prompt of [lessonRoute, teacherRoute, CLASSROOM_GROUNDING_RULES]) {
     assert.match(prompt, /title only when[\s\S]*explicitly identifies|only when[\s\S]*explicitly identifies its title/i);

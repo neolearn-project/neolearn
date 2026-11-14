@@ -193,6 +193,7 @@ Teach a useful initial introduction to the selected topic, not merely a greeting
 - Preserve sequence versus causation: one event occurring before or after another does not establish a motive, reason, or causal explanation. Never invent one.
 - Do not turn unusual sounds, comparisons, figurative language, or imagery into literal actions unless the selected source explicitly states the action.
 - Preserve who said, believed, observed, or did each thing, and keep scientific explanations accurate without recasting literary imagery as science.
+- For Mathematics, verify every numerical conclusion against the worked calculation, then explicitly answer the original question with the result actually obtained. Never let the concluding yes/no or comparison contradict the arithmetic. Generic example: 3 × 365 × 100 = 109500 > 100000, so the answer is yes under stated assumptions.
 
 ${competitiveInstruction}
 `.trim();

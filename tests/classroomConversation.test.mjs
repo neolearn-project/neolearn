@@ -196,6 +196,13 @@ test("opening lesson teaches the selected topic before handing off; provider fai
   assert.match(page, /status: "in_progress"/);
 });
 
+test("opening Mathematics lesson prompt keeps its conclusion consistent with its worked calculation", () => {
+  assert.match(lessonRoute, /For Mathematics, verify every numerical conclusion against the worked calculation/i);
+  assert.match(lessonRoute, /explicitly answer the original question with the result actually obtained/i);
+  assert.match(lessonRoute, /Never let the concluding yes\/no or comparison contradict the arithmetic/i);
+  assert.match(lessonRoute, /3 × 365 × 100 = 109500 > 100000, so the answer is yes under stated assumptions/i);
+});
+
 test("grounding contract continues short replies without inventing textbook facts", () => {
   assert.match(CLASSROOM_GROUNDING_RULES, /short replies[\s\S]*previous teacher turn/i);
   assert.match(CLASSROOM_GROUNDING_RULES, /title is navigation context, not evidence/i);
