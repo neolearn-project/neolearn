@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -79,7 +79,7 @@ export default function ParentLoginPage() {
       return;
     }
 
-    if (!/^\d{4,10}$/.test(trimmedOtp)) {
+    if (!/^\d{6}$/.test(trimmedOtp)) {
       setError("Enter a valid OTP.");
       return;
     }
@@ -128,7 +128,7 @@ export default function ParentLoginPage() {
     setError(null);
 
     const trimmedMobile = mobile.trim();
-    const trimmedPassword = password.trim();
+    const trimmedPassword = password;
 
     if (!/^\d{10}$/.test(trimmedMobile)) {
       setError("Please enter a valid 10-digit mobile number.");

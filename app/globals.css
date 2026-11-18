@@ -5734,7 +5734,7 @@ body {
   }
 }
 
-/* Appearance cascade guard: intentionally last. */
+/* Appearance cascade guard. */
 .neo-student-shell[data-appearance-theme="light"],
 .neo-student-shell[data-appearance-theme="light"].is-live-class-active,
 .neo-student-shell[data-appearance-theme="light"].is-live-class-active:not(.is-focus-fullscreen) {
@@ -6043,5 +6043,78 @@ body {
   .neo-student-shell .neo-appearance-field select {
     width: 100%;
     min-width: 0;
+  }
+}
+
+/* Mobile account and student polish. Learning/answer-state colours stay in
+   the existing appearance rules above; these rules only refine controls. */
+.neo-login-methods {
+  padding: 0.25rem;
+  border: 1px solid #e0e7ff;
+  border-radius: 1rem;
+  background: #eef2ff;
+}
+.neo-login-methods button {
+  min-height: 2.75rem;
+  border: 0;
+  color: #3730a3;
+  font-weight: 600;
+}
+.neo-login-methods button[aria-pressed="true"] {
+  background: #ffffff;
+  color: #312e81;
+  box-shadow: 0 2px 8px rgb(49 46 129 / 12%);
+}
+.neo-auth-modal { color: #312e81; }
+.neo-auth-modal input:focus-visible,
+.neo-auth-modal button:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 3px;
+}
+@media (max-width: 767px) {
+  .neo-auth-backdrop {
+    padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem max(0.75rem, env(safe-area-inset-bottom));
+    backdrop-filter: blur(5px);
+  }
+  .neo-auth-modal {
+    border-radius: 1.5rem;
+    max-height: 90dvh;
+    box-shadow: 0 20px 64px rgb(15 23 42 / 24%);
+  }
+  .neo-auth-modal input,
+  .neo-auth-modal select {
+    min-height: 3rem;
+    font-size: 1rem;
+    border-radius: 0.85rem;
+  }
+  .neo-auth-modal .neo-mobile-auth-submit {
+    min-height: 3rem;
+    border-radius: 0.85rem;
+    background: linear-gradient(120deg, #2563eb, #4f46e5);
+  }
+  .neo-student-shell .neo-student-header {
+    padding-top: max(0.65rem, env(safe-area-inset-top));
+  }
+  .neo-student-shell .neo-student-tabs {
+    scroll-padding-inline: 0.5rem;
+    overscroll-behavior-x: contain;
+  }
+  .neo-student-shell .neo-student-tabs button {
+    min-height: 2.75rem;
+    font-weight: 600;
+  }
+  .neo-student-shell .neo-mobile-bottom-nav button {
+    min-height: 3rem;
+    gap: 0.3rem;
+    font-size: 0.72rem;
+    line-height: 1.2;
+  }
+  .neo-student-shell .neo-mobile-bottom-nav button svg {
+    width: 1.2rem;
+    height: 1.2rem;
+  }
+  .neo-student-shell .neo-conversation-controls {
+    scroll-padding-inline: 0.5rem;
+    overscroll-behavior-x: contain;
   }
 }

@@ -1,6 +1,7 @@
 ﻿// app/api/syllabus/route.ts
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { chaptersWithActiveTopics } from "@/app/lib/activeCurriculum.mjs";
 
 type SubjectRow = {
   id: number;
@@ -134,7 +135,7 @@ export async function GET(req: Request) {
       ok: true,
       data: {
         subjects,
-        chapters,
+        chapters: chaptersWithActiveTopics(chapters, topics),
         topics,
       },
     });

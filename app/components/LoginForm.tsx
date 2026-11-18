@@ -1,13 +1,18 @@
-﻿"use client";
+"use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
+
+import StudentOtpLogin from "./StudentOtpLogin";
+import { storedStudentFromResponse } from "@/app/lib/studentLoginCore.mjs";
 
 const STUDENT_STORAGE_KEY = "neolearnStudent";
 
 export default function LoginForm({ onDone }: { onDone: () => void }) {
   const router = useRouter();
+  const [method,setMethod]=useState<"password"|"otp">("otp");
+  const loginLock=useRef(false);
 
   const [loginUserId, setLoginUserId] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -16,10 +21,11 @@ export default function LoginForm({ onDone }: { onDone: () => void }) {
   const [error, setError] = useState<string | null>(null);
 
   async function handleLogin() {
+    if(loginLock.current)return;
     setError(null);
 
     const username = loginUserId.trim().toLowerCase();
-    const password = loginPassword.trim();
+    const password = loginPassword;
 
     if (!username) {
       setError("Enter Student User ID.");
@@ -31,6 +37,7 @@ export default function LoginForm({ onDone }: { onDone: () => void }) {
       return;
     }
 
+    loginLock.current=true;
     setLoading(true);
 
     try {
@@ -52,36 +59,25 @@ export default function LoginForm({ onDone }: { onDone: () => void }) {
         throw new Error(data?.error || "Invalid username or password.");
       }
 
-      const st = data.student || {};
-
-      const payload = {
-        name: st.full_name || st.name || "Student",
-        mobile: st.mobile || "",
-        classId: String(st.class_id || st.classId || "6"),
-        board: st.board || "CBSE",
-        track: st.track || st.subject_type || st.subjectType || "regular",
-        subjectType: st.subject_type || st.subjectType || st.track || "regular",
-        competitiveExam: st.competitiveExam || null,
-        studentId: st.user_id || st.studentId || "",
-        username: st.username || username,
-        access_token: data?.session?.access_token || "",
-        refresh_token: data?.session?.refresh_token || "",
-        expires_at: data?.session?.expires_at || null,
-      };
-
-      localStorage.setItem(STUDENT_STORAGE_KEY, JSON.stringify(payload));
+      localStorage.setItem(STUDENT_STORAGE_KEY, JSON.stringify(storedStudentFromResponse(data)));
 
       onDone();
       router.push("/student");
     } catch (e: any) {
       setError(e?.message || "Login failed");
     } finally {
+      loginLock.current=false;
       setLoading(false);
     }
   }
 
   return (
     <div className="neo-mobile-auth-form space-y-4">
+      <div className="neo-login-methods flex gap-2" role="group" aria-label="Student login method">
+        <button type="button" disabled={loading} aria-pressed={method==="password"} onClick={()=>{setMethod("password");setError(null);}} className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm">User ID / password</button>
+        <button type="button" disabled={loading} aria-pressed={method==="otp"} onClick={()=>{setMethod("otp");setError(null);}} className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm">Mobile OTP</button>
+      </div>
+      {method==="otp" ? <StudentOtpLogin onDone={onDone}/> : <>
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
@@ -90,6 +86,8 @@ export default function LoginForm({ onDone }: { onDone: () => void }) {
 
       <input
         className="neo-mobile-auth-input w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+        aria-label="Student User ID"
+        autoComplete="username"
         placeholder="Student User ID"
         value={loginUserId}
         onChange={(e) => setLoginUserId(e.target.value.toLowerCase())}
@@ -99,6 +97,8 @@ export default function LoginForm({ onDone }: { onDone: () => void }) {
         <input
           type={showPassword ? "text" : "password"}
           className="neo-mobile-auth-input w-full rounded-xl border border-slate-300 px-3 py-2 pr-12 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          aria-label="Password"
+          autoComplete="current-password"
           placeholder="Password"
           value={loginPassword}
           onChange={(e) => setLoginPassword(e.target.value)}
@@ -125,6 +125,7 @@ export default function LoginForm({ onDone }: { onDone: () => void }) {
       >
         {loading ? "Logging in..." : "Login"}
       </button>
+      </>}
     </div>
   );
 }

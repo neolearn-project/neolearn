@@ -1,197 +1,22 @@
-import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import {
-  OwnershipError,
-  ownershipErrorResponse,
-  requireStudentMobile,
-} from "@/lib/auth/ownership";
-
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
-function parentMobileToEmail(mobile: string) {
-  return `parent_${mobile.replace(/\D/g, "")}@neolearn.in`;
-}
-
-function isValidIndianMobile(mobile: string) {
-  return /^\d{10}$/.test(String(mobile || "").replace(/\D/g, ""));
-}
-
-function titleCase(value: string) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const studentMobile = String(body?.studentMobile || body?.mobile || "").trim();
-    const parentMobile = String(body?.parentMobile || "").trim();
-    const parentName = String(body?.parentName || "Parent").trim() || "Parent";
-
-    if (!isValidIndianMobile(studentMobile)) {
-      return NextResponse.json({ ok: false, error: "Invalid student mobile." }, { status: 400 });
-    }
-
-    if (!isValidIndianMobile(parentMobile)) {
-      return NextResponse.json({ ok: false, error: "Enter valid parent mobile (10 digits)." }, { status: 400 });
-    }
-
-    const identity = await requireStudentMobile(req, studentMobile);
-    const admin = identity.admin || supabaseAdmin();
-
-    const { data: student, error: studentError } = await admin
-      .from("students")
-      .select("id, user_id, name, full_name, phone, class_label, class, username")
-      .eq("phone", studentMobile)
-      .limit(1)
-      .maybeSingle();
-
-    if (studentError) {
-      return NextResponse.json({ ok: false, error: "Failed to load student record." }, { status: 500 });
-    }
-
-    if (!student) {
-      return NextResponse.json({ ok: false, error: "Student record not found." }, { status: 404 });
-    }
-
-    const { data: profile } = await admin
-      .from("student_profile")
-      .select("*")
-      .eq("mobile", studentMobile)
-      .limit(1)
-      .maybeSingle();
-
-    const parentEmail = parentMobileToEmail(parentMobile);
-    const authUsers = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-
-    if (authUsers.error) {
-      return NextResponse.json(
-        { ok: false, error: `Failed to validate parent account. (${authUsers.error.message})` },
-        { status: 500 }
-      );
-    }
-
-    let parentUser = (authUsers.data?.users || []).find(
-      (user) => user.email?.toLowerCase() === parentEmail.toLowerCase()
-    );
-
-    if (!parentUser) {
-      const created = await admin.auth.admin.createUser({
-        email: parentEmail,
-        password: crypto.randomUUID(),
-        email_confirm: true,
-        user_metadata: {
-          role: "parent",
-          name: parentName,
-          mobile: parentMobile,
-        },
-      });
-
-      if (created.error || !created.data?.user) {
-        return NextResponse.json(
-          { ok: false, error: created.error?.message || "Failed to create parent account." },
-          { status: 400 }
-        );
-      }
-
-      parentUser = created.data.user;
-    }
-
-    const parentProfile = await admin.from("parent_profile").upsert(
-      {
-        user_id: parentUser.id,
-        full_name: parentName,
-        mobile: parentMobile,
-        country: "India",
-        preferred_language: "English",
-      },
-      { onConflict: "user_id" }
-    );
-
-    if (parentProfile.error) {
-      return NextResponse.json(
-        { ok: false, error: `Failed to update parent profile. (${parentProfile.error.message})` },
-        { status: 500 }
-      );
-    }
-
-    const studentName = student.full_name || student.name || "Student";
-    const classNumber = Number(String(student.class_label || student.class || "6").replace(/\D/g, "") || 6);
-    const profileTrack = String(profile?.track || profile?.subject_type || "").toLowerCase();
-    const isCompetitive =
-      profileTrack === "competitive" ||
-      /\b(jee|neet|cuet|ssc|banking|upsc|foundation)\b/i.test(
-        `${profile?.board || ""} ${student.class_label || ""} ${student.class || ""}`
-      );
-    const boardOrExam =
-      profile?.board ||
-      (isCompetitive ? String(student.class_label || student.class || "Foundation").replace(/^Class\s+/i, "") : "CBSE");
-
-    const studentUpdate = await admin
-      .from("students")
-      .update({
-        guardian_name: parentName,
-        guardian_phone: parentMobile,
-      })
-      .eq("phone", studentMobile);
-
-    if (studentUpdate.error) {
-      return NextResponse.json(
-        { ok: false, error: `Failed to link student guardian. (${studentUpdate.error.message})` },
-        { status: 500 }
-      );
-    }
-
-    const { data: existingChild, error: existingChildError } = await admin
-      .from("children")
-      .select("id")
-      .eq("parent_mobile", parentMobile)
-      .eq("child_mobile", studentMobile)
-      .limit(1)
-      .maybeSingle();
-
-    if (existingChildError) {
-      return NextResponse.json(
-        { ok: false, error: `Failed to validate child link. (${existingChildError.message})` },
-        { status: 500 }
-      );
-    }
-
-    const childPayload = {
-      child_name: titleCase(studentName),
-      board: boardOrExam,
-      class_number: isCompetitive ? null : Number.isFinite(classNumber) ? classNumber : 6,
-      country: "India",
-      language: "English",
-      subject_type: isCompetitive ? "competitive" : "regular",
-    };
-
-    const childWrite = existingChild
-      ? await admin.from("children").update(childPayload).eq("id", existingChild.id)
-      : await admin.from("children").insert({
-          parent_mobile: parentMobile,
-          child_mobile: studentMobile,
-          ...childPayload,
-        });
-
-    if (childWrite.error) {
-      return NextResponse.json(
-        { ok: false, error: `Failed to save child link. (${childWrite.error.message})` },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      ok: true,
-      parent: { userId: parentUser.id, mobile: parentMobile },
-      linked: true,
-    });
-  } catch (err) {
-    if (err instanceof OwnershipError) return ownershipErrorResponse(err);
-    console.error("student link-parent route error:", err);
-    return NextResponse.json({ ok: false, error: "Failed to link parent." }, { status: 500 });
-  }
+import {createHash} from "node:crypto";
+import {requireStudentIdentity,OwnershipError,ownershipErrorResponse} from "@/lib/auth/ownership";
+import {normalizeStudentMobile,StudentLoginError} from "@/app/lib/studentLoginCore.mjs";
+import {parentLinkBinding} from "@/app/lib/accountRecoveryCore.mjs";
+import {authBody,authFailure,authSuccess,studentOtpFlow} from "@/app/lib/studentOtpServer";
+import {ensureVerifiedParent} from "@/app/lib/parentIdentityServer";
+const hash=(s:string)=>createHash("sha256").update(s).digest("hex");
+export async function POST(req:Request) {
+ try {
+  const identity=await requireStudentIdentity(req),b=await authBody(req);
+  if(b.studentMobile&&normalizeStudentMobile(b.studentMobile)!==identity.mobile)throw new OwnershipError("Student access denied.",403);
+  const mobile=normalizeStudentMobile(b.parentMobile),name=String(b.parentName||"Parent").trim();
+  const binding=parentLinkBinding(identity.user.id,name);
+  if(b.action==="start")return authSuccess(await studentOtpFlow().start({mobile,purpose:"guardian_link",binding,request:req}));
+  if(b.action!=="verify"||b.approveProgressAccess!==true)throw new StudentLoginError("Parent approval and OTP verification are required.");
+  const expectedId=await studentOtpFlow().verify({mobile,purpose:"guardian_link",binding,otpToken:b.otpToken,otp:b.otp});
+  const parent=await ensureVerifiedParent(mobile,name,expectedId);
+  const saved=await identity.admin.rpc("link_verified_parent",{p_student_id:identity.user.id,p_parent_user_id:parent.id,p_parent_mobile:mobile,p_parent_name:name,p_proof_id:b.otpToken,p_mobile_hash:hash(mobile),p_binding_hash:hash(binding),p_learning:{track:identity.user.user_metadata?.track||"regular",board:identity.user.user_metadata?.track==="competitive"?(identity.user.user_metadata?.competitiveExam||identity.user.user_metadata?.board):identity.user.user_metadata?.board||"CBSE",language:identity.user.user_metadata?.preferredLanguage||"English"}});
+  if(saved.error)throw new StudentLoginError(String(saved.error.message||"").includes("PARENT_LINK_CONFLICT")?"A different parent is already linked. Contact support to change it.":"Unable to save the verified link. Please request a new OTP.",409);
+  return authSuccess({ok:true,linked:true,parent:{userId:parent.id,mobile}});
+ }catch(e){if(e instanceof OwnershipError)return ownershipErrorResponse(e);return authFailure(e);}
 }

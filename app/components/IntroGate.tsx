@@ -1,6 +1,7 @@
 ﻿"use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { claimStartupIntro } from "@/app/lib/startupIntro.mjs";
 
 type Props = { children: React.ReactNode };
 
@@ -8,15 +9,26 @@ type Props = { children: React.ReactNode };
 const INTRO_DURATION_MS = 6200;
 
 export default function IntroGate({ children }: Props) {
-  const [showIntro, setShowIntro] = useState(true);
+  const [showIntro, setShowIntro] = useState<boolean|null>(null);
+  const decision = useRef<boolean|null>(null);
 
   const audioSrc = useMemo(() => "/splash-chime.mp3", []);
   const oImgSrc = useMemo(() => "/logo-o.png", []); // ✅ matches your /public file
 
   useEffect(() => {
+    if (decision.current === null) {
+      let storage;
+      try { storage = window.sessionStorage; } catch {}
+      decision.current = claimStartupIntro(storage);
+    }
+    setShowIntro(decision.current);
+  }, []);
+
+  useEffect(() => {
+    if (!showIntro) return;
     const t = setTimeout(() => setShowIntro(false), INTRO_DURATION_MS);
     return () => clearTimeout(t);
-  }, []);
+  }, [showIntro]);
 
   useEffect(() => {
   if (!showIntro) return;
@@ -24,19 +36,18 @@ export default function IntroGate({ children }: Props) {
   const audio = new Audio("/splash-chime.mp3");
   audio.volume = 0.55;
   audio.preload = "auto";
+  let disposed = false;
+  const onFirstTouch = async () => {
+    if (disposed) return;
+    try { await audio.play(); } catch {}
+  };
 
   const tryPlay = async () => {
     try {
       await audio.play();
     } catch {
       // Wait for first user interaction
-      const onFirstTouch = async () => {
-        try {
-          await audio.play();
-        } catch {}
-        window.removeEventListener("pointerdown", onFirstTouch);
-      };
-      window.addEventListener("pointerdown", onFirstTouch, { once: true });
+      if (!disposed) window.addEventListener("pointerdown", onFirstTouch, { once: true });
     }
   };
 
@@ -44,6 +55,8 @@ export default function IntroGate({ children }: Props) {
   const t = setTimeout(tryPlay, 420);
 
   return () => {
+    disposed = true;
+    window.removeEventListener("pointerdown", onFirstTouch);
     clearTimeout(t);
     audio.pause();
     audio.currentTime = 0;
@@ -51,6 +64,7 @@ export default function IntroGate({ children }: Props) {
 }, [showIntro]);
 
 
+  if (showIntro === null) return null;
   if (!showIntro) return <>{children}</>;
 
   return (

@@ -60,6 +60,7 @@ export async function authenticateAndAuthorizeClassroom({ authenticate, authoriz
   return identity;
 }
 
+/** @param {{messages?: Array<{role?: string, sender?: string, text?: string, content?: string, [key: string]: any}>, openingExplanation?: string, currentQuestion?: string}} [options] */
 export function buildClassroomHistory({ messages = [], openingExplanation = "", currentQuestion = "" } = {}) {
   const cleanMessages = [];
   for (const message of Array.isArray(messages) ? messages : []) {
@@ -127,6 +128,7 @@ export function validateClassroomHistory(value, currentQuestion = "") {
   return { ok: true, history };
 }
 
+/** @param {{systemPrompt: string, history?: Array<{role: string, content: string}>, userPrompt: string, imageDataUrl?: string|null}} options */
 export function buildClassroomProviderInput({ systemPrompt, history = [], userPrompt, imageDataUrl = null }) {
   const input = [{ role: "system", content: String(systemPrompt || "") }];
   for (const turn of history) input.push({ role: turn.role, content: turn.content });

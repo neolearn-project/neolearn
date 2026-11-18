@@ -1,4 +1,6 @@
-﻿"use client";
+"use client";
+import { checkpointLocalKey, validateClassroomCheckpoint, mergeClassroomHistory } from "@/app/lib/classroomCheckpoint.mjs";
+import { createClassroomRequestGuard, createClassroomRequestCache, fetchClassroomResponse } from "@/app/lib/classroomRequestLifecycle.mjs";
 
 declare global {
   interface Window {
@@ -7,12 +9,15 @@ declare global {
 }
 
 import Image from "next/image";
+import GuardianLinkForm from "@/app/components/GuardianLinkForm";
 import { getAvatarForSubject } from "../lib/teacherAvatar";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RealtimeTeacherClient } from "./realtimeTeacherClient";
-import jsPDF from "jspdf";
+import GalleryPanel from "./components/GalleryPanel";
+import type { NoteType, StoredSession } from "./studentHistoryTypes";
+import { HISTORY_LIST_LIMIT, safeHistoryText, safeHistoryDate } from "@/app/lib/studentHistoryFormat";
 import {
   BookOpen,
   Camera,
@@ -43,7 +48,7 @@ import {
 } from "lucide-react";
 import { ClientAuthError, loginAgainMessage, newStudentAiRequestId, refreshStudentSessionIfNeeded, studentAiUsageHeaders, studentAuthHeaders } from "@/app/lib/clientAuth";
 import { readJsonResponse } from "@/app/lib/safeResponse";
-import { clearStudentSessionIfCurrent } from "@/app/lib/studentSessionRefresh.mjs";
+import { currentStudentSessionKey, clearStudentSessionIfCurrent } from "@/app/lib/studentSessionRefresh.mjs";
 import { buildClassroomHistory, classroomScopeKey } from "@/app/lib/classroomConversation.mjs";
 import { NEW_TOPIC_TEST_QUESTION_COUNT } from "@/app/lib/topicTestContracts.mjs";
 import {
@@ -56,7 +61,6 @@ import {
 
 type ClassId = "6" | "7" | "8" | "9" | "10" | "11" | "12";
 
-type NoteType = "full_exam_notes" | "quick_revision" | "important_qna" | "mcq_only";
 
 type StudentAppearance = {
   mode: "light" | "dark" | "system";
@@ -245,48 +249,11 @@ type ClassSession = {
   subjects: string[];  // ["Maths", "Science"]
 };
 
-type StoredSession = {
-  id: string;
-  studentMobile: string;
-  subjectId?: number | null;
-  chapterId?: number | null;
-  topicId?: number | null;
-  subject: string;
-  chapter: string;
-  topic: string;
-  language: string;
-  startedAt: string; // ISO
-  endedAt: string;   // ISO
-  transcript: string; // current topic/session transcript only
-};
 
 type SessionHistoryResult = {
   sessions: StoredSession[];
   error: string | null;
 };
-
-const HISTORY_LIST_LIMIT = 200;
-const HISTORY_INITIAL_VISIBLE = 30;
-const TRANSCRIPT_PREVIEW_LENGTH = 140;
-const TRANSCRIPT_DETAIL_CHUNK = 8000;
-const TRANSCRIPT_DETAIL_MAX = 32000;
-
-function safeHistoryText(value: unknown, fallback = "") {
-  if (typeof value === "string") return value.trim();
-  if (value === null || value === undefined) return fallback;
-  return String(value).trim();
-}
-
-function safeHistoryDate(value: unknown) {
-  const text = safeHistoryText(value);
-  const timestamp = Date.parse(text);
-  return Number.isFinite(timestamp) ? new Date(timestamp) : null;
-}
-
-function formatHistoryDate(value: unknown) {
-  const date = safeHistoryDate(value);
-  return date ? date.toLocaleString() : "Date unavailable";
-}
 
 function normalizeStoredSession(
   value: unknown,
@@ -752,9 +719,14 @@ const [noteType, setNoteType] = useState<NoteType>("full_exam_notes");
 
 const [savedSessions, setSavedSessions] = useState<StoredSession[]>([]);
 const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+const [cloudSaveStatus, setCloudSaveStatus] = useState("");
+const checkpointRevisionsRef = useRef(new Map<string, number>());
+const latestCheckpointRef = useRef<any>(null);
+const pendingResumeRef = useRef<StoredSession | null>(null);
+const historyRequestGenerationRef = useRef(0);
+
 const [historyLoading, setHistoryLoading] = useState(false);
 const [historyError, setHistoryError] = useState<string | null>(null);
-const loadedHistoryStudentRef = useRef<string | null>(null);
 
 
 const [classSession, setClassSession] = useState<ClassSession | null>(null);
@@ -988,11 +960,27 @@ const endClassSession = () => {
   setHistoryError(historyResult.error);
   setSelectedSessionId(sessionId);
 
+  const checkpoint = latestCheckpointRef.current;
+  if (checkpoint?.record?.studentMobile === student.mobile) {
+    const sessionKey = currentStudentSessionKey(localStorage);
+    const revision = (checkpointRevisionsRef.current.get(sessionId) || 0) + 1;
+    checkpointRevisionsRef.current.set(sessionId, revision);
+    const record = { ...checkpoint.record, transcript: compactTranscriptForSave(transcriptText), endedAt: new Date().toISOString(),
+      ...(sessionTranscriptRef.current.trim() ? { messages: [{author:"Teacher",text:compactTranscriptForSave(transcriptText)}] } : {}) };
+    try {
+      validateClassroomCheckpoint({...record,revision});
+      latestCheckpointRef.current = {record,revision};
+      localStorage.setItem(checkpointLocalKey(student.studentId || student.mobile), JSON.stringify({record,revision}));
+      void fetchClassroomResponse("/api/student/classroom-history", {method:"POST",headers:studentAuthHeaders(true),body:JSON.stringify({...record,revision})}, {timeoutMs:15000})
+        .then(response => { if(currentStudentSessionKey(localStorage) === sessionKey && latestCheckpointRef.current?.record.id === record.id && latestCheckpointRef.current?.revision === revision) setCloudSaveStatus(response.ok ? "Saved to your account" : "Saved in this browser · account sync unavailable. Retry save."); })
+        .catch(() => { if(currentStudentSessionKey(localStorage) === sessionKey && latestCheckpointRef.current?.record.id === record.id && latestCheckpointRef.current?.revision === revision) setCloudSaveStatus("Saved in this browser · account sync unavailable. Retry save."); });
+    } catch { setCloudSaveStatus("Saved in this browser only."); }
+  }
   setClassSession(null);
   setRemainingSeconds(0);
   resetSessionTranscript();
 
-  alert("Class ended and saved successfully.");
+  alert("Class ended and saved in this browser. Account sync status is shown in the classroom.");
 };
 
   // syllabus
@@ -1115,35 +1103,31 @@ const getSpeedCode = (
   return "normal";
 };
 
+const entitlementRequestsRef = useRef(new Map<string, Promise<any>>());
 const loadEntitlements = useCallback(async () => {
   const mobile = student?.mobile;
   if (!mobile) return null;
-
-  try {
-    const res = await fetch(
-      `/api/student/entitlements?mobile=${encodeURIComponent(mobile)}`,
-      { headers: studentAuthHeaders() }
-    );
-    const data = await res.json();
-
-    if (res.ok && data?.ok) {
-      setEntitlements(data);
-      return data;
+  const sessionKey = currentStudentSessionKey(localStorage);
+  const key = `${mobile}:${sessionKey}`;
+  const existing = entitlementRequestsRef.current.get(key);
+  if (existing) return existing;
+  const pending = (async () => {
+    try {
+      const res = await fetchClassroomResponse(`/api/student/entitlements?mobile=${encodeURIComponent(mobile)}`,
+        { headers: studentAuthHeaders() }, { timeoutMs: 15000 });
+      const data = await res.json();
+      if (currentStudentSessionKey(localStorage) !== sessionKey) return null;
+      if (res.ok && data?.ok) { setEntitlements(data); return data; }
+      return { ok: false, authRequired: res.status === 401, error: loginAgainMessage(res.status, data?.error) };
+    } catch (err) {
+      return { ok: false, authRequired: err instanceof ClientAuthError,
+        error: err instanceof ClientAuthError ? err.message : "Unable to verify your plan right now." };
     }
-    return {
-      ok: false,
-      authRequired: res.status === 401,
-      error: loginAgainMessage(res.status, data?.error),
-    };
-  } catch (err) {
-    console.error("loadEntitlements error:", err);
-    return {
-      ok: false,
-      authRequired: err instanceof ClientAuthError,
-      error: err instanceof ClientAuthError ? err.message : "Unable to verify your plan right now.",
-    };
-  }
-}, [student]);
+  })();
+  entitlementRequestsRef.current.set(key, pending);
+  try { return await pending; }
+  finally { if (entitlementRequestsRef.current.get(key) === pending) entitlementRequestsRef.current.delete(key); }
+}, [student?.mobile]);
 
 const loadPlans = useCallback(async () => {
   setPlansLoading(true);
@@ -1183,6 +1167,19 @@ const [groundedSourceProvenance, setGroundedSourceProvenance] = useState("");
 const [isStartingLesson, setIsStartingLesson] = useState(false);
 const [isAsking, setIsAsking] = useState(false);
 const askRequestInFlightRef = useRef(false);
+const classroomGuardRef = useRef(createClassroomRequestGuard());
+const classroomRetryRef = useRef<null | (() => Promise<void>)>(null);
+const [classroomCanRetry, setClassroomCanRetry] = useState(false);
+const classroomScopeRef = useRef("");
+const stopClassroomWaiting = useCallback(() => {
+  classroomGuardRef.current.cancel();
+  askRequestInFlightRef.current = false;
+  lessonRequestInFlightRef.current = false;
+  setIsStartingLesson(false);
+  setIsAsking(false);
+  setClassroomCanRetry(!!classroomRetryRef.current);
+}, []);
+
 const [audioUrl, setAudioUrl] = useState<string | null>(null);
 const lessonAudioRef = useRef<HTMLAudioElement | null>(null);
 const audioUrlRef = useRef<string | null>(null);
@@ -1226,10 +1223,7 @@ const [plans, setPlans] = useState<
 const [plansLoading, setPlansLoading] = useState(false);
 const [plansError, setPlansError] = useState<string | null>(null);
 const [parentLinkOpen, setParentLinkOpen] = useState(false);
-const [parentLinkName, setParentLinkName] = useState("");
-const [parentLinkMobile, setParentLinkMobile] = useState("");
 const [parentLinkStatus, setParentLinkStatus] = useState<string | null>(null);
-const [parentLinkLoading, setParentLinkLoading] = useState(false);
 
 const [language, setLanguage] = useState<"English" | "Hindi" | "Bengali">(
   "English"
@@ -1382,56 +1376,6 @@ const handleBuyPlan = async (planCode: string) => {
     console.error("handleBuyPlan error:", err);
     alert(err?.message || "Payment failed.");
     setPayingPlanCode(null);
-  }
-};
-
-const handleLinkParent = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setParentLinkStatus(null);
-
-  if (!student?.mobile) {
-    setParentLinkStatus("Student mobile not found. Please login again.");
-    return;
-  }
-
-  if (!/^\d{10}$/.test(parentLinkMobile.trim())) {
-    setParentLinkStatus("Enter valid parent/guardian mobile (10 digits).");
-    return;
-  }
-
-  setParentLinkLoading(true);
-  try {
-    const res = await fetch("/api/student/link-parent", {
-      method: "POST",
-      headers: studentAuthHeaders(true),
-      body: JSON.stringify({
-        studentMobile: student.mobile,
-        parentName: parentLinkName.trim(),
-        parentMobile: parentLinkMobile.trim(),
-      }),
-    });
-
-    const { data, errorText } = await readJsonResponse<any>(res);
-
-    if (!res.ok || !data?.ok) {
-      throw new Error(
-        loginAgainMessage(
-          res.status,
-          data?.error || errorText || "Failed to link parent/guardian."
-        )
-      );
-    }
-
-    setParentLinkStatus(
-      "Parent/guardian linked. Parent dashboard access works after parent login verification."
-    );
-    setParentLinkOpen(false);
-    setParentLinkName("");
-    setParentLinkMobile("");
-  } catch (err: any) {
-    setParentLinkStatus(err?.message || "Failed to link parent/guardian.");
-  } finally {
-    setParentLinkLoading(false);
   }
 };
 
@@ -1749,7 +1693,16 @@ useEffect(() => {
     setGroundedSourceContent("");
     setGroundedSourceProvenance("");
   }, [classroomSelectionKey]);
-  const [classroomSelectionEpoch, setClassroomSelectionEpoch] = useState(0);
+  classroomScopeRef.current = classroomSelectionKey;
+useEffect(() => {
+  stopClassroomWaiting();
+  classroomRetryRef.current = null;
+  setClassroomCanRetry(false);
+  setAudioError(null);
+  stopLessonAudio();
+  return () => classroomGuardRef.current.cancel();
+}, [classroomSelectionKey, stopClassroomWaiting, stopLessonAudio]);
+const [classroomSelectionEpoch, setClassroomSelectionEpoch] = useState(0);
   const previousClassroomSelectionRef = useRef(classroomSelectionKey);
   useEffect(() => {
     if (previousClassroomSelectionRef.current !== classroomSelectionKey) {
@@ -2004,39 +1957,171 @@ useEffect(() => {
   return () => clearInterval(interval);
 }, [classSession]);
 
+// The browser draft is account-scoped; legacy recordings stay browser-only.
 useEffect(() => {
-  if (typeof window === "undefined") return;
+  historyRequestGenerationRef.current++;
+  setSavedSessions([]); setSelectedSessionId(null); setCloudSaveStatus("");
+  latestCheckpointRef.current = null; pendingResumeRef.current = null;
+}, [student?.studentId, student?.mobile]);
+useEffect(() => {
   if (!student?.mobile || activeTab !== "gallery") return;
-  if (loadedHistoryStudentRef.current === student.mobile) return;
-
+  const generation = ++historyRequestGenerationRef.current;
+  const account = student.studentId || student.mobile;
+  const sessionKey = currentStudentSessionKey(localStorage);
+  const controller = new AbortController();
+  const local = loadSessionHistory();
+  const mine = local.sessions.filter(item => item.studentMobile === student.mobile);
+  try {
+    const draft = JSON.parse(localStorage.getItem(checkpointLocalKey(account)) || "null");
+    if (draft?.record?.studentMobile === student.mobile) mine.unshift(draft.record);
+  } catch { /* Existing browser history remains usable. */ }
+  setSavedSessions(mergeClassroomHistory(mine, []));
   setHistoryLoading(true);
+  setHistoryError(local.error);
+  void (async () => {
+    try {
+      const response = await fetchClassroomResponse("/api/student/classroom-history", {headers:studentAuthHeaders()}, {signal:controller.signal,timeoutMs:15000});
+      const data = await response.json();
+      if (controller.signal.aborted || generation !== historyRequestGenerationRef.current || currentStudentSessionKey(localStorage) !== sessionKey) return;
+      if (!response.ok || !data.ok) throw new Error("history_unavailable");
+      setSavedSessions(mergeClassroomHistory(mine, data.records));
+    } catch {
+      if (!controller.signal.aborted && generation === historyRequestGenerationRef.current) setHistoryError("Account history is unavailable. Browser recordings are still shown; reopen History to retry.");
+    } finally {
+      if (!controller.signal.aborted && generation === historyRequestGenerationRef.current) setHistoryLoading(false);
+    }
+  })();
+  return () => { controller.abort(); historyRequestGenerationRef.current++; };
+}, [student?.studentId, student?.mobile, activeTab]);
+
+const retryCheckpointSave = async () => {
+  const checkpoint = latestCheckpointRef.current;
+  if (!checkpoint || checkpoint.record.studentMobile !== student?.mobile) return;
+  const sessionKey = currentStudentSessionKey(localStorage);
+  setCloudSaveStatus("Saving to your account…");
+  try {
+    validateClassroomCheckpoint({...checkpoint.record,revision:checkpoint.revision});
+    const response = await fetchClassroomResponse("/api/student/classroom-history", {method:"POST",headers:studentAuthHeaders(true),body:JSON.stringify({...checkpoint.record,revision:checkpoint.revision})}, {timeoutMs:15000});
+    if (currentStudentSessionKey(localStorage) !== sessionKey || latestCheckpointRef.current !== checkpoint) return;
+    setCloudSaveStatus(response.ok ? "Saved to your account" : "Account sync unavailable. Keep this page open and retry save.");
+  } catch {
+    if (currentStudentSessionKey(localStorage) === sessionKey && latestCheckpointRef.current === checkpoint) setCloudSaveStatus("Account sync unavailable. Keep this page open and retry save.");
+  }
+};
+
+const openSavedClass = async (record: StoredSession, resume = false) => {
+  const generation = ++historyRequestGenerationRef.current;
+  const sessionKey = currentStudentSessionKey(localStorage);
   setHistoryError(null);
+  try {
+    let full = record;
+    if (record.cloudSummary) {
+      setHistoryLoading(true);
+      const response = await fetchClassroomResponse(`/api/student/classroom-history?id=${encodeURIComponent(record.id)}`, {headers:studentAuthHeaders()}, {timeoutMs:15000});
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error("history_unavailable");
+      full = data.record;
+    }
+    if (generation !== historyRequestGenerationRef.current || currentStudentSessionKey(localStorage) !== sessionKey) return;
+    setSavedSessions(previous => previous.map(item => item.id === full.id ? full : item));
+    setSelectedSessionId(full.id);
+    if (!resume) return;
+    const subject = subjects.find(item => item.id === full.subjectId);
+    const chapter = chapters.find(item => item.id === full.chapterId && item.subject_id === full.subjectId);
+    const topic = topics.find(item => item.id === full.topicId && item.chapter_id === full.chapterId);
+    if (!subject || !chapter || !topic) { setHistoryError("This recording is readable, but its topic is no longer in your active syllabus."); return; }
+    const current = latestCheckpointRef.current;
+    if (current?.record?.studentMobile === student?.mobile) saveSessionHistory(current.record);
+    stopClassroomWaiting();
+    stopLessonAudio();
+    pendingResumeRef.current = full;
+    pendingMissionSelectionRef.current = {subjectId:subject.id,chapterId:chapter.id,topicId:topic.id};
+    setSelectedSubjectId(subject.id); setSelectedChapterId(chapter.id); setSelectedTopicId(topic.id);
+    const now = Date.now();
+    // Resume creates an independent checkpoint, preserving the original recording.
+    setClassSession({id:crypto.randomUUID(),startTime:now,endTime:now,isLive:false,subjects:[subject.subject_name]});
+    setRemainingSeconds(0);
+    setLanguage(["English","Hindi","Bengali"].includes(full.language) ? full.language as "English"|"Hindi"|"Bengali" : "English");
+    setActiveTab("classroom");
+  } catch { if (generation === historyRequestGenerationRef.current) setHistoryError("Unable to open this recording right now. Please retry."); }
+  finally { if (generation === historyRequestGenerationRef.current) setHistoryLoading(false); }
+};
 
-  const timer = window.setTimeout(() => {
-    const result = loadSessionHistory();
-    const mine = result.sessions.filter(
-      (session) => session.studentMobile === student.mobile
-    );
-
-    setSavedSessions(mine);
-    setHistoryError(result.error);
-    setSelectedSessionId((current) => {
-      if (current && mine.some((session) => session.id === current)) {
-        return current;
-      }
-      return mine[0]?.id || null;
-    });
-    loadedHistoryStudentRef.current = student.mobile;
-    setHistoryLoading(false);
+useEffect(() => {
+  const pending = pendingResumeRef.current;
+  if (!pending || pending.subjectId !== selectedSubjectId || pending.chapterId !== selectedChapterId || pending.topicId !== selectedTopicId) return;
+  const timer = setTimeout(() => {
+    if (pendingResumeRef.current !== pending) return;
+    pendingResumeRef.current = null;
+    pendingMissionSelectionRef.current = null;
+    const restored = pending.messages?.length ? pending.messages : [{author:"Teacher" as const,text:pending.transcript}];
+    setMessages(restored.map(item => ({id:messageIdRef.current++,author:item.author,text:item.text,ts:new Date().toISOString(),isError:false})));
+    setQuestion(pending.draft || "");
+    resetSessionTranscript();
+    setGroundedSourceContent(""); setGroundedSourceProvenance("");
+    setLessonOpening({scopeKey:classroomConversationScope,text:restored.find(item=>item.author === "Teacher")?.text || pending.transcript});
   }, 0);
+  return () => clearTimeout(timer);
+}, [classroomConversationScope, selectedSubjectId, selectedChapterId, selectedTopicId, resetSessionTranscript]);
 
-  return () => window.clearTimeout(timer);
-}, [student?.mobile, activeTab]);
-
+useEffect(() => {
+  if (!student?.mobile || !classSession || !currentSubject || !currentChapter || !currentTopic || lessonOpening?.scopeKey !== classroomConversationScope) return;
+  const account = student.studentId || student.mobile;
+  const sessionKey = currentStudentSessionKey(localStorage);
+  const cleanMessages = messages.filter(item => !item.isError && item.text.trim() && item.text !== LESSON_LOADING_MESSAGE).map(({author,text})=>({author,text}));
+  if (!cleanMessages.length) return;
+  const revision = (checkpointRevisionsRef.current.get(classSession.id) || 0) + 1;
+  checkpointRevisionsRef.current.set(classSession.id, revision);
+  const record = {
+    id:classSession.id,studentMobile:student.mobile,
+    subjectId:currentSubject.id,chapterId:currentChapter.id,topicId:currentTopic.id,
+    subject:currentSubject.subject_name,chapter:currentChapter.chapter_name,topic:currentTopic.topic_name,language,
+    startedAt:new Date(classSession.startTime).toISOString(),endedAt:new Date().toISOString(),
+    messages:cleanMessages,draft:question,
+    transcript:cleanMessages.map(item=>`${item.author}: ${item.text}`).join("\n\n"),
+  };
+  latestCheckpointRef.current = {record,revision};
+  let localSaved = false;
+  try {
+    const previous = JSON.parse(localStorage.getItem(checkpointLocalKey(account)) || "null");
+    if (previous?.record?.id !== record.id && previous?.record?.studentMobile === student.mobile && !saveSessionHistory(previous.record).ok) throw new Error("browser_history_full");
+    localStorage.setItem(checkpointLocalKey(account),JSON.stringify({record,revision})); localSaved = true;
+  } catch { /* Report below without changing the conversation. */ }
+  try { validateClassroomCheckpoint({...record,revision}); }
+  catch { setCloudSaveStatus(localSaved ? "Saved in this browser only: this class exceeds the account checkpoint limit." : "Class is not saved: storage is unavailable or the recording is too large."); return; }
+  setCloudSaveStatus(localSaved ? "Browser copy saved · syncing account…" : "Saving to your account…");
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    void (async () => {
+      try {
+        const response = await fetchClassroomResponse("/api/student/classroom-history", {method:"POST",headers:studentAuthHeaders(true),body:JSON.stringify({...record,revision})}, {signal:controller.signal,timeoutMs:15000});
+        if (!response.ok) throw new Error("save_unavailable");
+        if (!controller.signal.aborted && currentStudentSessionKey(localStorage) === sessionKey) setCloudSaveStatus("Saved to your account");
+      } catch {
+        if (!controller.signal.aborted && currentStudentSessionKey(localStorage) === sessionKey) setCloudSaveStatus(localSaved ? "Saved in this browser · account sync unavailable. Retry save." : "Account save unavailable. Keep this page open and retry save.");
+      }
+    })();
+  }, 1500);
+  return () => { clearTimeout(timer); controller.abort(); };
+}, [messages, question, classSession, lessonOpening, classroomConversationScope, currentSubject, currentChapter, currentTopic, language, student?.studentId, student?.mobile]);
 
   // Start Lesson -> /api/generate-lesson + /api/lesson-audio
-const handleStartLesson = useCallback(async () => {
+const handleStartLesson = useCallback(async (retryJob?: any) => {
   if (isStartingLesson || isAsking || askRequestInFlightRef.current || lessonRequestInFlightRef.current) return;
+  const job = retryJob || { sessionKey: currentStudentSessionKey(localStorage), fetch: createClassroomRequestCache(), committed: false, requestId: newStudentAiRequestId("lesson"), sessionId: crypto.randomUUID() };
+  if (job.sessionKey !== currentStudentSessionKey(localStorage)) {
+    classroomRetryRef.current = null; setClassroomCanRetry(false); return;
+  }
+  const sessionSnapshot = job.sessionKey;
+  const ticket = classroomGuardRef.current.begin(classroomScopeRef.current);
+  const applicable = () => classroomGuardRef.current.current(ticket, classroomScopeRef.current) && currentStudentSessionKey(localStorage) === sessionSnapshot;
+  const request = async (url: string, options: any) => {
+    const response = await job.fetch(url, options, { signal: ticket.controller.signal });
+    if (!applicable()) throw new Error("stale_classroom_response");
+    return response;
+  };
+  classroomRetryRef.current = () => handleStartLesson(job);
+  setClassroomCanRetry(false);
   stopLessonAudio();
   const lessonAudioRequestVersion = audioRequestVersionRef.current;
 
@@ -2057,6 +2142,8 @@ const handleStartLesson = useCallback(async () => {
   const mobile = student?.mobile;
   if (!mobile) {
     setAudioError("Student session is missing. Please login again.");
+    classroomGuardRef.current.finish(ticket);
+    setClassroomCanRetry(true);
     lessonRequestInFlightRef.current = false;
     setIsStartingLesson(false);
     return;
@@ -2064,25 +2151,35 @@ const handleStartLesson = useCallback(async () => {
 
   const ent = await loadEntitlements();
 
+  if (!applicable()) {
+    if (classroomGuardRef.current.finish(ticket)) {
+      lessonRequestInFlightRef.current = false;
+      setIsStartingLesson(false);
+      classroomRetryRef.current = null;
+    }
+    return;
+  }
   if (!ent?.ok) {
     setAudioError(
       ent?.authRequired
         ? "Session expired. Please login again."
         : ent?.error || "Unable to verify your plan right now. Please try again."
     );
+    classroomGuardRef.current.finish(ticket);
+    setClassroomCanRetry(true);
     lessonRequestInFlightRef.current = false;
     setIsStartingLesson(false);
     return;
   }
 
-  setMessages([]);
-  setLessonOpening(null);
 
   if (!ent.features?.lessonGeneration) {
     setTrialLimitNotice({
       topicId: currentTopic.id,
       message: "Free lesson limit reached. Subscribe to continue this topic.",
     });
+    classroomGuardRef.current.finish(ticket);
+    setClassroomCanRetry(true);
     lessonRequestInFlightRef.current = false;
     setIsStartingLesson(false);
     return;
@@ -2090,7 +2187,7 @@ const handleStartLesson = useCallback(async () => {
 
   setTrialLimitNotice(null);
   const now = Date.now();
-  const lessonSessionId = crypto.randomUUID();
+  const lessonSessionId = job.sessionId;
   const lessonScopeKey = classroomScopeKey({
     studentId: student?.studentId || student?.mobile || "",
     subjectId: String(currentSubject.id),
@@ -2098,29 +2195,18 @@ const handleStartLesson = useCallback(async () => {
     topicId: String(currentTopic.id),
     sessionId: `${lessonSessionId}:${classroomSelectionEpoch}`,
   });
-  resetSessionTranscript();
-  setClassSession({
-    id: lessonSessionId,
-    startTime: now,
-    endTime: now + 40 * 60 * 1000,
-    isLive: true,
-    subjects: [currentSubject.subject_name],
-  });
-  setRemainingSeconds(40 * 60);
-
-  pushMessage("Teacher", LESSON_LOADING_MESSAGE);
 
   try {
     const langCode = getLangCode(language);
     const speedCode = getSpeedCode(speed);
-    const aiRequestId = newStudentAiRequestId("lesson");
+    const aiRequestId = job.requestId;
     const lessonAudioIdentity = `${lessonSessionId}:${aiRequestId}`;
     activeAudioIdentityRef.current = lessonAudioIdentity;
 
     let scriptText = "";
 
     try {
-      const lessonRes = await fetch("/api/generate-lesson", {
+      const lessonRes = await request("/api/generate-lesson", {
         method: "POST",
         headers: studentAiUsageHeaders(true, aiRequestId),
         body: JSON.stringify({
@@ -2144,9 +2230,9 @@ const handleStartLesson = useCallback(async () => {
 
       if (!lessonRes.ok) {
         const failure = await lessonRes.json().catch(() => ({}));
+        if (!applicable()) return;
         removeLessonLoadingMessage();
-        setClassSession(null);
-        setRemainingSeconds(0);
+
         setAudioError(lessonRes.status === 401
           ? loginAgainMessage(lessonRes.status)
           : lessonRes.status === 422 && typeof failure?.error === "string"
@@ -2155,22 +2241,39 @@ const handleStartLesson = useCallback(async () => {
         return;
       }
       const data = await lessonRes.json();
+      if (!applicable()) return;
       scriptText = (data.script || data.text || "").trim();
       if (!scriptText) throw new Error("empty_lesson");
     } catch {
+      if (!applicable()) return;
       removeLessonLoadingMessage();
-      setClassSession(null);
-      setRemainingSeconds(0);
+
       setAudioError("I couldn't prepare this lesson. Please try again.");
       return;
     }
 
     removeLessonLoadingMessage();
-    setLessonOpening({ scopeKey: lessonScopeKey, text: scriptText });
-    pushMessage("Teacher", scriptText);
+    if (!job.committed) {
+      setMessages([]);
+  resetSessionTranscript();
+  setClassSession({
+    id: lessonSessionId,
+    startTime: now,
+    endTime: now + 40 * 60 * 1000,
+    isLive: true,
+    subjects: [currentSubject.subject_name],
+  });
+  setRemainingSeconds(40 * 60);
 
-    try {
-      await fetch("/api/progress/topic", {
+
+      setLessonOpening({ scopeKey: lessonScopeKey, text: scriptText });
+      pushMessage("Teacher", scriptText);
+      job.committed = true;
+    }
+
+    if (!job.progressStarted) {
+    job.progressStarted = true;
+    void fetchClassroomResponse("/api/progress/topic", {
         method: "POST",
         headers: studentAuthHeaders(true),
         body: JSON.stringify({
@@ -2184,17 +2287,15 @@ const handleStartLesson = useCallback(async () => {
           status: "in_progress",
           score: null,
         }),
-      });
-    } catch (err) {
-      console.error("Failed to save topic progress:", err);
-    }
+      }, { timeoutMs: 10000 }).catch(() => {});
 
     void completeDailyMissionTask("learn_topic", {
       eventType: "lesson_started",
     });
+    }
 
     try {
-      const audioRes = await fetch("/api/lesson-audio", {
+      const audioRes = await request("/api/lesson-audio", {
         method: "POST",
         headers: studentAiUsageHeaders(true, aiRequestId),
         body: JSON.stringify({
@@ -2209,13 +2310,14 @@ const handleStartLesson = useCallback(async () => {
         console.error(
           "lesson-audio failed:",
           audioRes.status,
-          await audioRes.text()
+          "audio_unavailable"
         );
         setAudioError("Failed to generate lesson audio.");
         return;
       }
 
       const blob = await audioRes.blob();
+      if (!applicable()) return;
       const url = URL.createObjectURL(blob);
       if (lessonAudioRequestVersion === audioRequestVersionRef.current
           && activeAudioIdentityRef.current === lessonAudioIdentity) {
@@ -2226,15 +2328,19 @@ const handleStartLesson = useCallback(async () => {
       } else {
         URL.revokeObjectURL(url);
       }
+      job.done = true;
     } catch (err) {
-      console.error("lesson-audio network error:", err);
+      if (!applicable()) return;
       setAudioError("Failed to generate lesson audio (network error).");
     }
   } catch (err) {
-    console.error("handleStartLesson error:", err);
+    if (!applicable()) return;
     removeLessonLoadingMessage();
     setAudioError("Unexpected error while generating the lesson.");
   } finally {
+    if (!classroomGuardRef.current.finish(ticket)) return;
+    setClassroomCanRetry(!job.done);
+    if (job.done) classroomRetryRef.current = null;
     lessonRequestInFlightRef.current = false;
     setIsStartingLesson(false);
     loadEntitlements();
@@ -2257,6 +2363,11 @@ const handleStartLesson = useCallback(async () => {
   removeLessonLoadingMessage,
   loadEntitlements,
   completeDailyMissionTask,
+  groundedSourceContent,
+  groundedSourceProvenance,
+  classroomSelectionEpoch,
+  student?.studentId,
+  resetSessionTranscript,
 ]);
 
 const openStartLearningFlow = useCallback((resetSelection = true) => {
@@ -2295,7 +2406,7 @@ useEffect(() => {
 
   // Student asks a doubt -> /api/teacher-math (or your Q&A route)
     // Student asks a doubt -> text + audio answer
-const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUrl: string }) => {
+const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUrl: string }, retryJob?: any) => {
   if (askRequestInFlightRef.current || isStartingLesson || lessonRequestInFlightRef.current) return;
   const trimmed = question.trim();
   if (!trimmed && !attachment) return;
@@ -2310,15 +2421,29 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
   }
 
   const questionText = trimmed || "Please explain what is shown in this image in the context of my selected lesson.";
-  pushMessage("You", attachment ? `${questionText}\n[Image attached: ${attachment.name}]` : questionText);
-  setQuestion("");
+  const job = retryJob || { sessionKey: currentStudentSessionKey(localStorage), fetch: createClassroomRequestCache(), committed: false, requestId: newStudentAiRequestId("teacher_math") };
+  if (job.sessionKey !== currentStudentSessionKey(localStorage)) {
+    classroomRetryRef.current = null; setClassroomCanRetry(false); return;
+  }
+  const sessionSnapshot = job.sessionKey;
+  const ticket = classroomGuardRef.current.begin(classroomScopeRef.current);
+  const applicable = () => classroomGuardRef.current.current(ticket, classroomScopeRef.current) && currentStudentSessionKey(localStorage) === sessionSnapshot;
+  const request = async (url: string, options: any) => {
+    const response = await job.fetch(url, options, { signal: ticket.controller.signal });
+    if (!applicable()) throw new Error("stale_classroom_response");
+    return response;
+  };
+  classroomRetryRef.current = () => handleAskQuestion(attachment, job);
+  setClassroomCanRetry(false);
   askRequestInFlightRef.current = true;
   setIsAsking(true);
+  setAudioError(null);
 
-  const aiRequestId = newStudentAiRequestId("teacher_math");
+  const aiRequestId = job.requestId;
 
   try {
     const ent = await loadEntitlements();
+    if (!applicable()) return;
     if (!ent?.ok) {
       setAudioError(ent?.authRequired
         ? "Session expired. Please login again."
@@ -2343,7 +2468,7 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
     stopLessonAudio();
     const answerAudioIdentity = `${classroomConversationScope}:${aiRequestId}`;
     activeAudioIdentityRef.current = answerAudioIdentity;
-    const res = await fetch("/api/teacher-math", {
+    const res = await request("/api/teacher-math", {
       method: "POST",
       headers: studentAiUsageHeaders(true, aiRequestId),
       body: JSON.stringify({
@@ -2387,18 +2512,20 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
 
     if (!res.ok) {
       const failure = await res.json().catch(() => ({}));
+      if (!applicable()) return;
       const safeMessage = [413, 415, 422].includes(res.status) && typeof failure?.error === "string"
         ? failure.error
         : "Sorry, I couldn't answer that. Please try again.";
-      pushMessage("Teacher", safeMessage, true);
+      setAudioError(safeMessage);
       return;
     }
 
     const data = await res.json();
+    if (!applicable()) return;
     const answer = typeof data?.answer === "string" ? data.answer.trim()
       : typeof data?.text === "string" ? data.text.trim() : "";
     if (!answer) {
-      pushMessage("Teacher", "Sorry, I couldn't answer that. Please try again.", true);
+      setAudioError("Sorry, I couldn't answer that. Please try again.");
       return;
     }
 
@@ -2408,12 +2535,26 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
       setGroundedSourceProvenance(data.sourceProvenance);
     }
 
-    pushMessage("Teacher", answer);
+    if (!job.committed) {
+      if (!scopeMatches) {
+        const now = Date.now();
+        const sessionId = crypto.randomUUID();
+        setMessages([]);
+        resetSessionTranscript();
+        setClassSession({id:sessionId,startTime:now,endTime:now,isLive:false,subjects:[currentSubject.subject_name]});
+        setRemainingSeconds(0);
+        setLessonOpening({scopeKey:classroomScopeKey({studentId:student?.studentId || student?.mobile || "",subjectId:String(currentSubject.id),chapterId:String(currentChapter.id),topicId:String(currentTopic.id),sessionId:`${sessionId}:${classroomSelectionEpoch}`}),text:answer});
+      }
+      pushMessage("You", attachment ? `${questionText}\n[Image attached: ${attachment.name}]` : questionText);
+      pushMessage("Teacher", answer);
+      setQuestion((current) => current.trim() === trimmed ? "" : current);
+      job.committed = true;
+    }
 
     const langCode = getLangCode(language);
     const answerAudioRequestVersion = audioRequestVersionRef.current;
 
-    const ttsRes = await fetch("/api/lesson-audio", {
+    const ttsRes = await request("/api/lesson-audio", {
       method: "POST",
       headers: studentAiUsageHeaders(true, aiRequestId),
       body: JSON.stringify({
@@ -2432,6 +2573,7 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
 
     if (ttsContentType.startsWith("audio/")) {
       const blob = await ttsRes.blob();
+      if (!applicable()) return;
       const url = URL.createObjectURL(blob);
       if (answerAudioRequestVersion === audioRequestVersionRef.current
           && activeAudioIdentityRef.current === answerAudioIdentity) {
@@ -2444,6 +2586,7 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
       }
     } else {
       const ttsData = await ttsRes.json();
+      if (!applicable()) return;
 
       let urlFromJson: string | null = null;
       if (typeof ttsData?.audioUrl === "string") {
@@ -2467,14 +2610,14 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
         });
       }
     }
+    job.done = true;
   } catch (err) {
-    console.error("teacher-math or TTS error:", err);
-    pushMessage(
-      "Teacher",
-      "Sorry, I could not answer this right now. Please try again in a moment.",
-      true
-    );
+    if (!applicable()) return;
+    setAudioError(job.committed ? "Your answer is ready. Audio is unavailable; retry audio below." : "The reply is unavailable right now. Your question is preserved. Please retry.");
   } finally {
+    if (!classroomGuardRef.current.finish(ticket)) return;
+    setClassroomCanRetry(!job.done);
+    if (job.done) classroomRetryRef.current = null;
     askRequestInFlightRef.current = false;
     setIsAsking(false);
   }
@@ -2496,6 +2639,10 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
   language,
   pushMessage,
   loadEntitlements,
+  groundedSourceContent,
+  groundedSourceProvenance,
+  classroomSelectionEpoch,
+  resetSessionTranscript,
 ]);
  
   // ----------------- RENDER -----------------
@@ -2708,37 +2855,7 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
           )}
         </div>
       </div>
-      {parentLinkOpen && (
-        <form
-          onSubmit={handleLinkParent}
-          className="mt-3 grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs sm:grid-cols-[1fr_1fr_auto]"
-        >
-          <input
-            className="rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Parent/guardian name"
-            value={parentLinkName}
-            onChange={(e) => setParentLinkName(e.target.value)}
-          />
-          <input
-            inputMode="numeric"
-            maxLength={10}
-            className="rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Parent/guardian mobile"
-            value={parentLinkMobile}
-            onChange={(e) => setParentLinkMobile(e.target.value.replace(/\D/g, ""))}
-          />
-          <button
-            type="submit"
-            disabled={parentLinkLoading}
-            className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-          >
-            {parentLinkLoading ? "Linking..." : "Link"}
-          </button>
-          <p className="sm:col-span-3 text-[11px] text-slate-500">
-            Parent/guardian can be linked later. Parent progress access starts only after parent login verification.
-          </p>
-        </form>
-      )}
+      {parentLinkOpen && <GuardianLinkForm key={student?.mobile} studentMobile={student?.mobile||""} onLinked={()=>{setParentLinkOpen(false);setParentLinkStatus("Parent/guardian verified and linked successfully.");}}/>}
       {parentLinkStatus && (
         <div className="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700">
           {parentLinkStatus}
@@ -2969,7 +3086,12 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
               messages={messages}
               question={question}
               setQuestion={setQuestion}
-              onStartLesson={handleStartLesson}
+              checkpointStatus={cloudSaveStatus}
+              onRetryCheckpoint={() => void retryCheckpointSave()}
+              onStartLesson={() => handleStartLesson()}
+              onStopWaiting={stopClassroomWaiting}
+              onRetryClassroom={() => void classroomRetryRef.current?.()}
+              classroomCanRetry={classroomCanRetry}
               onAskQuestion={handleAskQuestion}
               conversationScopeKey={classroomConversationScope}
               isStartingLesson={isStartingLesson}
@@ -2996,6 +3118,7 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
               autoStartToken={autoStartToken}
               autoStartPayload={autoStartPayload}
               onNavigateTab={(tab) => setActiveTab(tab)}
+              onLoadEntitlements={loadEntitlements}
               onMissionRefresh={loadDailyMission}
               missionLessonHintToken={missionLessonHintToken}
               missionTopicTestHintToken={missionTopicTestHintToken}
@@ -3070,7 +3193,8 @@ const handleAskQuestion = useCallback(async (attachment?: { name: string; dataUr
 
           {activeTab === "gallery" && (
             <div className="h-full overflow-auto rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
-              <GalleryView
+              <GalleryPanel key={student.studentId || student.mobile}
+                onOpenSession={(record, resume) => void openSavedClass(record, resume)}
                 sessions={savedSessions}
                 loading={historyLoading}
                 error={historyError}
@@ -4401,479 +4525,6 @@ function WeeklyProgressView({
   );
 }
 
-function GalleryView({
-  sessions,
-  loading,
-  error,
-  selectedId,
-  setSelectedId,
-  noteType,
-  setNoteType,
-  notesMarkdown,
-  notesLoading,
-  notesError,
-  onGenerateNotes,
-}: {
-  sessions: StoredSession[];
-  loading: boolean;
-  error: string | null;
-  selectedId: string | null;
-  setSelectedId: (id: string | null) => void;
-
-  noteType: NoteType;
-  setNoteType: (t: NoteType) => void;
-  notesMarkdown: string;
-  notesLoading: boolean;
-  notesError: string | null;
-  onGenerateNotes: () => Promise<void> | void;
-}) {
-  const [visibleCount, setVisibleCount] = useState(HISTORY_INITIAL_VISIBLE);
-  const [transcriptDisplayLength, setTranscriptDisplayLength] = useState(
-    TRANSCRIPT_DETAIL_CHUNK
-  );
-  const orderedSessions = useMemo(
-    () =>
-      [...sessions].sort((a, b) => {
-        const aTime = safeHistoryDate(a.endedAt)?.getTime() || 0;
-        const bTime = safeHistoryDate(b.endedAt)?.getTime() || 0;
-        return bTime - aTime;
-      }),
-    [sessions]
-  );
-  const selected = useMemo(
-    () => orderedSessions.find((s) => s.id === selectedId) || null,
-    [orderedSessions, selectedId]
-  );
-  const visibleSessions = orderedSessions.slice(0, visibleCount);
-  const selectedTranscript = safeHistoryText(selected?.transcript);
-  const displayedTranscript = selectedTranscript.slice(
-    0,
-    transcriptDisplayLength
-  );
-  const transcriptIsTruncated =
-    displayedTranscript.length < selectedTranscript.length;
-
-  useEffect(() => {
-    setTranscriptDisplayLength(TRANSCRIPT_DETAIL_CHUNK);
-  }, [selectedId]);
-
-  const printNotes = () => {
-    if (typeof window === "undefined") return;
-    const text = (notesMarkdown || "").trim();
-    if (!text) return;
-
-    const escaped = text
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;");
-
-    const win = window.open("", "_blank", "width=900,height=700");
-    if (!win) return;
-
-    win.document.open();
-    win.document.write(`
-<!doctype html>
-<html>
-<head>
-  <title>NeoLearn Notes</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 32px;
-      color: #111827;
-      line-height: 1.65;
-      white-space: pre-wrap;
-    }
-    h1 {
-      font-size: 22px;
-      margin-bottom: 18px;
-    }
-    .content {
-      font-size: 14px;
-    }
-  </style>
-</head>
-<body>
-  <h1>NeoLearn Notes</h1>
-  <div class="content">${escaped}</div>
-</body>
-</html>
-    `);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 400);
-  };
-
-  const downloadNotesText = () => {
-    const text = (notesMarkdown || "").trim();
-    if (!text) return;
-
-    const doc = new jsPDF({
-      orientation: "p",
-      unit: "pt",
-      format: "a4",
-    });
-
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 40;
-    const maxWidth = pageWidth - margin * 2;
-    let y = margin;
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text("NeoLearn Notes", margin, y);
-    y += 24;
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
-
-    const lines = doc.splitTextToSize(text, maxWidth);
-
-    for (const line of lines) {
-      if (y > pageHeight - margin) {
-        doc.addPage();
-        y = margin;
-      }
-      doc.text(line, margin, y);
-      y += 16;
-    }
-
-    doc.save("NeoLearn_Notes.pdf");
-  };
-
-
-  const openUnicodePrintPdf = (session: StoredSession) => {
-    const esc = (v: string) =>
-      String(v || "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;");
-
-    const win = window.open("", "_blank", "width=1000,height=800");
-    if (!win) return;
-
-    const transcript = esc(session.transcript || "No transcript saved.");
-    win.document.open();
-    win.document.write(`
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>NeoLearn Class Recording</title>
-  <style>
-    body {
-      font-family: "Noto Sans Devanagari", "Noto Sans Bengali", "Nirmala UI", "Mangal", "Vrinda", Arial, sans-serif;
-      padding: 32px;
-      color: #111827;
-      line-height: 1.65;
-    }
-    h1 { font-size: 22px; margin-bottom: 16px; }
-    .meta { font-size: 13px; margin-bottom: 18px; }
-    .meta div { margin: 3px 0; }
-    .transcript {
-      white-space: pre-wrap;
-      font-size: 13px;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      padding: 18px;
-      background: #f8fafc;
-    }
-    .footer { margin-top: 20px; font-size: 11px; color: #64748b; }
-  </style>
-</head>
-<body>
-  <h1>NeoLearn – Class Recording</h1>
-  <div class="meta">
-    <div><b>Subject:</b> ${esc(session.subject)}</div>
-    <div><b>Chapter:</b> ${esc(session.chapter)}</div>
-    <div><b>Topic:</b> ${esc(session.topic)}</div>
-    <div><b>Language:</b> ${esc(session.language)}</div>
-    <div><b>Start:</b> ${esc(formatHistoryDate(session.startedAt))}</div>
-    <div><b>End:</b> ${esc(formatHistoryDate(session.endedAt))}</div>
-  </div>
-  <div class="transcript">${transcript}</div>
-  <div class="footer">Generated by NeoLearn AI Assisted Learning</div>
-  <script>
-    setTimeout(() => window.print(), 500);
-  </script>
-</body>
-</html>`);
-    win.document.close();
-    win.focus();
-  };
-
-  const downloadPdf = () => {
-    if (!selected) return;
-    openUnicodePrintPdf(selected);
-  };
-
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Gallery / Class History</h1>
-        <div className="text-[11px] text-gray-500">
-          {loading
-            ? "Loading saved classes..."
-            : `${orderedSessions.length} saved ${
-                orderedSessions.length === 1 ? "class" : "classes"
-              }`}
-        </div>
-      </div>
-
-      {/* ---------------- Notes Engine (v1) ---------------- */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-3">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <div className="text-sm font-semibold text-slate-800">Exam Notes Generator</div>
-            <div className="text-[11px] text-slate-500">
-              Generate chapter-wise notes (MCQ, 2-mark, 5-mark, case-based) in printable format.
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs"
-              value={noteType}
-              onChange={(e) => setNoteType(e.target.value as NoteType)}
-            >
-              <option value="full_exam_notes">Full Exam Notes</option>
-              <option value="quick_revision">Quick Revision</option>
-              <option value="important_qna">Important Q&amp;A</option>
-              <option value="mcq_only">MCQ Only</option>
-            </select>
-
-            <button
-              type="button"
-              onClick={onGenerateNotes}
-              disabled={notesLoading}
-              className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
-            >
-              {notesLoading ? "Generating..." : "Generate Notes"}
-            </button>
-
-            {notesMarkdown?.trim() && (
-  <>
-    <button
-      type="button"
-      onClick={printNotes}
-      className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-    >
-      Print Notes
-    </button>
-    <button
-      type="button"
-      onClick={downloadNotesText}
-      className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-    >
-      Download Notes
-    </button>
-  </>
-)}
-          </div>
-        </div>
-
-        {!notesMarkdown?.trim() && !notesLoading && (
-  <div className="mt-2 text-xs text-slate-600">
-    Select a note type and click <b>Generate Notes</b>.
-  </div>
-)}
-
-{notesError && (
-  <div className="mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-    {notesError}
-  </div>
-)}
-
-{notesMarkdown?.trim() && (
-  <div className="mt-3 max-h-[420px] overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-800 whitespace-pre-wrap">
-    {notesMarkdown}
-  </div>
-)}
-      </div>
-
-      {error && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          {error}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-700">
-          Loading class history...
-        </div>
-      ) : orderedSessions.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 p-4 text-xs text-slate-600">
-          No saved classes yet. Start a live class, use realtime voice, then click{" "}
-          <b>End Class &amp; Save</b>.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          {/* Left list */}
-          <div className="md:col-span-1 rounded-2xl border border-slate-200 bg-slate-50 p-2">
-            <div className="mb-2 text-[11px] font-semibold text-gray-600 uppercase">
-              Recordings
-            </div>
-
-            <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
-              {visibleSessions.map((s, index) => {
-                const transcriptPreview = safeHistoryText(s.transcript)
-                  .replace(/\s+/g, " ")
-                  .slice(0, TRANSCRIPT_PREVIEW_LENGTH);
-
-                return (
-                <button
-                  key={`${s.id}-${index}`}
-                  type="button"
-                  onClick={() => setSelectedId(s.id)}
-                  className={`w-full rounded-xl border px-3 py-2 text-left text-xs ${
-                    selectedId === s.id
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-slate-200 bg-white hover:bg-slate-100"
-                  }`}
-                >
-                  <div className="font-semibold text-slate-800 truncate">
-                    {safeHistoryText(s.subject, "Unknown Subject")} ·{" "}
-                    {safeHistoryText(s.topic, "Unknown Topic")}
-                  </div>
-                  <div className="text-[11px] text-slate-600 truncate">
-                    {safeHistoryText(s.chapter, "Unknown Chapter")}
-                  </div>
-                  <div className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-500">
-                    {transcriptPreview || "No transcript preview available."}
-                    {safeHistoryText(s.transcript).length >
-                    TRANSCRIPT_PREVIEW_LENGTH
-                      ? "…"
-                      : ""}
-                  </div>
-                  <div className="text-[10px] text-slate-500 mt-1">
-                    {formatHistoryDate(s.endedAt)}
-                  </div>
-                </button>
-                );
-              })}
-
-              {visibleCount < orderedSessions.length && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setVisibleCount((count) =>
-                      Math.min(
-                        count + HISTORY_INITIAL_VISIBLE,
-                        orderedSessions.length
-                      )
-                    )
-                  }
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                >
-                  Show more recordings
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Right viewer */}
-          <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-3">
-            {!selected ? (
-              <div className="text-xs text-slate-600">
-                Select any recording from the left.
-              </div>
-            ) : (
-              <>
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="text-sm font-semibold text-slate-800">
-                      {safeHistoryText(
-                        selected.subject,
-                        "Unknown Subject"
-                      )}{" "}
-                      · {safeHistoryText(selected.topic, "Unknown Topic")}
-                    </div>
-                    <div className="text-[11px] text-slate-600">
-                      Chapter:{" "}
-                      {safeHistoryText(selected.chapter, "Unknown Chapter")}
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-1">
-                      {formatHistoryDate(selected.startedAt)} →{" "}
-                      {formatHistoryDate(selected.endedAt)}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-  type="button"
-  onClick={() => selected && openUnicodePrintPdf(selected)}
-  className="rounded-xl border border-slate-300 px-3 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
->
-  Print
-</button>
-
-                    <button
-                      type="button"
-                      onClick={() => downloadPdf()}
-                      className="rounded-xl border border-slate-300 px-3 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
-                    >
-                      Save PDF
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-3 max-h-[360px] overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-6 text-slate-800">
-                  {displayedTranscript ||
-                    "No transcript saved for this session."}
-                </div>
-
-                {selectedTranscript.length > TRANSCRIPT_DETAIL_CHUNK && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    {transcriptIsTruncated &&
-                      transcriptDisplayLength < TRANSCRIPT_DETAIL_MAX && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setTranscriptDisplayLength((length) =>
-                              Math.min(
-                                length + TRANSCRIPT_DETAIL_CHUNK,
-                                TRANSCRIPT_DETAIL_MAX
-                              )
-                            )
-                          }
-                          className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700"
-                        >
-                          Show more transcript
-                        </button>
-                      )}
-                    {transcriptDisplayLength > TRANSCRIPT_DETAIL_CHUNK && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setTranscriptDisplayLength(TRANSCRIPT_DETAIL_CHUNK)
-                        }
-                        className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"
-                      >
-                        Show less
-                      </button>
-                    )}
-                    {selectedTranscript.length > TRANSCRIPT_DETAIL_MAX &&
-                      transcriptDisplayLength >= TRANSCRIPT_DETAIL_MAX && (
-                        <span className="text-[11px] text-slate-500">
-                          Preview limited for performance. Print or Save PDF
-                          includes the complete transcript.
-                        </span>
-                      )}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-
-
 interface TopicTestQuestion {
   id: number;
   difficulty?: string;
@@ -5094,7 +4745,12 @@ function ClassroomView(props: {
   messages: ChatMessage[];
   question: string;
   setQuestion: (s: string) => void;
+  checkpointStatus: string;
+  onRetryCheckpoint: () => void;
   onStartLesson: () => Promise<void> | void;
+  onStopWaiting: () => void;
+  onRetryClassroom: () => void;
+  classroomCanRetry: boolean;
   onAskQuestion: (attachment?: { name: string; dataUrl: string }) => Promise<void> | void;
   conversationScopeKey: string;
   isStartingLesson: boolean;
@@ -5125,6 +4781,7 @@ function ClassroomView(props: {
     minutesPerSubject: number;
   } | null;
   onNavigateTab: (tab: ActiveTab) => void;
+  onLoadEntitlements: () => Promise<any>;
   onMissionRefresh: () => void | Promise<void>;
   missionLessonHintToken: number;
   missionTopicTestHintToken: number;
@@ -5146,7 +4803,12 @@ function ClassroomView(props: {
     messages,
     question,
     setQuestion,
+    checkpointStatus,
+    onRetryCheckpoint,
     onStartLesson,
+    onStopWaiting,
+    onRetryClassroom,
+    classroomCanRetry,
     onAskQuestion,
     conversationScopeKey,
     isStartingLesson,
@@ -5171,6 +4833,7 @@ function ClassroomView(props: {
     onAppendTranscript,
     onEndClass,
     onNavigateTab,
+    onLoadEntitlements,
     onMissionRefresh,
     missionLessonHintToken,
     missionTopicTestHintToken,
@@ -5577,30 +5240,7 @@ const ensureRealtimeConnected = async (silent = false) => {
   return client;
 };
 
-const loadEntitlementsLocal = useCallback(async () => {
-  if (!studentMobile) return null;
-
-  try {
-    const res = await fetch(
-      `/api/student/entitlements?mobile=${encodeURIComponent(studentMobile)}`,
-      { headers: studentAuthHeaders() }
-    );
-    const data = await res.json();
-    return res.ok && data?.ok
-      ? data
-      : {
-          ok: false,
-          authRequired: res.status === 401,
-          error: loginAgainMessage(res.status, data?.error),
-        };
-  } catch (error) {
-    return {
-      ok: false,
-      authRequired: error instanceof ClientAuthError,
-      error: error instanceof ClientAuthError ? error.message : "Unable to verify access.",
-    };
-  }
-}, [studentMobile]);
+const loadEntitlementsLocal = useCallback(() => onLoadEntitlements(), [onLoadEntitlements]);
 
 const handleToggleRealtime = async () => {
   if (isAsking) return;
@@ -7014,12 +6654,13 @@ useEffect(() => {
                       </div>
                     )}
 
+                    {checkpointStatus && <div role="status" className="px-2 py-1 text-xs">{checkpointStatus} {checkpointStatus.includes("retry save") || checkpointStatus.includes("Retry save") ? <button type="button" onClick={onRetryCheckpoint} className="ml-2 underline">Retry save</button> : null}</div>}
+                    {(isStartingLesson || isAsking) && <div role="status" className="p-2 text-sm">{isStartingLesson ? "Preparing lesson…" : "Preparing reply…"} <button type="button" onClick={onStopWaiting} className="ml-2 rounded border px-2 py-1">Stop waiting</button><p className="text-xs">Stopping closes this wait. Server work may still finish.</p></div>}
+                    {classroomCanRetry && !audioError && <button type="button" onClick={onRetryClassroom} className="rounded border px-2 py-1 text-sm">Resume pending request</button>}
                     {audioError && (
                       <div className="neo-classroom-warning rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 shadow-sm">
                         {audioError}
-                        {audioError === "I couldn't prepare this lesson. Please try again." && (
-                          <button type="button" onClick={() => void onStartLesson()} className="ml-2 rounded-lg border border-amber-400 px-2 py-1 underline">Retry lesson</button>
-                        )}
+                        {classroomCanRetry && <button type="button" onClick={onRetryClassroom} className="ml-2 rounded-lg border border-amber-400 px-2 py-1 underline">Retry lesson / reply audio</button>}
                       </div>
                     )}
 

@@ -1,7 +1,8 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { storedStudentFromResponse } from "@/app/lib/studentLoginCore.mjs";
 import { Eye, EyeOff } from "lucide-react";
 
 type ClassId = "5" | "6" | "7" | "8" | "9";
@@ -195,15 +196,8 @@ export default function StudentLogin() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `Signup failed (HTTP ${res.status})`);
 
-      // After signup, you can auto-login or keep it "logged in" locally.
-      saveStudent({
-        userId: data.userId,
-        username: username.trim().toLowerCase(),
-        name: name.trim(),
-        classId,
-        board,
-        mobile: mobile.trim(),
-      });
+      if(data.requiresLogin) {setMode("login");setStep("details");setError(data.message);return;}
+      saveStudent(storedStudentFromResponse(data));
 
       setOpen(false);
       router.push("/student");

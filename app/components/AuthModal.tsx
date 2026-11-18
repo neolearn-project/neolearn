@@ -23,9 +23,9 @@ export default function AuthModal({
   const isSignup = mode === "signup";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-3 py-4 sm:px-4">
+    <div className="neo-auth-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-3 py-4 sm:px-4">
       <div
-        className={`w-full rounded-2xl bg-white shadow-xl border border-slate-200 ${
+        className={`neo-auth-modal w-full rounded-2xl bg-white shadow-xl border border-slate-200 ${
           isSignup ? "max-w-2xl" : "max-w-md"
         } max-h-[92vh] overflow-hidden`}
       >

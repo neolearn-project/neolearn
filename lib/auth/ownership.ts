@@ -59,7 +59,7 @@ export async function requireStudentIdentity(req: Request) {
     const { data: profile, error: profileError } = await admin
       .from("student_profile")
       .select("mobile")
-      .or(`student_id.eq.${user.id},user_id.eq.${user.id}`)
+      .eq("student_id", user.id)
       .limit(1)
       .maybeSingle();
 

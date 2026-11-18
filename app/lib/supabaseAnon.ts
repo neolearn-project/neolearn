@@ -1,4 +1,4 @@
-﻿import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 
 export function supabaseAnon() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -8,6 +8,6 @@ export function supabaseAnon() {
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
   }
 
-  return createClient(url, anonKey);
+  return createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 

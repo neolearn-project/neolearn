@@ -1,6 +1,8 @@
-﻿"use client";
+"use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { storedStudentFromResponse } from "@/app/lib/studentLoginCore.mjs";
 import { Eye, EyeOff } from "lucide-react";
 
 type Step = "details" | "otp" | "success";
@@ -22,8 +24,6 @@ type FormState = {
   confirmStudentPassword: string;
   parentName: string;
   parentMobile: string;
-  parentPassword: string;
-  confirmParentPassword: string;
   track: Track;
   board: string;
   classNumber: string;
@@ -84,6 +84,12 @@ export default function SignupForm({
   onDone: () => void;
   onSwitchToLogin?: () => void;
 }) {
+  const router=useRouter();
+  const alive=useRef(true);
+  const [resendWait,setResendWait]=useState(0);
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
+  useEffect(()=>{if(!resendWait)return;const t=setTimeout(()=>setResendWait(n=>Math.max(0,n-1)),1000);return()=>clearTimeout(t);},[resendWait]);
+  const submitLock=useRef(false);
   const formTopRef = useRef<HTMLDivElement | null>(null);
 
   const [step, setStep] = useState<Step>("details");
@@ -100,8 +106,6 @@ export default function SignupForm({
     confirmStudentPassword: "",
     parentName: "",
     parentMobile: "",
-    parentPassword: "",
-    confirmParentPassword: "",
     track: "regular",
     board: "CBSE",
     classNumber: "6",
@@ -150,12 +154,6 @@ export default function SignupForm({
     if (form.parentMobile.trim() && !/^\d{10}$/.test(form.parentMobile.trim())) {
       return "Enter valid parent mobile (10 digits).";
     }
-    if (form.parentPassword && form.parentPassword.length < 6) {
-      return "Parent password must be at least 6 characters.";
-    }
-    if (form.parentPassword !== form.confirmParentPassword) {
-      return "Parent password and confirm password must match.";
-    }
 
     if (isRegularTrack) {
       if (!form.board.trim()) return "Select board.";
@@ -174,6 +172,7 @@ export default function SignupForm({
 
   async function handleDetailsSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if(submitLock.current||resendWait>0)return;
     setMsg(null);
 
     const error = validateDetails();
@@ -182,6 +181,8 @@ export default function SignupForm({
       return;
     }
 
+    if(submitLock.current)return;
+    submitLock.current=true;
     setLoading(true);
     try {
       const payload = {
@@ -191,7 +192,6 @@ export default function SignupForm({
         studentPassword: form.studentPassword,
         parentName: form.parentName.trim(),
         parentMobile: form.parentMobile.trim(),
-        parentPassword: form.parentPassword,
         track: form.track,
         board: isRegularTrack ? form.board : null,
         classNumber: isRegularTrack ? form.classNumber : null,
@@ -207,6 +207,7 @@ export default function SignupForm({
       });
 
       const data = await res.json().catch(() => ({}));
+      if(!alive.current)return;
 
       if (!res.ok) {
         throw new Error(data?.error || `Failed to send OTP (HTTP ${res.status})`);
@@ -217,6 +218,7 @@ export default function SignupForm({
       }
 
       setOtpToken(String(data.otpToken));
+      setResendWait(data.retryAfter||60);
       setOtp("");
       setStep("otp");
       setMsg("OTP sent to student mobile.");
@@ -224,6 +226,7 @@ export default function SignupForm({
     } catch (err: any) {
       showError(err?.message || "Failed to start family signup.");
     } finally {
+      submitLock.current=false;
       setLoading(false);
     }
   }
@@ -242,6 +245,8 @@ export default function SignupForm({
       return;
     }
 
+    if(submitLock.current)return;
+    submitLock.current=true;
     setLoading(true);
     try {
       const payload = {
@@ -253,7 +258,6 @@ export default function SignupForm({
         studentPassword: form.studentPassword,
         parentName: form.parentName.trim(),
         parentMobile: form.parentMobile.trim(),
-        parentPassword: form.parentPassword,
         track: form.track,
         board: isRegularTrack ? form.board : null,
         classNumber: isRegularTrack ? form.classNumber : null,
@@ -269,17 +273,23 @@ export default function SignupForm({
       });
 
       const data = await res.json().catch(() => ({}));
+      if(!alive.current)return;
 
       if (!res.ok) {
         throw new Error(data?.error || `Verification failed (HTTP ${res.status})`);
       }
 
+      if(data.session?.access_token) {
+        localStorage.setItem("neolearnStudent",JSON.stringify(storedStudentFromResponse(data)));
+        onDone();router.push("/student");return;
+      }
       setStep("success");
       setMsg(null);
       formTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (err: any) {
       showError(err?.message || "OTP verification failed.");
     } finally {
+      submitLock.current=false;
       setLoading(false);
     }
   }
@@ -381,7 +391,7 @@ export default function SignupForm({
             <div className="border-t border-slate-200 pt-2">
               <h3 className="text-sm font-semibold text-slate-900">Parent/Guardian Details Optional</h3>
               <p className="mt-1 text-xs text-slate-500">
-                Parent/guardian can be linked later.
+                Optional contact details only. Link and verify a parent/guardian later from the dashboard.
               </p>
             </div>
 
@@ -402,27 +412,6 @@ export default function SignupForm({
                 onChange={(e) => updateField("parentMobile", e.target.value.replace(/\D/g, ""))}
               />
 
-              <div className="sm:col-span-1">
-                <PasswordField
-                  placeholder="Parent password (optional)"
-                  value={form.parentPassword}
-                  onChange={(value) => updateField("parentPassword", value)}
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <PasswordField
-                  placeholder="Confirm parent password (optional)"
-                  value={form.confirmParentPassword}
-                  onChange={(value) => updateField("confirmParentPassword", value)}
-                />
-                {form.confirmParentPassword &&
-                  form.parentPassword !== form.confirmParentPassword && (
-                    <div className="mt-1 text-xs text-red-600">
-                      Parent password and confirm password must match.
-                    </div>
-                  )}
-              </div>
             </div>
 
             <div className="border-t border-slate-200 pt-2">
@@ -519,8 +508,8 @@ export default function SignupForm({
               </select>
             </div>
 
-            <button type="submit" disabled={loading} className="btn btn-primary w-full">
-              {loading ? "Sending OTP..." : "Continue"}
+            <button type="submit" disabled={loading||resendWait>0} className="btn btn-primary w-full">
+              {loading ? "Sending OTP..." : resendWait>0 ? `Wait ${resendWait}s` : "Continue"}
             </button>
 
             {onSwitchToLogin && (
@@ -549,9 +538,10 @@ export default function SignupForm({
 
             <input
               inputMode="numeric"
-              maxLength={10}
+              maxLength={6}
               className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter OTP"
+              autoComplete="one-time-code"
+                placeholder="Enter OTP"
               value={otp}
               onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
             />
@@ -560,8 +550,10 @@ export default function SignupForm({
               {loading ? "Verifying..." : "Verify & Create Student Account"}
             </button>
 
+            <button type="button" disabled={loading||resendWait>0} onClick={e=>void handleDetailsSubmit(e)} className="w-full text-sm font-medium text-blue-700 disabled:text-slate-500">{resendWait>0 ? `Resend in ${resendWait}s` : "Resend OTP"}</button>
             <button
               type="button"
+              disabled={loading}
               className="w-full rounded-xl border border-slate-300 py-2.5 text-sm font-medium hover:bg-slate-50"
               onClick={() => {
                 setStep("details");
