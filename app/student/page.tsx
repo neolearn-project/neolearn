@@ -18,6 +18,7 @@ import { RealtimeTeacherClient } from "./realtimeTeacherClient";
 import GalleryPanel from "./components/GalleryPanel";
 import StudentChatBubble from "./components/StudentChatBubble";
 import StudentMobileNavigation from "./components/StudentMobileNavigation";
+import StudentMotionPanel from "./components/StudentMotionPanel";
 import type { NoteType, StoredSession } from "./studentHistoryTypes";
 import { HISTORY_LIST_LIMIT, safeHistoryText, safeHistoryDate } from "@/app/lib/studentHistoryFormat";
 import {
@@ -5928,21 +5929,21 @@ useEffect(() => {
   };
 
   const boardActionBar = (
-    <div className="neo-smart-board-actions">
+    <div className="neo-smart-board-actions" aria-label="Smart board tools">
       <button type="button" title="Explain" aria-label="Explain" onClick={() => setBoardMode("visual")}>
-        <Lightbulb className="h-4 w-4" />
+        <Lightbulb className="h-4 w-4" /><span>Explain</span>
       </button>
       <button type="button" title="Draw" aria-label="Draw" onClick={() => setBoardMode("visual")}>
-        <Pencil className="h-4 w-4" />
+        <Pencil className="h-4 w-4" /><span>Draw</span>
       </button>
       <button type="button" title="Steps" aria-label="Steps" onClick={() => setBoardMode("steps")}>
-        <ListChecks className="h-4 w-4" />
+        <ListChecks className="h-4 w-4" /><span>Steps</span>
       </button>
       <button type="button" title="Reset" aria-label="Reset" onClick={() => setBoardMode("ready")}>
-        <RotateCcw className="h-4 w-4" />
+        <RotateCcw className="h-4 w-4" /><span>Reset</span>
       </button>
       <button type="button" title={boardFullscreen ? "Exit Fullscreen" : "Fullscreen"} aria-label={boardFullscreen ? "Exit Fullscreen" : "Fullscreen"} onClick={() => setBoardFullscreen((value) => !value)}>
-        {boardFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        {boardFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}<span>{boardFullscreen ? "Restore" : "Expand"}</span>
       </button>
       <button
         type="button"
@@ -5953,7 +5954,7 @@ useEffect(() => {
           setBoardOpen(false);
         }}
       >
-        <X className="h-4 w-4" />
+        <X className="h-4 w-4" /><span>Close</span>
       </button>
     </div>
   );
@@ -6839,7 +6840,7 @@ useEffect(() => {
 
                 {boardActionBar}
 
-                <div className="mt-3 min-h-0 flex-1">{renderBoardVisual()}</div>
+                <StudentMotionPanel key={boardMode} className="neo-board-content-motion mt-3 min-h-0 flex-1">{renderBoardVisual()}</StudentMotionPanel>
               </div>
             </aside>
           )}
@@ -6863,9 +6864,9 @@ useEffect(() => {
 
     {boardActionBar}
 
-    <div className="mt-3 h-[calc(100%-130px)] min-h-0">
+    <StudentMotionPanel key={boardMode} className="neo-board-content-motion mt-3 min-h-0 flex-1">
       {renderBoardVisual()}
-    </div>
+    </StudentMotionPanel>
   </div>
 )}
 
