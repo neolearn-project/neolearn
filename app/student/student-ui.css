@@ -331,3 +331,28 @@
 }
 @keyframes neo-panel-appear { from { opacity: 0; translate: 0 18px; } to { opacity: 1; translate: 0 0; } }
 @keyframes neo-menu-appear { from { opacity: 0; translate: 0 -5px; } to { opacity: 1; translate: 0 0; } }
+
+@layer neoStudentMotion {
+  @media (max-width: 1023px) {
+    /* Keep the last card reachable above the phone's system/navigation area. */
+    .neo-student-shell .neo-mobile-class-drawer > div {
+      min-height: 0 !important;
+      overflow-y: auto !important;
+      overscroll-behavior-y: contain;
+      padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important;
+      scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    }
+    .neo-student-shell .neo-mobile-class-drawer > div > * { flex-shrink: 0 !important; }
+    .neo-student-shell .neo-mobile-class-drawer audio {
+      display: block !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      min-height: 54px !important;
+    }
+    /* The open drawer takes priority; navigation returns when it closes. */
+    .neo-student-shell:has(.neo-mobile-class-drawer.translate-x-0) .neo-mobile-bottom-nav {
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+  }
+}
