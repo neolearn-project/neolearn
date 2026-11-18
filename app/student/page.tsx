@@ -16,6 +16,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RealtimeTeacherClient } from "./realtimeTeacherClient";
 import GalleryPanel from "./components/GalleryPanel";
+import StudentChatBubble from "./components/StudentChatBubble";
+import StudentMobileNavigation from "./components/StudentMobileNavigation";
 import type { NoteType, StoredSession } from "./studentHistoryTypes";
 import { HISTORY_LIST_LIMIT, safeHistoryText, safeHistoryDate } from "@/app/lib/studentHistoryFormat";
 import {
@@ -3277,32 +3279,8 @@ function MobileStudentNav({
   onNotes: () => void;
   onProfile: () => void;
 }) {
-  const items = [
-    { key: "dashboard", label: "Home", icon: BookOpen, action: onHome, active: activeTab === "dashboard" },
-    { key: "gallery", label: "Library", icon: Images, action: onNotes, active: activeTab === "gallery" },
-    { key: "classroom", label: "Classroom", icon: Play, action: onClass, active: activeTab === "classroom" },
-    { key: "test", label: "Test", icon: ClipboardCheck, action: onTest, active: false },
-    { key: "profile", label: "Plan", icon: Target, action: onProfile, active: activeTab === "payments" },
-  ];
-
-  return (
-    <nav className="neo-mobile-bottom-nav hidden" aria-label="Student mobile navigation">
-      {items.map((item) => {
-        const Icon = item.icon;
-        return (
-          <button
-            key={item.key}
-            type="button"
-            onClick={item.action}
-            className={item.active ? "is-active" : ""}
-          >
-            <Icon className="h-4 w-4" />
-            <span>{item.label}</span>
-          </button>
-        );
-      })}
-    </nav>
-  );
+  return <StudentMobileNavigation activeTab={activeTab} onHome={onHome} onClass={onClass}
+    onTest={onTest} onNotes={onNotes} onProfile={onProfile} />;
 }
 
 function StudentDashboardView({
@@ -3424,10 +3402,10 @@ function StudentDashboardView({
               {classLabel}
             </div>
             <h1 className="text-2xl font-bold tracking-normal text-slate-950 md:text-4xl">
-              Hi {firstName}, start a focused AI class.
+              What will you learn today, {firstName}?
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 md:text-base">
-              Choose a subject, chapter, and topic. NeoLearn will open the classroom and start teaching.
+              A little curiosity. A new idea. Your next lesson starts here.
             </p>
             {currentPath && (
               <div className="mt-4 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-700">
@@ -3469,7 +3447,7 @@ function StudentDashboardView({
           </div>
         )}
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <div className="neo-learning-stats mt-5 grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
             <div className="text-xs font-semibold text-slate-500">Today</div>
             <div className="mt-1 text-2xl font-bold text-slate-900">
@@ -6009,20 +5987,17 @@ useEffect(() => {
     try {
       parsed = saved ? JSON.parse(saved) : null;
     } catch {}
-    const initial =
-      parsed && Number.isFinite(parsed.x) && Number.isFinite(parsed.y)
-        ? parsed
-        : { x: window.innerWidth - 58, y: window.innerHeight * 0.58 };
-    setLiveToolsPosition(clampLiveToolsPosition(initial));
+    if (parsed && Number.isFinite(parsed.x) && Number.isFinite(parsed.y)) {
+      setLiveToolsPosition(clampLiveToolsPosition(parsed));
+    }
   }, [clampLiveToolsPosition]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onResize = () => {
       setLiveToolsPosition((value) => {
-        const next = clampLiveToolsPosition(
-          value ?? { x: window.innerWidth - 58, y: window.innerHeight * 0.58 }
-        );
+        if (!value) return null;
+        const next = clampLiveToolsPosition(value);
         window.localStorage.setItem("neolearnLiveToolsPosition", JSON.stringify(next));
         return next;
       });
@@ -6053,6 +6028,7 @@ useEffect(() => {
     if (Math.abs(deltaY) > 5 || Math.abs(deltaX) > 5) {
       drag.moved = true;
     }
+    if (!drag.moved) return;
     setLiveToolsPosition(
       clampLiveToolsPosition({
         x: drag.startLeft + deltaX,
@@ -6568,7 +6544,7 @@ useEffect(() => {
                       <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
                         AI Classroom
                       </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-1 text-sm font-semibold text-slate-700">
+                      <div className="neo-topic-breadcrumb mt-1 flex flex-wrap items-center gap-1 text-sm font-semibold text-slate-700">
                         {breadcrumbItems.map((item, index) => (
                           <span key={`${item}-${index}`} className="inline-flex items-center gap-1">
                             <span className={index === 2 ? "text-blue-700" : ""}>{item}</span>
@@ -6579,6 +6555,7 @@ useEffect(() => {
                         ))}
                       </div>
                     </div>
+                    <div className="neo-header-tools">{liveActionDrawer}</div>
                   </div>
 
                   <div className="neo-conversation-controls flex flex-wrap items-center gap-2">
@@ -6610,18 +6587,21 @@ useEffect(() => {
 
   <button
     type="button"
+    aria-label="Change topic"
     onClick={onOpenStartFlow}
     className="neo-mobile-required-control neo-change-topic-control neo-secondary-control-chip inline-flex items-center gap-1 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100"
   >
     <RotateCcw className="h-3.5 w-3.5" />
-    Change Topic
+    <span className="neo-control-long-label">Change Topic</span><span className="neo-control-short-label">Topic</span>
   </button>
   <button
     type="button"
+    aria-label={boardOpen ? "Hide board" : "Open board"}
+    aria-expanded={boardOpen}
     onClick={() => setBoardOpen((v) => !v)}
     className="neo-mobile-required-control neo-open-board-control neo-secondary-control-chip rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
   >
-    <span className="neo-open-board-mobile-label">Open Board</span>
+    <span className="neo-open-board-mobile-label">{boardOpen ? "Hide board" : "Board"}</span>
     <span className="neo-open-board-desktop-label">{boardOpen ? "Hide Board" : "Open Board"}</span>
   </button>
 </div>
@@ -6664,39 +6644,13 @@ useEffect(() => {
                       </div>
                     )}
 
-                    {messages.map((m) => {
-                      const isTeacher = m.author === "Teacher";
-                      return (
-                        <div
-                          key={m.id}
-                          className={`flex ${isTeacher ? "justify-start" : "justify-end"}`}
-                        >
-                          <div
-                            className={`neo-chat-bubble max-w-[94%] rounded-3xl px-4 py-3 text-sm shadow-sm ${
-                              isTeacher
-                                ? "neo-chat-bubble-teacher border border-slate-200 bg-slate-50 text-slate-800"
-                                : "neo-chat-bubble-student bg-blue-600 text-white"
-                            } ${m.isError ? "border-red-300 bg-red-50 text-red-700" : ""}`}
-                          >
-                            <div className="whitespace-pre-wrap leading-7">
-                              {m.text}
-                            </div>
-                            <div
-                              className={`mt-2 text-[11px] ${
-                                isTeacher ? "text-slate-400" : "text-blue-100"
-                              }`}
-                            >
-                              {isTeacher ? "Teacher" : "You"} - {m.ts}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {messages.map((m) => <StudentChatBubble key={m.id} text={m.text}
+                      author={m.author} timestamp={m.ts} isError={m.isError} />)}
 
                     {realtimeTranscript && (
-                      <div className="rounded-3xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-slate-700">
-                        <span className="font-semibold text-blue-700">
-                          Teacher (live):{" "}
+                      <div className="neo-live-transcript rounded-3xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-slate-700">
+                        <span className="neo-live-transcript-label font-semibold text-blue-700">
+                          Live voice · NeO{" "}
                         </span>
                         {realtimeTranscript}
                       </div>
@@ -6725,8 +6679,6 @@ useEffect(() => {
                 </div>
               </div>
 
-              {liveActionDrawer}
-
               <input
                 ref={uploadInputRef}
                 type="file"
@@ -6746,6 +6698,8 @@ useEffect(() => {
                     <button
                       type="button"
                       onClick={() => setMenuOpen((v) => !v)}
+                      aria-label="Add a question image"
+                      aria-expanded={menuOpen}
                       className="neo-composer-action flex h-12 w-12 items-center justify-center rounded-full border border-slate-300 bg-white text-2xl text-slate-700 hover:bg-slate-50"
                     >
                       +
@@ -6786,10 +6740,11 @@ useEffect(() => {
 
                   <input
                     type="text"
+                    aria-label="Your question"
                     className="neo-composer-input h-12 min-w-0 flex-1 rounded-full border border-slate-300 bg-white px-5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder={
                       isRealtimeOn
-                        ? "Type a doubt or use mic for realtime teacher..."
+                        ? "Ask NeO, or use your mic…"
                         : "Ask about this topic..."
                     }
                     value={question}

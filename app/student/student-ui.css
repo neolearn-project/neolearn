@@ -1,0 +1,275 @@
+/* Student design system. Important declarations in this named layer take
+   precedence over the unlayered legacy themes without changing other portals. */
+@layer neoStudentDesign {
+  .neo-student-shell {
+    --ui-canvas: #f3f5fb;
+    --ui-surface: #ffffff;
+    --ui-subtle: #f6f7fc;
+    --ui-ink: #29264b;
+    --ui-muted: #6d748e;
+    --ui-line: #e5e8f2;
+    --ui-soft: var(--neo-appearance-accent-soft);
+    --ui-radius: 20px;
+    background: var(--ui-canvas) !important;
+    color: var(--ui-ink) !important;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif !important;
+    text-shadow: none !important;
+  }
+  .neo-student-shell[data-appearance-theme="dark"] {
+    --ui-canvas: #101522;
+    --ui-surface: #192133;
+    --ui-subtle: #202a3e;
+    --ui-ink: #eef2ff;
+    --ui-muted: #aab5cc;
+    --ui-line: #303c54;
+    --ui-soft: var(--neo-appearance-accent-soft);
+  }
+  .neo-student-shell::before,
+  .neo-student-shell .neo-student-header::before,
+  .neo-student-shell .neo-composer-send::before { display: none !important; }
+  .neo-student-shell :is(button, a, input, select) {
+    text-shadow: none !important;
+    box-shadow: none !important;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease !important;
+  }
+  .neo-student-shell :focus-visible {
+    outline: 2px solid var(--neo-appearance-accent) !important;
+    outline-offset: 3px !important;
+  }
+  .neo-student-shell :is(.neo-student-header,.neo-student-tabs,.neo-student-menu,.neo-settings-notice) {
+    background: var(--ui-surface) !important;
+    border: 1px solid var(--ui-line) !important;
+    color: var(--ui-ink) !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+  .neo-student-shell .neo-student-header {
+    border-width: 0 0 1px !important;
+    border-radius: 0 !important;
+    padding: 12px 20px !important;
+  }
+  .neo-student-shell .neo-top-logo {
+    width: 124px !important;
+    max-width: 124px !important;
+    height: 36px !important;
+    flex: 0 0 124px !important;
+    border: 0 !important;
+    border-radius: 8px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+  .neo-student-shell .neo-top-logo-image {
+    width: 124px !important; height: 34px !important;
+    object-fit: contain !important; filter: none !important;
+  }
+  .neo-student-shell[data-appearance-theme="dark"] .neo-top-logo {
+    padding: 4px 6px !important; background: #fff !important;
+  }
+  .neo-student-shell :is(.neo-student-profile-capsule,.neo-student-menu-button) {
+    background: var(--ui-subtle) !important; color: var(--ui-ink) !important;
+    border: 1px solid var(--ui-line) !important; border-radius: 14px !important;
+  }
+  .neo-student-shell .neo-student-profile-capsule { padding: 5px 10px 5px 5px !important; gap: 8px !important; }
+  .neo-student-shell .neo-student-avatar {
+    width: 34px !important; height: 34px !important; flex: 0 0 34px !important;
+    border: 0 !important; border-radius: 11px !important;
+    background: var(--neo-appearance-accent-fill) !important; color: #fff !important;
+    font-size: 12px !important; box-shadow: none !important;
+  }
+  .neo-student-shell .neo-student-profile-copy span { color: var(--ui-ink) !important; font-size: 13px !important; font-weight: 650 !important; }
+  .neo-student-shell .neo-student-profile-copy small { color: var(--ui-muted) !important; font-size: 11px !important; }
+  .neo-student-shell .neo-student-menu-button { width: 42px !important; height: 44px !important; padding: 10px !important; }
+  .neo-student-shell .neo-student-header-actions { gap: 8px !important; flex-wrap: nowrap !important; }
+  .neo-student-shell .neo-student-app-body { padding: 12px !important; }
+  .neo-student-shell :is(.neo-dashboard,.neo-student-tab-panel,.neo-classroom,.neo-chat-panel) {
+    border: 0 !important; border-radius: var(--ui-radius) !important;
+    background: var(--ui-canvas) !important; color: var(--ui-ink) !important;
+    box-shadow: none !important; backdrop-filter: none !important;
+  }
+  .neo-student-shell .neo-dashboard { padding: 6px !important; }
+  .neo-student-shell .neo-mobile-welcome-card { display: none !important; }
+  .neo-student-shell .neo-mobile-hero-brand { display: none !important; }
+  .neo-student-shell .neo-dashboard-hero {
+    border: 1px solid var(--ui-line) !important; border-radius: 24px !important;
+    background: linear-gradient(125deg, var(--ui-surface) 15%, var(--ui-soft)) !important;
+    color: var(--ui-ink) !important; box-shadow: none !important;
+    padding: 28px !important; animation: neo-ui-enter 260ms ease-out both;
+  }
+  .neo-student-shell .neo-dashboard-hero h1 {
+    color: var(--ui-ink) !important; text-shadow: none !important;
+    font-size: clamp(26px, 3vw, 38px) !important; line-height: 1.2 !important;
+    letter-spacing: -0.035em !important; max-width: 20ch !important;
+  }
+  .neo-student-shell .neo-dashboard :is(h2,h3,.text-slate-950,.text-slate-900,.text-slate-800) { color: var(--ui-ink) !important; text-shadow: none !important; }
+  .neo-student-shell .neo-dashboard :is(p,.text-slate-600,.text-slate-500,.text-gray-600) { color: var(--ui-muted) !important; text-shadow: none !important; }
+  .neo-student-shell .neo-primary-start-button {
+    min-height: 52px !important; border: 0 !important; border-radius: 15px !important;
+    background: var(--neo-appearance-accent-fill) !important; color: #fff !important;
+    font-size: 15px !important; box-shadow: 0 5px 14px rgb(37 99 235 / 14%) !important;
+  }
+  .neo-student-shell .neo-learning-stats { display: grid !important; grid-template-columns: repeat(3,minmax(0,1fr)) !important; gap: 10px !important; }
+  .neo-student-shell .neo-learning-stats > div {
+    background: var(--ui-surface) !important; border: 1px solid var(--ui-line) !important;
+    padding: 14px !important; border-radius: 15px !important; box-shadow: none !important;
+  }
+  .neo-student-shell .neo-mobile-teacher-stage { display: none !important; }
+  .neo-student-shell .neo-action-card {
+    min-width: 190px !important; min-height: 150px !important;
+    border: 1px solid var(--ui-line) !important; border-radius: 20px !important;
+    background: var(--ui-surface) !important; box-shadow: none !important;
+    padding: 18px !important; transform: none !important;
+  }
+  .neo-student-shell .neo-primary-start-button svg { color: #fff !important; fill: currentColor !important; }
+  .neo-student-shell .neo-today-learning-card { background: var(--ui-surface) !important; border: 1px solid var(--ui-line) !important; border-radius: 18px !important; box-shadow: none !important; }
+  .neo-student-shell .neo-today-learning-card button { background: var(--neo-appearance-accent-fill) !important; color: #fff !important; border-radius: 12px !important; }
+  .neo-student-shell .neo-card-rail { gap: 12px !important; scroll-snap-type: x proximity; }
+  .neo-student-shell .neo-action-card { scroll-snap-align: start; }
+  .neo-student-shell .neo-classroom-content { padding: 0 !important; }
+  .neo-student-shell .neo-conversation-header {
+    border: 1px solid var(--ui-line) !important; border-radius: 18px !important;
+    background: var(--ui-surface) !important; box-shadow: none !important;
+    padding: 14px !important; position: relative !important; z-index: 2 !important;
+    backdrop-filter: none !important;
+  }
+  .neo-student-shell .neo-conversation-copy { min-width: 0 !important; }
+  .neo-student-shell .neo-conversation-copy > div:first-child {
+    color: var(--neo-appearance-accent-strong) !important; font-size: 10px !important;
+    letter-spacing: 0.12em !important; text-transform: uppercase !important;
+  }
+  .neo-student-shell .neo-topic-breadcrumb {
+    display: flex !important; color: var(--ui-ink) !important;
+    font-size: 13px !important; line-height: 1.4 !important; overflow-wrap: anywhere;
+  }
+  .neo-student-shell .neo-topic-breadcrumb span { color: var(--ui-ink) !important; }
+  .neo-student-shell :is(.neo-classroom-menu-button,.neo-mobile-required-control) {
+    border: 1px solid var(--ui-line) !important; border-radius: 11px !important;
+    background: var(--ui-subtle) !important; color: var(--ui-ink) !important;
+    min-height: 40px !important; height: auto !important; padding: 8px 11px !important;
+    font-size: 12px !important; font-weight: 600 !important; box-shadow: none !important;
+    text-shadow: none !important; color-scheme: inherit !important;
+  }
+  .neo-student-shell .neo-classroom-menu-button { width: 40px !important; flex: 0 0 40px !important; padding: 10px !important; }
+  .neo-student-shell .neo-conversation-controls { gap: 7px !important; padding: 0 !important; }
+  .neo-student-shell .neo-control-short-label { display: none; }
+  .neo-student-shell .neo-chat-panel { border-radius: 0 !important; }
+  .neo-student-shell .neo-chat-panel > div { padding: 4px 2px 14px !important; }
+  .neo-student-shell .neo-chat-bubble {
+    max-width: 92% !important; padding: 16px !important;
+    border: 1px solid var(--ui-line) !important; border-radius: 18px !important;
+    box-shadow: none !important; text-shadow: none !important;
+    font-size: var(--neo-reading-body) !important; line-height: var(--neo-reading-leading) !important;
+    overflow-wrap: anywhere; animation: neo-ui-enter 200ms ease-out both;
+  }
+  .neo-student-shell .neo-chat-bubble-teacher { background: var(--ui-surface) !important; color: var(--ui-ink) !important; border-top-left-radius: 5px !important; }
+  .neo-student-shell .neo-chat-bubble-student { background: var(--neo-appearance-accent-fill) !important; color: #fff !important; border-color: transparent !important; border-top-right-radius: 5px !important; }
+  .neo-student-shell .neo-message-author { display: flex; gap: 8px; align-items: center; margin-bottom: 9px; color: inherit !important; font-size: 12px !important; font-weight: 700; }
+  .neo-student-shell .neo-message-author span { color: var(--ui-muted) !important; font-size: 10px !important; font-weight: 500; }
+  .neo-student-shell .neo-message-text { color: inherit !important; line-height: var(--neo-reading-leading) !important; }
+  .neo-student-shell .neo-message-time { margin-top: 10px; font-size: 10px !important; color: var(--ui-muted) !important; }
+  .neo-student-shell .neo-chat-bubble-student .neo-message-time { color: #dbeafe !important; }
+  .neo-student-shell .neo-chat-bubble-error { background: #fff1f2 !important; border-color: #fda4af !important; color: #9f1239 !important; }
+  .neo-student-shell .neo-live-transcript {
+    border: 1px solid var(--ui-line) !important; border-left: 3px solid var(--neo-appearance-accent) !important;
+    border-radius: 14px !important; background: var(--ui-surface) !important;
+    color: var(--ui-ink) !important; padding: 14px 16px !important; box-shadow: none !important;
+  }
+  .neo-student-shell .neo-live-transcript-label { display: block; margin-bottom: 6px; font-size: 11px !important; color: var(--neo-appearance-accent-strong) !important; }
+  .neo-student-shell .neo-composer {
+    border: 1px solid var(--ui-line) !important; border-radius: 18px !important;
+    background: var(--ui-surface) !important; padding: 8px !important;
+    box-shadow: none !important; backdrop-filter: none !important;
+  }
+  .neo-student-shell .neo-composer-input {
+    min-width: 0 !important; min-height: 44px !important; height: 44px !important;
+    padding: 8px 12px !important; font-size: 16px !important; border: 0 !important;
+    border-radius: 12px !important; background: var(--ui-subtle) !important; color: var(--ui-ink) !important;
+  }
+  .neo-student-shell .neo-composer-input::placeholder { color: var(--ui-muted) !important; font-size: 13px; }
+  .neo-student-shell :is(.neo-composer-action,.neo-composer-mic,.neo-composer-send) {
+    flex: 0 0 40px !important; width: 40px !important; min-width: 40px !important;
+    height: 44px !important; padding: 0 !important; border: 0 !important; border-radius: 12px !important;
+    background: var(--ui-subtle) !important; color: var(--ui-ink) !important;
+    display: inline-flex !important; align-items: center; justify-content: center;
+  }
+  .neo-student-shell .neo-composer-mic.border-blue-600,
+  .neo-student-shell .neo-composer-send { background: var(--neo-appearance-accent-fill) !important; color: #fff !important; }
+  .neo-student-shell .neo-realtime-status { background: transparent !important; border: 0 !important; box-shadow: none !important; color: var(--ui-muted) !important; padding: 0 4px !important; font-size: 10px !important; }
+  .neo-student-shell .neo-realtime-status > span.text-slate-500 { color: var(--ui-muted) !important; }
+  .neo-student-shell .neo-realtime-status button:not(.bg-emerald-50) { background: var(--ui-subtle) !important; color: var(--ui-muted) !important; border: 1px solid var(--ui-line) !important; }
+  .neo-student-shell :is(.neo-composer-plus-menu,.neo-live-icon-palette) {
+    background: var(--ui-surface) !important; color: var(--ui-ink) !important;
+    border: 1px solid var(--ui-line) !important; border-radius: 18px !important;
+    box-shadow: 0 12px 40px rgb(15 23 42 / 14%) !important; backdrop-filter: none !important;
+  }
+  .neo-student-shell :is(.neo-composer-plus-menu,.neo-live-icon-palette) :is(button,label) {
+    background: var(--ui-surface) !important; color: var(--ui-ink) !important;
+    border: 0 !important; border-radius: 10px !important;
+  }
+  .neo-student-shell :is(.neo-live-icon-palette,.neo-composer-plus-menu) :is(button,label):hover { background: var(--ui-subtle) !important; }
+  .neo-student-shell .neo-header-tools { margin-left: auto; flex: 0 0 auto; }
+  .neo-student-shell .neo-live-action-trigger:not([style]) { position: static !important; transform: none !important; }
+  .neo-student-shell .neo-live-icon-palette:not([style]) { position: fixed !important; right: 14px !important; left: auto !important; top: 130px !important; bottom: auto !important; }
+  .neo-student-shell .neo-live-action-trigger {
+    background: var(--ui-surface) !important; border: 1px solid var(--ui-line) !important;
+    color: var(--neo-appearance-accent-strong) !important; border-radius: 13px !important;
+    padding: 10px 12px !important; min-height: 44px !important; height: auto !important;
+    width: max-content !important; box-shadow: 0 4px 12px rgb(15 23 42 / 8%) !important;
+  }
+  .neo-student-shell .neo-live-icon-palette { max-height: min(70dvh,480px) !important; overflow-y: auto !important; }
+  .neo-student-shell .neo-mobile-bottom-nav {
+    background: var(--ui-surface) !important; border: 1px solid var(--ui-line) !important;
+    border-radius: 22px !important; padding: 5px !important; gap: 2px !important;
+    box-shadow: 0 4px 20px rgb(15 23 42 / 8%) !important; backdrop-filter: none !important;
+  }
+  .neo-student-shell .neo-mobile-bottom-nav button {
+    position: relative !important; isolation: isolate; border: 0 !important; border-radius: 16px !important;
+    background: transparent !important; color: var(--ui-muted) !important;
+    min-height: 54px !important; padding: 6px 2px !important; font-size: 10px !important;
+    font-weight: 600 !important; gap: 5px !important; transform-origin: center;
+  }
+  .neo-student-shell .neo-mobile-bottom-nav button.is-active { color: #fff !important; }
+  .neo-student-shell .neo-nav-selection { position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--neo-appearance-accent-fill); }
+  .neo-student-shell .neo-mobile-bottom-nav button svg { width: 20px !important; height: 20px !important; }
+  .neo-student-shell .neo-classroom > aside { border-color: var(--ui-line) !important; background: var(--ui-surface) !important; box-shadow: none !important; }
+  .neo-student-shell :is(.neo-start-modal,.neo-topic-test-modal,.neo-smart-board-panel,.neo-smart-board-mobile) {
+    background: var(--ui-surface) !important; color: var(--ui-ink) !important;
+    border: 1px solid var(--ui-line) !important; border-radius: 22px !important;
+    box-shadow: 0 12px 40px rgb(15 23 42 / 14%) !important;
+  }
+  .neo-student-shell .neo-topic-test-question { color: var(--ui-ink) !important; }
+  .neo-student-shell .neo-topic-test-option:not(.bg-emerald-50):not(.bg-red-50):not(.bg-blue-50) {
+    background: var(--ui-subtle) !important; color: var(--ui-ink) !important; border-color: var(--ui-line) !important;
+  }
+  .neo-student-shell .neo-topic-test-explanation { background: var(--ui-subtle) !important; color: var(--ui-ink) !important; }
+  @media (max-width: 767px) {
+    .neo-student-shell .neo-student-header { padding: max(10px, env(safe-area-inset-top)) 12px 10px !important; }
+    .neo-student-shell .neo-top-logo { width: 112px !important; max-width: 112px !important; flex-basis: 112px !important; }
+    .neo-student-shell .neo-student-profile-copy { max-width: 100px !important; }
+    .neo-student-shell .neo-student-profile-copy span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .neo-student-shell .neo-student-app-body { padding: 10px 10px calc(78px + env(safe-area-inset-bottom)) !important; }
+    .neo-student-shell.is-focus-fullscreen .neo-student-app-body { padding-bottom: 8px !important; }
+    .neo-student-shell .neo-dashboard-hero { padding: 22px 18px !important; }
+    .neo-student-shell .neo-learning-stats > div { padding: 10px !important; }
+    .neo-student-shell .neo-learning-stats .text-2xl { font-size: 22px !important; }
+    .neo-student-shell .neo-learning-stats .text-xs { font-size: 10px !important; }
+    .neo-student-shell .neo-conversation-header > div > div:first-child { width: 100%; min-width: 0; }
+    .neo-student-shell .neo-conversation-header > div { flex-direction: column !important; align-items: stretch !important; gap: 12px !important; }
+    .neo-student-shell .neo-topic-breadcrumb > span:not(:last-child) { display: none !important; }
+    .neo-student-shell .neo-topic-breadcrumb > span:last-child { display: block !important; }
+    .neo-student-shell .neo-conversation-copy { display: block !important; }
+    .neo-student-shell .neo-conversation-controls { flex-wrap: nowrap !important; }
+    .neo-student-shell .neo-control-long-label { display: none !important; }
+    .neo-student-shell .neo-control-short-label { display: inline !important; }
+    .neo-student-shell .neo-mobile-bottom-nav { left: 10px !important; right: 10px !important; bottom: max(8px, env(safe-area-inset-bottom)) !important; }
+    .neo-student-shell .neo-composer-row { gap: 5px !important; }
+    .neo-student-shell .neo-chat-bubble { max-width: 96% !important; }
+    .neo-student-shell .neo-realtime-status { display: flex !important; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .neo-student-shell *, .neo-student-shell *::before, .neo-student-shell *::after {
+      animation: none !important; transition: none !important; scroll-behavior: auto !important;
+    }
+  }
+}
+@keyframes neo-ui-enter { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
