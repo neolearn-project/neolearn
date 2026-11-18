@@ -356,3 +356,11 @@
     }
   }
 }
+
+@layer neoStudentDesign {
+  /* Keep the progress card free of decorative brand-like symbols. */
+  .neo-student-shell .neo-progress-hero::after {
+    content: none !important;
+    display: none !important;
+  }
+}
