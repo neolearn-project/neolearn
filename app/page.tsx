@@ -35,6 +35,7 @@ export default function Page() {
               />
             </div>
 
+            <Link href="/teacher" className="rounded-xl bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-800">Teach with us</Link>
             <div className="hidden items-center gap-3 sm:flex">
               <Link
                 href="/parent/login"

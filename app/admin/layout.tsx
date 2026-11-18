@@ -12,6 +12,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="font-semibold">NeoLearn Admin Console</div>
 
           <nav className="flex flex-wrap items-center gap-4 text-sm">
+            <Link href="/admin/teachers" className="hover:underline">Teachers</Link>
             <Link href="/admin/leads" className="hover:underline">
               Leads
             </Link>
