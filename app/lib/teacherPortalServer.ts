@@ -15,7 +15,7 @@ export async function teacherIdentity(){
  if(!r.data)throw new StudentLoginError('Your teacher session expired. Please log in.',401);
  return r.data.teacher_id as string;
 }
-export async function teacherRpc(name:string,args:Record<string,unknown>){const r=await teacherDb().rpc(name,args);if(r.error){const m=r.error.message;throw new StudentLoginError(m.includes('RATE_LIMIT')?'Too many requests. Please wait.':m.includes('CONFLICT')?'Application changed. Refresh and try again.':m.includes('OTP')?'OTP expired, invalid or already being checked. Request a new OTP.':'Unable to save this change. Please try again.',m.includes('RATE_LIMIT')?429:m.includes('CONFLICT')?409:400);}return r.data;}
+export async function teacherRpc(name:string,args:Record<string,unknown>){const r=await teacherDb().rpc(name,args);if(r.error){const m=r.error.message;throw new StudentLoginError(m.includes('RATE_LIMIT')?'Too many requests. Please wait.':m.includes('CONFLICT')?'Application changed. Refresh and try again.':m.includes('OTP')?'OTP expired, invalid or already being checked. Request a new OTP.':m.includes('MEDIA_REQUIRED')?'Add your profile photo, qualification document, and teaching demo before submitting.':'Unable to save this change. Please try again.',m.includes('RATE_LIMIT')?429:m.includes('CONFLICT')?409:400);}return r.data;}
 export async function teacherOtp(req:Request,body:any){
  const mobile=normalizeStudentMobile(body.mobile);const sid=process.env.TWILIO_ACCOUNT_SID,secret=process.env.TWILIO_AUTH_TOKEN,service=process.env.TWILIO_VERIFY_SERVICE_SID;
  if(!sid||!secret||!service)throw new StudentLoginError('Teacher OTP is temporarily unavailable.',503);
